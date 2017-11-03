@@ -1,0 +1,21 @@
+name:                nix-update
+version:             0.1.0.0
+#synopsis:
+#description:
+homepage:            https://github.com/ryantm/nix-update#readme
+license:             BSD3
+author:              Ryan Mulligan
+maintainer:          ryan@ryantm.com
+copyright:           2017 Ryan Mulligan
+category:            Web
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+  - hnix
+
+executables:
+  nix-update:
+    source-dirs:      src
+    main:             Main.hs
