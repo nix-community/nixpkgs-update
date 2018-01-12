@@ -1,13 +1,11 @@
---{-# LANGUAGE TemplateHaskell #-}
-
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Data.Fix
+import Data.Map.Strict
+import Nix.Eval
+import Nix.Atoms
 import Nix.Parser
-import Nix.Pretty
-
---import Control.Lens
 
 main :: IO ()
-main = do
-  helloNixFileContents <- readFile "./hello.nix"
-  print (fmap prettyNix (parseNixString helloNixFileContents))
+main = ourEval

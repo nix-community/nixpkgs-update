@@ -14,6 +14,9 @@ extra-source-files:
 dependencies:
   - base >= 4.7 && < 5
   - hnix
+  - data-fix
+  - text
+  - containers
 
 executables:
   nix-update:

@@ -24,4 +24,7 @@ executable nix-update
   build-depends:
       base >= 4.7 && < 5
     , hnix
+    , data-fix
+    , text
+    , containers
   default-language: Haskell2010

@@ -31,16 +31,20 @@ resolver: lts-9.11
 #  subdirs:
 #  - auto-update
 #  - wai
+
 #
 # A package marked 'extra-dep: true' will only be built if demanded by a
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - .
+- location: ../hnix
+  extra-dep: true
+
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps:
-- hnix-0.3.4
+# extra-deps:
+# - hnix-0.3.4
 
 # Override default flag values for local packages and extra-deps
 flags: {}
