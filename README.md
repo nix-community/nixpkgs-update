@@ -1,6 +1,6 @@
 # nix-update
 
-git ls-remote --refs --tags git://github.com/mattermost/mattermost-server.git | grep -v "rc" | tail 1
+git ls-remote --refs --tags git://github.com/mattermost/mattermost-server.git | grep -v "rc" | tail -1
 
 nix-instantiate -I nixpkgs=/home/ryantm/p/nixpkgs --eval --expr 'let pkgs = import <nixpkgs> {}; in builtins.elemAt pkgs.mattermost.src.urls 0'
 
