@@ -40,7 +40,11 @@ grep "$OLD_HASH" "$DERIVATION_FILE"
 
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE"
 
-nix-build -A $1
+RESULT=$(nix-build -A $1)
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+TRY_BINARIES=$($SCRIPT_DIR/try-binaries.sh $RESULT $NEW_VERSION)
 
 git diff
 
@@ -48,7 +52,8 @@ git commit -am  "$1: $2 -> $3
 
 Semi-automatic update.
 
-- [x] built on NixOS"
+- [x] built on NixOS
+$TRY_BINARIES"
 
-git push --set-upstream origin "$BRANCH_NAME"
+#git push --set-upstream origin "$BRANCH_NAME"
 git checkout master
