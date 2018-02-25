@@ -1,6 +1,4 @@
 #! /usr/bin/env bash
-# TODO
-# - Also try SHA256 hashes
 set -euxo pipefail
 
 NIX_PATH=nixpkgs=$(pwd)
