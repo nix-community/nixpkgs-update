@@ -46,6 +46,18 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 CHECK_RESULT=$($SCRIPT_DIR/check-result.sh $RESULT $NEW_VERSION)
 
+MAINTAINERS=
+if nix-instantiate --eval -E 'with import ./. {}; '"$PACKAGE_NAME"'.meta.maintainers' > /dev/null 2>&1
+then
+    maintainers=$(nix-instantiate --eval -E 'with import ./. {}; let reversedMaintainers = lib.mapAttrs'\'' (name: v: lib.nameValuePair v name) lib.maintainers; in builtins.concatStringsSep " " (map (maintainer: "@${reversedMaintainers.${maintainer}}") '"$PACKAGE_NAME"'.meta.maintainers)')
+    if [ -n "$maintainers" ]
+    then
+        MAINTAINERS="
+
+cc $maintainers"
+    fi
+fi
+
 git diff
 
 git commit -am  "$1: $2 -> $3
@@ -53,7 +65,7 @@ git commit -am  "$1: $2 -> $3
 Semi-automatic update. These checks were performed:
 
 - built on NixOS
-$CHECK_RESULT"
+$CHECK_RESULT$MAINTAINERS"
 
 git push --set-upstream origin "$BRANCH_NAME" --force-with-lease
 git checkout master
