@@ -44,7 +44,7 @@ RESULT=$(nix-build -A $1)
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-TRY_BINARIES=$($SCRIPT_DIR/try-binaries.sh $RESULT $NEW_VERSION)
+CHECK_RESULT=$($SCRIPT_DIR/check-result.sh $RESULT $NEW_VERSION)
 
 git diff
 
@@ -53,7 +53,7 @@ git commit -am  "$1: $2 -> $3
 Semi-automatic update. These checks were performed:
 
 - built on NixOS
-$TRY_BINARIES"
+$CHECK_RESULT"
 
 git push --set-upstream origin "$BRANCH_NAME" --force-with-lease
 git checkout master
