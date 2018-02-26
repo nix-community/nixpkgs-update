@@ -9,7 +9,7 @@ rm -f $LOG_FILE
 
 function check_binary_help()
 {
-    if timeout 5 $1 $2 2>/dev/null 1>/dev/null
+    if timeout -k 10 5 $1 $2 2>/dev/null 1>/dev/null
     then
         echo "- ran \`$1 $2\` got 0 exit code" >> $LOG_FILE
     fi
@@ -17,7 +17,7 @@ function check_binary_help()
 
 function check_version_type()
 {
-    if timeout 5 $1 $2 2>&1 | grep $EXPECTED_VERSION >/dev/null
+    if timeout -k 10 5 $1 $2 2>&1 | grep $EXPECTED_VERSION >/dev/null
     then
         echo "- ran \`$1 $2\` and found version $EXPECTED_VERSION" >> $LOG_FILE
     fi
