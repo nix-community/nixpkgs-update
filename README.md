@@ -12,15 +12,3 @@ Currently interesting files `ups.sh, up.sh, check-result.sh`.
 3. copy list of ones you want to update into `ups.sh` ARGUMENTS variable
 4. delete update arguments that seem wrong. (Weird version strings, versions that don't seem like an update, the update version doesn't look like it would work with nixpkgs)
 5. Be in the directory of your update git repository. run `ups.sh` if it succeeds, it will make commits and push updates to the origin remote!
-
-# old notes
-
-git ls-remote --refs --tags git://github.com/mattermost/mattermost-server.git | grep -v "rc" | tail -1
-
-nix-instantiate -I nixpkgs=/home/ryantm/p/nixpkgs --eval --expr 'let pkgs = import <nixpkgs> {}; in builtins.elemAt pkgs.mattermost.src.urls 0'
-
-nix-instantiate -I nixpkgs=/home/ryantm/p/nixpkgs --eval --expr 'let pkgs = import <nixpkgs> { config = {permittedInsecurePackages = [ "autotrace-0.31.1" ];}; }; aV = builtins.attrValues pkgs; in map (v: builtins.elemAt v.src.urls 0) (builtins.filter (builtins.hasAttr "src") (builtins.filter builtins.isAttrs aV))'
-
-
-wget "https://repology.org/api/v1/metapackages/?inrepo=nix_unstable&outdated=on"
-wget "https://nixos.org/nixpkgs/packages-unstable.json.gz"
