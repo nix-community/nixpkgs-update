@@ -32,7 +32,7 @@ NEW_HASH=$(nix-prefetch-url -A "$1.src")
 if [ "$OLD_HASH" = "$NEW_HASH" ]
 then
 
-    echo "Hashes equal; no update necesseary"
+    echo "Hashes equal; no update necessary"
     exit 0
 fi
 
