@@ -14,7 +14,7 @@ DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
 function error_cleanup() {
     git checkout master
     git reset --hard
-    git branch -d "$BRANCH_NAME"
+    git branch -D "$BRANCH_NAME"
 }
 trap error_cleanup ERR
 
@@ -50,10 +50,12 @@ git diff
 
 git commit -am  "$1: $2 -> $3
 
-Semi-automatic update.
+Semi-automatic update. These checks were performed:
 
-- [x] built on NixOS
+- built on NixOS
 $TRY_BINARIES"
 
-#git push --set-upstream origin "$BRANCH_NAME"
+git push --set-upstream origin "$BRANCH_NAME" --force-with-lease
 git checkout master
+
+exit 0
