@@ -1,5 +1,7 @@
 # nix-update
 
+Currently interesting files `ups.sh, up.sh, check-result.sh`.
+
 1. get a list of oudated packages
 
 ```
