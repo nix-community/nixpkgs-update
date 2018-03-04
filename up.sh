@@ -60,22 +60,39 @@ fi
 
 git diff
 
-git commit -am  "$1: $2 -> $3
+COMMIT_MESSAGE="$1: $2 -> $3
 
 Semi-automatic update. These checks were done:
 
 - built on NixOS
 $CHECK_RESULT"
 
+git commit -am "$COMMIT_MESSAGE"
+
 # Try to push it three times
 function push() {
-    if [ -z "${DRY_RUN}" ]
+    if [[ -v DRY_RUN ]]
     then
+        return 0
+    else
         git push --set-upstream origin "$BRANCH_NAME" --force
     fi
 }
 push || push || push
 
+PR_MESSAGE="$COMMIT_MESSAGE
+
+cc $maintainers"
+
+if [[ -v DRY_RUN ]]
+then
+    true
+else
+   export GITHUB_TOKEN=`cat $SCRIPT_DIR/github_token.txt`
+   hub pull-request -m "$PR_MESSAGE"
+fi
+
 git checkout master
+git reset --hard
 
 exit 0
