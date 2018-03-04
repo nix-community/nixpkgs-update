@@ -21,7 +21,7 @@ trap error_cleanup ERR
 git checkout -B "$BRANCH_NAME"
 git reset --hard
 
-OLD_HASH=$(nix-prefetch-url -A "$1.src")
+OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
 
 grep "$2" "$DERIVATION_FILE"
 
@@ -36,20 +36,20 @@ then
     exit 0
 fi
 
-grep "$OLD_HASH" "$DERIVATION_FILE"
-
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE"
 
-RESULT=$(nix build $1)
+nix build -f . -o ./result $1
+
+RESULT=$(readlink ./result)
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 CHECK_RESULT=$($SCRIPT_DIR/check-result.sh $RESULT $NEW_VERSION)
 
 MAINTAINERS=
-if nix-instantiate --eval -E 'with import ./. {}; '"$PACKAGE_NAME"'.meta.maintainers' > /dev/null 2>&1
+if nix eval "(let pkgs = import ./. {}; in pkgs.haproxy.meta.maintainers)" > /dev/null 2>&1
 then
-    maintainers=$(nix-instantiate --eval -E 'with import ./. {}; let reversedMaintainers = lib.mapAttrs'\'' (name: v: lib.nameValuePair v name) lib.maintainers; in builtins.concatStringsSep " " (map (maintainer: "@${reversedMaintainers.${maintainer}}") '"$PACKAGE_NAME"'.meta.maintainers)')
+    maintainers=$(nix eval --raw '(let pkgs = import ./. {}; gh = m : m.github or ""; nonempty = s: s != ""; addat = s: "@"+s; in builtins.concatStringsSep " " (map addat (builtins.filter nonempty (map gh pkgs.haproxy.meta.maintainers))))')
     if [ -n "$maintainers" ]
     then
         MAINTAINERS="
