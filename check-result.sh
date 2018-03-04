@@ -50,7 +50,7 @@ if [ -s $LOG_FILE ]
 then
     true
 else
-    echo "- Warning: no binary found that responded to help or version flags" >> $LOG_FILE
+    echo "- Warning: no binary found that responded to help or version flags. (This warning appears even if the package isn't expected to have binaries.)" >> $LOG_FILE
 fi
 
 if grep -r "$EXPECTED_VERSION" $RESULT_PATH >/dev/null
