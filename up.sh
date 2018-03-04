@@ -7,7 +7,7 @@ PACKAGE_NAME=$1
 OLD_VERSION=$2
 NEW_VERSION=$3
 
-BRANCH_NAME="auto-update/$1-$2-to-$3"
+BRANCH_NAME="auto-update/$1"
 
 DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
 
@@ -62,12 +62,20 @@ git diff
 
 git commit -am  "$1: $2 -> $3
 
-Semi-automatic update. These checks were performed:
+Semi-automatic update. These checks were done:
 
 - built on NixOS
-$CHECK_RESULT$MAINTAINERS"
+$CHECK_RESULT"
 
-git push --set-upstream origin "$BRANCH_NAME" --force-with-lease
+# Try to push it three times
+function push() {
+    if [ -z "${DRY_RUN}" ]
+    then
+        git push --set-upstream origin "$BRANCH_NAME" --force
+    fi
+}
+push || push || push
+
 git checkout master
 
 exit 0
