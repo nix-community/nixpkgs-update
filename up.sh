@@ -40,7 +40,7 @@ grep "$OLD_HASH" "$DERIVATION_FILE"
 
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE"
 
-RESULT=$(nix-build -A $1)
+RESULT=$(nix build $1)
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
