@@ -12,3 +12,8 @@ Currently interesting files `ups.sh, up.sh, check-result.sh`.
 3. copy list of ones you want to update into `ups.sh` ARGUMENTS variable
 4. delete update arguments that seem wrong. (Weird version strings, versions that don't seem like an update, the update version doesn't look like it would work with nixpkgs)
 5. Be in the directory of your update git repository. run `ups.sh` if it succeeds, it will make commits and push updates to the `origin` remote!
+
+
+# prior work
+
+https://github.com/NixOS/nixpkgs/blob/master/pkgs/common-updater/scripts/update-source-version
