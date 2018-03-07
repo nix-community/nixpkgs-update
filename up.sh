@@ -68,7 +68,7 @@ CHECK_RESULT=$($SCRIPT_DIR/check-result.sh $RESULT $NEW_VERSION)
 MAINTAINERS=
 if nix eval "(let pkgs = import ./. {}; in pkgs.$PACKAGE_NAME.meta.maintainers)" > /dev/null 2>&1
 then
-    maintainers=$(nix eval --raw '(let pkgs = import ./. {}; gh = m : m.github or ""; nonempty = s: s != ""; addat = s: "@"+s; in builtins.concatStringsSep " " (map addat (builtins.filter nonempty (map gh pkgs.$PACKAGE_NAME.meta.maintainers))))')
+    maintainers=$(nix eval --raw '(let pkgs = import ./. {}; gh = m : m.github or ""; nonempty = s: s != ""; addat = s: "@"+s; in builtins.concatStringsSep " " (map addat (builtins.filter nonempty (map gh pkgs.'"${PACKAGE_NAME}"'.meta.maintainers))))')
     if [ -n "$maintainers" ]
     then
         MAINTAINERS="
