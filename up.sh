@@ -21,6 +21,12 @@ trap error_cleanup ERR
 
 git reset --hard
 
+# Skip packages that have special builders
+if grep -q "buildGoPackage" "$DERIVATION_FILE"; then false; fi
+if grep -q "buildRustCrate" "$DERIVATION_FILE"; then false; fi
+if grep -q "buildPythonPackage" "$DERIVATION_FILE"; then false; fi
+if grep -q "bundlerEnv" "$DERIVATION_FILE"; then false; fi
+
 # Make sure it hasn't been updated on master
 grep "$2" "$DERIVATION_FILE"
 
