@@ -9,6 +9,11 @@ NEW_VERSION=$3
 
 BRANCH_NAME="auto-update/$1"
 
+# Package blacklist
+case "$PACKAGE_NAME" in
+    *jquery*) false;
+esac
+
 DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
 
 function error_cleanup() {
