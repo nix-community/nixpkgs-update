@@ -14,17 +14,24 @@ DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
 function error_cleanup() {
     git checkout master
     git reset --hard
-    git branch -D "$BRANCH_NAME"
+    git branch -D "$BRANCH_NAME" || true
+    exit 1
 }
 trap error_cleanup ERR
 
-git checkout -B "$BRANCH_NAME"
 git reset --hard
 
-OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
-
+# Make sure it hasn't been updated on master
 grep "$2" "$DERIVATION_FILE"
 
+# Make sure it hasn't been updated on staging
+git checkout staging
+grep "$2" "$DERIVATION_FILE"
+
+git checkout master
+
+git checkout -B "$BRANCH_NAME"
+OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
 sed -i "s/$2/$3/g" "$DERIVATION_FILE"
 
 NEW_HASH=$(nix-prefetch-url -A "$1.src")
