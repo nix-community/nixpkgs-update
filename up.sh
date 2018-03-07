@@ -32,7 +32,8 @@ git checkout master
 
 git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
-sed -i "s/$2/$3/g" "$DERIVATION_FILE"
+
+sed -i "s/${2/\./\\.}/$3/g" "$DERIVATION_FILE"
 
 NEW_HASH=$(nix-prefetch-url -A "$1.src")
 
