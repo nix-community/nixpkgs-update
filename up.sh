@@ -11,7 +11,8 @@ BRANCH_NAME="auto-update/$1"
 
 # Package blacklist
 case "$PACKAGE_NAME" in
-    *jquery*) false;
+    *jquery*) false;; # this isn't a real package
+    *atlas*) false;; # super slow to build
 esac
 
 DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
@@ -52,7 +53,7 @@ if [ "$OLD_HASH" = "$NEW_HASH" ]
 then
 
     echo "Hashes equal; no update necessary"
-    exit 0
+    exit 1
 fi
 
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE"
