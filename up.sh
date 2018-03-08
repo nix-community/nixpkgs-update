@@ -11,9 +11,12 @@ BRANCH_NAME="auto-update/$1"
 
 # Package blacklist
 case "$PACKAGE_NAME" in
-    *jquery*) false;; # this isn't a real package
     *atlas*) false;; # super slow to build
+    *aws-sdk-cpp*) false;; # super slow to build
+    *jquery*) false;; # this isn't a real package
 esac
+
+if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"; then false; fi
 
 DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
 
@@ -31,6 +34,7 @@ git reset --hard
 if grep -q "buildGoPackage" "$DERIVATION_FILE"; then false; fi
 if grep -q "buildRustCrate" "$DERIVATION_FILE"; then false; fi
 if grep -q "buildPythonPackage" "$DERIVATION_FILE"; then false; fi
+if grep -q "buildRubyGem" "$DERIVATION_FILE"; then false; fi
 if grep -q "bundlerEnv" "$DERIVATION_FILE"; then false; fi
 
 # Make sure it hasn't been updated on master
@@ -100,9 +104,7 @@ function push() {
 }
 push || push || push
 
-PR_MESSAGE="$COMMIT_MESSAGE
-
-cc $maintainers"
+PR_MESSAGE="$COMMIT_MESSAGE$MAINTAINERS"
 
 if [[ -v DRY_RUN ]]
 then
