@@ -17,3 +17,4 @@ Currently interesting files `ups.sh, up.sh, check-result.sh`.
 # prior work
 
 https://github.com/NixOS/nixpkgs/blob/master/pkgs/common-updater/scripts/update-source-version
+https://github.com/NixOS/nixpkgs/tree/master/pkgs/build-support/upstream-updater
