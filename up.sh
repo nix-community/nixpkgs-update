@@ -14,6 +14,7 @@ case "$PACKAGE_NAME" in
     *atlas*) false;; # super slow to build
     *aws-sdk-cpp*) false;; # super slow to build
     *jquery*) false;; # this isn't a real package
+    *google-cloud-sdk*) false;; # complicated package
 esac
 
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"; then false; fi
