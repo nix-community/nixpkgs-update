@@ -15,6 +15,7 @@ case "$PACKAGE_NAME" in
     *aws-sdk-cpp*) false;; # super slow to build
     *jquery*) false;; # this isn't a real package
     *google-cloud-sdk*) false;; # complicated package
+    *github-release*) false;; # complicated package
 esac
 
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"; then false; fi
