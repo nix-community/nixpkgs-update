@@ -39,20 +39,20 @@ if grep -q "buildRubyGem" "$DERIVATION_FILE"; then false; fi
 if grep -q "bundlerEnv" "$DERIVATION_FILE"; then false; fi
 
 # Make sure it hasn't been updated on master
-grep "$2" "$DERIVATION_FILE"
+grep "$OLD_VERSION" "$DERIVATION_FILE"
 
 # Make sure it hasn't been updated on staging
 git checkout staging
-grep "$2" "$DERIVATION_FILE"
+grep "$OLD_VERSION" "$DERIVATION_FILE"
 
 git checkout master
 
 git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
 
-sed -i "s/${2//\./\\.}/$3/g" "$DERIVATION_FILE"
+sed -i "s/${OLD_VERSION//\./\\.}/$NEW_VERSION/g" "$DERIVATION_FILE"
 
-NEW_HASH=$(nix-prefetch-url -A "$1.src")
+NEW_HASH=$(nix-prefetch-url -A "$PACKAGE_NAME.src")
 
 if [ "$OLD_HASH" = "$NEW_HASH" ]
 then
@@ -63,7 +63,7 @@ fi
 
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE"
 
-nix build -f . -o ./result $1
+nix build -f . -o ./result $PACKAGE_NAME
 
 RESULT=$(readlink ./result)
 
@@ -85,7 +85,7 @@ fi
 
 git diff
 
-COMMIT_MESSAGE="$1: $2 -> $3
+COMMIT_MESSAGE="$PACKAGE_NAME: $OLD_VERSION -> $NEW_VERSION
 
 Semi-automatic update. These checks were done:
 
