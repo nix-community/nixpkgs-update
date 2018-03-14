@@ -10,15 +10,20 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ARGUMENTS=""
 
 export DRY_RUN=true
+echo "
+
+$(date -Iseconds) New run of ups.sh" >> $LOG_FILE
 
 IFS=$'\n'
 for a in $ARGUMENTS
 do
     unset IFS
+    echo -n "$(date -Iseconds) $a " >> $LOG_FILE
     if eval "$SCRIPT_DIR/up.sh $a"
     then
-        echo "$a SUCCESS" >> $LOG_FILE
+        echo "SUCCESS at $(date -Iseconds)" >> $LOG_FILE
+        sleep 900
     else
-        echo "$a FAIL" >> $LOG_FILE
+        echo "FAIL at $(date -Iseconds)" >> $LOG_FILE
     fi
 done

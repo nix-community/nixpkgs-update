@@ -16,9 +16,13 @@ case "$PACKAGE_NAME" in
     *jquery*) false;; # this isn't a real package
     *google-cloud-sdk*) false;; # complicated package
     *github-release*) false;; # complicated package
+    *fricas*) false;; # gets stuck in emacs
 esac
 
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"; then false; fi
+
+git checkout master
+git reset --hard upstream/master
 
 DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
 
@@ -30,7 +34,6 @@ function error_cleanup() {
 }
 trap error_cleanup ERR
 
-git reset --hard
 
 # Skip packages that have special builders
 if grep -q "buildGoPackage" "$DERIVATION_FILE"; then false; fi
@@ -44,9 +47,10 @@ grep "$OLD_VERSION" "$DERIVATION_FILE"
 
 # Make sure it hasn't been updated on staging
 git checkout staging
+git reset --hard upstream/staging
 grep "$OLD_VERSION" "$DERIVATION_FILE"
 
-git checkout master
+git checkout `git merge-base upstream/master upstream/staging`
 
 git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
