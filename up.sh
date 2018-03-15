@@ -9,6 +9,19 @@ NEW_VERSION=$3
 
 BRANCH_NAME="auto-update/$1"
 
+function cleanup {
+    git reset --hard
+    git checkout master
+    git reset --hard upstream/master
+    git branch -D "$BRANCH_NAME" || true
+}
+
+function error_exit {
+    cleanup
+    echo "$(date -Iseconds) $1" >&3
+    exit 1
+}
+
 # Package blacklist
 case "$PACKAGE_NAME" in
     *atlas*) false;; # super slow to build
@@ -17,58 +30,76 @@ case "$PACKAGE_NAME" in
     *google-cloud-sdk*) false;; # complicated package
     *github-release*) false;; # complicated package
     *fricas*) false;; # gets stuck in emacs
-esac
+    *libxc*) false;; # currently people don't want to update this
+    *) true;;
+esac || error_exit "Package on blacklist."
 
-if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"; then false; fi
+if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"
+then
+    error_exit "Update branch already on origin."
+fi
 
+git reset --hard
 git checkout master
 git reset --hard upstream/master
 
-DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1)
+DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1) || error_exit "Couldn't find derivation file."
 
-function error_cleanup() {
-    git checkout master
-    git reset --hard
-    git branch -D "$BRANCH_NAME" || true
+function error_cleanup {
+    cleanup
     exit 1
 }
 trap error_cleanup ERR
 
 
 # Skip packages that have special builders
-if grep -q "buildGoPackage" "$DERIVATION_FILE"; then false; fi
-if grep -q "buildRustCrate" "$DERIVATION_FILE"; then false; fi
-if grep -q "buildPythonPackage" "$DERIVATION_FILE"; then false; fi
-if grep -q "buildRubyGem" "$DERIVATION_FILE"; then false; fi
-if grep -q "bundlerEnv" "$DERIVATION_FILE"; then false; fi
+if grep -q "buildGoPackage" "$DERIVATION_FILE"
+then
+    error_exit "Derivation contains buildGoPackage."
+fi
+if grep -q "buildRustCrate" "$DERIVATION_FILE"
+then
+    error_exit "Derivation contains buildRustCrate."
+fi
+if grep -q "buildPythonPackage" "$DERIVATION_FILE"
+then
+    error_exit "Derivation contains buildPythonPackage."
+fi
+if grep -q "buildRubyGem" "$DERIVATION_FILE"
+then
+    error_exit "Derivation contains buildRubyGem."
+fi
+if grep -q "bundlerEnv" "$DERIVATION_FILE"
+then
+    error_exit "Derivation contains bundlerEnv."
+fi
 
 # Make sure it hasn't been updated on master
-grep "$OLD_VERSION" "$DERIVATION_FILE"
+grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in master derivation file."
 
 # Make sure it hasn't been updated on staging
+git reset --hard
 git checkout staging
 git reset --hard upstream/staging
-grep "$OLD_VERSION" "$DERIVATION_FILE"
+grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in staging derivation file."
 
 git checkout `git merge-base upstream/master upstream/staging`
 
 git checkout -B "$BRANCH_NAME"
-OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash")
+OLD_HASH=$(nix eval -f . --raw "pkgs.${PACKAGE_NAME}.src.drvAttrs.outputHash" || error_exit "Couldn't find old output hash at PACKAGE_NAME.src.drvAttrs.outputHash.")
 
-sed -i "s/${OLD_VERSION//\./\\.}/$NEW_VERSION/g" "$DERIVATION_FILE"
+sed -i "s/${OLD_VERSION//\./\\.}/$NEW_VERSION/g" "$DERIVATION_FILE" || error_exit "Could not replace OLD_VERSION with NEW_VERSION."
 
-NEW_HASH=$(nix-prefetch-url -A "$PACKAGE_NAME.src")
+NEW_HASH=$(nix-prefetch-url -A "$PACKAGE_NAME.src" || error_exit "Could not prefetch new version URL.")
 
 if [ "$OLD_HASH" = "$NEW_HASH" ]
 then
-
-    echo "Hashes equal; no update necessary"
-    exit 1
+    error_exit "Hashes equal; no update necessary"
 fi
 
-sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE"
+sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE" || error_exit "Could not replace OLD_HASH with NEW_HASH."
 
-nix build -f . -o ./result $PACKAGE_NAME
+nix build -f . -o ./result $PACKAGE_NAME || error_exit "nix build failed."
 
 RESULT=$(readlink ./result)
 
@@ -120,6 +151,7 @@ else
    hub pull-request -m "$PR_MESSAGE"
 fi
 
+git reset --hard
 git checkout master
 git reset --hard
 

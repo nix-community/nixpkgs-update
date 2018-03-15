@@ -18,12 +18,12 @@ IFS=$'\n'
 for a in $ARGUMENTS
 do
     unset IFS
-    echo -n "$(date -Iseconds) $a " >> $LOG_FILE
-    if eval "$SCRIPT_DIR/up.sh $a"
+    echo "$(date -Iseconds) $a" >> $LOG_FILE
+    if eval "$SCRIPT_DIR/up.sh $a 3>>$LOG_FILE"
     then
-        echo "SUCCESS at $(date -Iseconds)" >> $LOG_FILE
+        echo "$(date -Iseconds) SUCCESS" >> $LOG_FILE
         sleep 900
     else
-        echo "FAIL at $(date -Iseconds)" >> $LOG_FILE
+        echo "$(date -Iseconds) FAIL" >> $LOG_FILE
     fi
 done
