@@ -64,7 +64,7 @@ then
 fi
 
 GIST=
-GIST=tree $RESULT_PATH | gist || ""
+GIST=$(tree $RESULT_PATH | gist || "")
 
 echo "- directory tree listing: $GIST" >> $LOG_FILE
 
