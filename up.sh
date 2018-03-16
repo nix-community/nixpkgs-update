@@ -48,7 +48,10 @@ git reset --hard
 git checkout master
 git reset --hard upstream/master
 
-DERIVATION_FILE=$(EDITOR=echo nix edit $1 -f .) || error_exit "Couldn't find derivation file."
+# This is extremely slow but will give us better results
+ATTR_PATH=$(nix-env -qa $PACKAGE_NAME-$OLD_VERSION -f . --attr-path | head -n1 | cut -d' ' -f1)
+
+DERIVATION_FILE=$(EDITOR=echo nix edit $ATTR_PATH -f .) || error_exit "Couldn't find derivation file."
 
 function error_cleanup {
     cleanup
