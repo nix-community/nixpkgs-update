@@ -58,7 +58,7 @@ then
     echo "- found $EXPECTED_VERSION with grep in $RESULT_PATH" >> $LOG_FILE
 fi
 
-if find $RESULT_PATH | grep -r "$EXPECTED_VERSION" >/dev/null
+if find $RESULT_PATH -type f -printf '%f\n' | grep "$EXPECTED_VERSION" >/dev/null
 then
     echo "- found $EXPECTED_VERSION in filename of file in $RESULT_PATH" >> $LOG_FILE
 fi
