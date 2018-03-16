@@ -41,7 +41,7 @@ git reset --hard
 git checkout master
 git reset --hard upstream/master
 
-DERIVATION_FILE=$(EDITOR=echo nix edit $1 -f . | sed 's|.*/nixpkgs/\(.*\)|\1|') || error_exit "Couldn't find derivation file."
+DERIVATION_FILE=$(EDITOR=echo nix edit $1 -f .) || error_exit "Couldn't find derivation file."
 
 function error_cleanup {
     cleanup
