@@ -63,4 +63,9 @@ then
     echo "- found $EXPECTED_VERSION in filename of file in $RESULT_PATH" >> $LOG_FILE
 fi
 
+GIST=
+GIST=tree $RESULT_PATH | gist || ""
+
+echo "- directory tree listing: $GIST" >> $LOG_FILE
+
 cat $LOG_FILE || true
