@@ -97,7 +97,7 @@ fi
 
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE" || error_exit "Could not replace OLD_HASH with NEW_HASH."
 
-rm result*
+rm -f result*
 
 nix build -f . $PACKAGE_NAME || error_exit "nix build failed."
 
