@@ -27,10 +27,17 @@ case "$PACKAGE_NAME" in
     *jquery*) false;; # this isn't a real package
     *google-cloud-sdk*) false;; # complicated package
     *github-release*) false;; # complicated package
+    *fcitx*) false;; # gets stuck in daemons
     *fricas*) false;; # gets stuck in emacs
     *libxc*) false;; # currently people don't want to update this
     *) true;;
 esac || error_exit "Package on blacklist."
+
+# Temporarily blacklist gnome sources while a major coordinated update is being made
+if nix eval -f . "pkgs.${PACKAGE_NAME}.src.urls" | grep "gnome"
+then
+    error_exit "Packages from gnome are currently blacklisted."
+fi
 
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"
 then
