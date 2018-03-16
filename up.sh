@@ -41,7 +41,7 @@ git reset --hard
 git checkout master
 git reset --hard upstream/master
 
-DERIVATION_FILE=$(find . | grep "/$1/default.nix" | head -n1) || error_exit "Couldn't find derivation file."
+DERIVATION_FILE=$(EDITOR=echo nix edit $1 -f .) || error_exit "Couldn't find derivation file."
 
 function error_cleanup {
     cleanup
