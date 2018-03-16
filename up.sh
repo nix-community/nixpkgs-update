@@ -24,8 +24,6 @@ function error_exit {
 
 # Package blacklist
 case "$PACKAGE_NAME" in
-    *atlas*) false;; # super slow to build
-    *aws-sdk-cpp*) false;; # super slow to build
     *jquery*) false;; # this isn't a real package
     *google-cloud-sdk*) false;; # complicated package
     *github-release*) false;; # complicated package
@@ -99,9 +97,11 @@ fi
 
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE" || error_exit "Could not replace OLD_HASH with NEW_HASH."
 
-nix build -f . -o ./result $PACKAGE_NAME || error_exit "nix build failed."
+rm result*
 
-RESULT=$(readlink ./result)
+nix build -f . $PACKAGE_NAME || error_exit "nix build failed."
+
+RESULT=$(readlink ./result || readlink ./result-bin || error_exit "Couldn't find result link.")
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
