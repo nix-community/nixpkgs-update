@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 LOG_FILE=~/.nix-update/ups.log
-mkdir -p $(dirname $LOG_FILE)
+mkdir -p "$(dirname $LOG_FILE)"
 touch $LOG_FILE
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

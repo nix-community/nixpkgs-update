@@ -9,7 +9,7 @@ rm -f $LOG_FILE
 
 function check_binary_help()
 {
-    if timeout -k 2 1 $1 $2 2>/dev/null 1>/dev/null
+    if timeout -k 2 1 "$1" "$2" 2>/dev/null 1>/dev/null
     then
         echo "- ran \`$1 $2\` got 0 exit code" >> $LOG_FILE
     fi
@@ -17,7 +17,7 @@ function check_binary_help()
 
 function check_version_type()
 {
-    if timeout -k 2 1 $1 $2 2>&1 | grep $EXPECTED_VERSION >/dev/null
+    if timeout -k 2 1 "$1" "$2" 2>&1 | grep "$EXPECTED_VERSION" >/dev/null
     then
         echo "- ran \`$1 $2\` and found version $EXPECTED_VERSION" >> $LOG_FILE
     fi
@@ -39,11 +39,11 @@ function check_binary() {
 
 }
 
-BINARIES=$(find $RESULT_PATH/bin -type f || true)
+BINARIES=$(find "$RESULT_PATH"/bin -type f || true)
 
 for b in $BINARIES
 do
-    check_binary $b
+    check_binary "$b"
 done
 
 if [ -s $LOG_FILE ]
@@ -53,19 +53,20 @@ else
     echo "- Warning: no binary found that responded to help or version flags. (This warning appears even if the package isn't expected to have binaries.)" >> $LOG_FILE
 fi
 
-if grep -r "$EXPECTED_VERSION" $RESULT_PATH >/dev/null
+if grep -r "$EXPECTED_VERSION" "$RESULT_PATH" >/dev/null
 then
     echo "- found $EXPECTED_VERSION with grep in $RESULT_PATH" >> $LOG_FILE
 fi
 
-if find $RESULT_PATH -type f -printf '%f\n' | grep "$EXPECTED_VERSION" >/dev/null
+if find "$RESULT_PATH" -type f -printf '%f\n' | grep "$EXPECTED_VERSION" >/dev/null
 then
     echo "- found $EXPECTED_VERSION in filename of file in $RESULT_PATH" >> $LOG_FILE
 fi
 
-GIST=
-GIST=$(tree $RESULT_PATH | gist || "")
-
-echo "- directory tree listing: $GIST" >> $LOG_FILE
+GIST=$(tree "$RESULT_PATH" | gist || "")
+if [ -n "$GIST" ]
+then
+   echo "- directory tree listing: $GIST" >> $LOG_FILE
+fi
 
 cat $LOG_FILE || true

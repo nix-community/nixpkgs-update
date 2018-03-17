@@ -1,7 +1,8 @@
 #! /usr/bin/env bash
 set -euxo pipefail
 
-NIX_PATH=nixpkgs=$(pwd)
+NIX_PATH=nixpkgs="$(pwd)"
+export NIX_PATH
 
 PACKAGE_NAME=$1
 OLD_VERSION=$2
@@ -49,9 +50,9 @@ git checkout master
 git reset --hard upstream/master
 
 # This is extremely slow but will give us better results
-ATTR_PATH=$(nix-env -qa $PACKAGE_NAME-$OLD_VERSION -f . --attr-path | head -n1 | cut -d' ' -f1)
+ATTR_PATH=$(nix-env -qa "$PACKAGE_NAME-$OLD_VERSION" -f . --attr-path | head -n1 | cut -d' ' -f1)
 
-DERIVATION_FILE=$(EDITOR=echo nix edit $ATTR_PATH -f .) || error_exit "Couldn't find derivation file."
+DERIVATION_FILE=$(EDITOR="echo" nix edit "$ATTR_PATH" -f .) || error_exit "Couldn't find derivation file."
 
 function error_cleanup {
     cleanup
@@ -91,7 +92,7 @@ git checkout staging
 git reset --hard upstream/staging
 grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in staging derivation file."
 
-git checkout `git merge-base upstream/master upstream/staging`
+git checkout "$(git merge-base upstream/master upstream/staging)"
 
 git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.$ATTR_PATH.src.drvAttrs.outputHash" || error_exit "Couldn't find old output hash at ATTR_PATH.src.drvAttrs.outputHash.")
@@ -109,13 +110,13 @@ sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE" || error_exit "Could not rep
 
 rm -f result*
 
-nix build -f . $ATTR_PATH || error_exit "nix build failed."
+nix build -f . "$ATTR_PATH" || error_exit "nix build failed."
 
 RESULT=$(readlink ./result || readlink ./result-bin || error_exit "Couldn't find result link.")
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-CHECK_RESULT=$($SCRIPT_DIR/check-result.sh $RESULT $NEW_VERSION)
+CHECK_RESULT="$("$SCRIPT_DIR"/check-result.sh "$RESULT" "$NEW_VERSION")"
 
 MAINTAINERS=
 if nix eval "(let pkgs = import ./. {}; in pkgs.$ATTR_PATH.meta.maintainers)" > /dev/null 2>&1
@@ -157,8 +158,7 @@ if [[ -v DRY_RUN ]]
 then
     true
 else
-   export GITHUB_TOKEN=`cat $SCRIPT_DIR/github_token.txt`
-   hub pull-request -m "$PR_MESSAGE"
+   GITHUB_TOKEN="$(cat "$SCRIPT_DIR"/github_token.txt)" hub pull-request -m "$PR_MESSAGE"
 fi
 
 git reset --hard
