@@ -7,4 +7,6 @@ git fetch --prune upstream
 git checkout master
 git reset --hard upstream/master
 
-git branch -ra --merged | grep "origin/auto-update" | sed -e 's|^  remotes/origin/\(.*\)|git push origin :\1|' | while IFS= read -r line; do eval "$line"; done
+git branch -ra --merged | grep "origin/auto-update/" | sed -e 's|^  remotes/origin/\(.*\)|git push origin :\1|' | while IFS= read -r line; do eval "$line"; done || true
+
+git branch -a --merged | grep "auto-update/" | sed -e 's|^\(.*\)|git branch -d \1|' | while IFS= read -r line; do eval "$line"; done
