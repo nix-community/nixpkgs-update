@@ -9,6 +9,19 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 ARGUMENTS=""
 
+NIXPKGS=$HOME/.cache/nixpkgs
+if ! [ -d "$NIXPKGS" ]
+then
+    hub clone nixpkgs $NIXPKGS # requires that user has forked nixpkgs
+    cd $NIXPKGS
+    git remote add upstream https://github.com/NixOS/nixpkgs
+    git fetch upstream
+    git fetch origin staging
+    git fetch upstream staging
+fi
+
+cd $NIXPKGS
+
 export DRY_RUN=true
 echo "
 
