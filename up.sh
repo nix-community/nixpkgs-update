@@ -34,12 +34,6 @@ case "$PACKAGE_NAME" in
     *) true;;
 esac || error_exit "Package on blacklist."
 
-# Temporarily blacklist gnome sources while a major coordinated update is being made
-if nix eval -f . "pkgs.${PACKAGE_NAME}.src.urls" | grep "gnome"
-then
-    error_exit "Packages from gnome are currently blacklisted."
-fi
-
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"
 then
     error_exit "Update branch already on origin."
@@ -51,6 +45,12 @@ git reset --hard upstream/master
 
 # This is extremely slow but will give us better results
 ATTR_PATH=$(nix-env -qa "$PACKAGE_NAME-$OLD_VERSION" -f . --attr-path | head -n1 | cut -d' ' -f1) || error_exit "nix-env -q failed to find package name with old version"
+
+# Temporarily blacklist gnome sources for lockstep update
+if nix eval -f . "pkgs.${ATTR_PATH}.src.urls" | grep "gnome"
+then
+    error_exit "Packages from gnome are currently blacklisted."
+fi
 
 DERIVATION_FILE=$(EDITOR="echo" nix edit "$ATTR_PATH" -f .) || error_exit "Couldn't find derivation file."
 
@@ -81,6 +81,10 @@ fi
 if grep -q "bundlerEnv" "$DERIVATION_FILE"
 then
     error_exit "Derivation contains bundlerEnv."
+fi
+if grep -q "buildPerlPackage" "$DERIVATION_FILE"
+then
+    error_exit "Derivation contains buildPerlPackage."
 fi
 
 # Make sure it hasn't been updated on master
