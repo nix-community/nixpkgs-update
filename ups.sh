@@ -7,6 +7,9 @@ touch $LOG_FILE
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+GITHUB_TOKEN="$(cat "$SCRIPT_DIR"/github_token.txt)"
+export GITHUB_TOKEN
+
 ARGUMENTS=""
 
 NIXPKGS=$HOME/.cache/nixpkgs
@@ -23,6 +26,7 @@ fi
 cd "$NIXPKGS"
 
 export DRY_RUN=true
+
 echo "
 
 $(date -Iseconds) New run of ups.sh" >> $LOG_FILE

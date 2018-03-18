@@ -50,7 +50,7 @@ git checkout master
 git reset --hard upstream/master
 
 # This is extremely slow but will give us better results
-ATTR_PATH=$(nix-env -qa "$PACKAGE_NAME-$OLD_VERSION" -f . --attr-path | head -n1 | cut -d' ' -f1)
+ATTR_PATH=$(nix-env -qa "$PACKAGE_NAME-$OLD_VERSION" -f . --attr-path | head -n1 | cut -d' ' -f1) || error_exit "nix-env -q failed to find package name with old version"
 
 DERIVATION_FILE=$(EDITOR="echo" nix edit "$ATTR_PATH" -f .) || error_exit "Couldn't find derivation file."
 
@@ -121,7 +121,7 @@ CHECK_RESULT="$("$SCRIPT_DIR"/check-result.sh "$RESULT" "$NEW_VERSION")"
 MAINTAINERS=
 if nix eval "(let pkgs = import ./. {}; in pkgs.$ATTR_PATH.meta.maintainers)" > /dev/null 2>&1
 then
-    maintainers=$(nix eval --raw '(let pkgs = import ./. {}; gh = m : m.github or ""; nonempty = s: s != ""; addat = s: "@"+s; in builtins.concatStringsSep " " (map addat (builtins.filter nonempty (map gh pkgs.'"${PACKAGE_NAME}"'.meta.maintainers))))')
+    maintainers=$(nix eval --raw '(let pkgs = import ./. {}; gh = m : m.github or ""; nonempty = s: s != ""; addat = s: "@"+s; in builtins.concatStringsSep " " (map addat (builtins.filter nonempty (map gh pkgs.'"${ATTR_PATH}"'.meta.maintainers))))')
     if [ -n "$maintainers" ]
     then
         MAINTAINERS="
@@ -158,7 +158,7 @@ if [[ -v DRY_RUN ]]
 then
     true
 else
-   GITHUB_TOKEN="$(cat "$SCRIPT_DIR"/github_token.txt)" hub pull-request -m "$PR_MESSAGE"
+    hub pull-request -m "$PR_MESSAGE"
 fi
 
 git reset --hard
