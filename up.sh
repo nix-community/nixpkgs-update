@@ -50,6 +50,8 @@ then
     error_exit "Update branch already on origin."
 fi
 
+git fetch --prune --multiple upstream origin
+
 git reset --hard
 git checkout master
 git reset --hard upstream/master
