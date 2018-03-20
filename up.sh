@@ -37,9 +37,10 @@ case "$PACKAGE_NAME" in
     *fcitx*) error_exit "gets stuck in daemons";;
     *fricas*) error_exit "gets stuck in emacs";;
     *libxc*) error_exit "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821";;
-    perl*) error_exit "currently don't know how to update perl";;
-    python*) error_exit "currently don't know how to update python";;
-    cdrtools*) error_exit "We keep downgrading this by accident.";;
+    *perl*) error_exit "currently don't know how to update perl";;
+    *python*) error_exit "currently don't know how to update python";;
+    *cdrtools*) error_exit "We keep downgrading this by accident.";;
+    *gst*) error_exit "gstreamer plugins are kept in lockstep.";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
