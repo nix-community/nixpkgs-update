@@ -7,6 +7,7 @@ export NIX_PATH
 PACKAGE_NAME=$1
 OLD_VERSION=$2
 NEW_VERSION=$3
+OK_TO_PR_AT=$4
 
 BRANCH_NAME="auto-update/$1"
 
@@ -170,6 +171,14 @@ if [[ -v DRY_RUN ]]
 then
     true
 else
+    CURRENT=$(date +%s)
+    if (( CURRENT < OK_TO_PR_AT ))
+    then
+        SLEEP_SECONDS=$(( OK_TO_PR_AT - CURRENT ))
+        echo "Sleeping $SLEEP_SECONDS seconds."
+        sleep "$SLEEP_SECONDS"
+    fi
+
     hub pull-request -m "$PR_MESSAGE"
 fi
 

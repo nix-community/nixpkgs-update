@@ -31,15 +31,16 @@ echo "
 
 $(date -Iseconds) New run of ups.sh" >> $LOG_FILE
 
+OK_TO_PR_AT=0
 IFS=$'\n'
 for a in $ARGUMENTS
 do
     unset IFS
     echo "$(date -Iseconds) $a" >> $LOG_FILE
-    if eval "$SCRIPT_DIR/up.sh $a 3>>$LOG_FILE"
+    if eval "$SCRIPT_DIR/up.sh $a $OK_TO_PR_AT 3>>$LOG_FILE"
     then
         echo "$(date -Iseconds) SUCCESS" >> $LOG_FILE
-        sleep 900
+        OK_TO_PR_AT=$(date +%s -d "+15 minutes")
     else
         echo "$(date -Iseconds) FAIL" >> $LOG_FILE
     fi
