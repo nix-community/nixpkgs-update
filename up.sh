@@ -41,6 +41,7 @@ case "$PACKAGE_NAME" in
     *python*) error_exit "currently don't know how to update python";;
     *cdrtools*) error_exit "We keep downgrading this by accident.";;
     *gst*) error_exit "gstreamer plugins are kept in lockstep.";;
+    *electron*) error_exit "multi-platform srcs in file.";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
