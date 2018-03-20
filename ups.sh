@@ -10,7 +10,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 GITHUB_TOKEN="$(cat "$SCRIPT_DIR"/github_token.txt)"
 export GITHUB_TOKEN
 
-ARGUMENTS=""
+ARGUMENTS=$(cat packages-to-update.txt)
 
 NIXPKGS=$HOME/.cache/nixpkgs
 if ! [ -d "$NIXPKGS" ]

@@ -23,7 +23,7 @@ function error_exit {
     exit 1
 }
 
-if ! [ $(nix-instantiate --eval -E "builtins.compareVersions '$NEW_VERSION' '$OLD_VERSION'") -eq  1 ];
+if ! [ "$(nix eval -f . "(builtins.compareVersions \"$NEW_VERSION\" \"$OLD_VERSION\")")" -eq  1 ];
 then
     error_exit "$NEW_VERSION is not newer than $OLD_VERSION according to Nix"
 fi
