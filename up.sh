@@ -43,6 +43,7 @@ case "$PACKAGE_NAME" in
     *gst*) error_exit "gstreamer plugins are kept in lockstep.";;
     *electron*) error_exit "multi-platform srcs in file.";;
     *linuxHeaders*) error_exit "Not updated until many packages depend on it (part of stdenv).";;
+    *mpich*) error_exit "Reported on repology.org as mischaracterized newest version";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
