@@ -42,6 +42,7 @@ case "$PACKAGE_NAME" in
     *cdrtools*) error_exit "We keep downgrading this by accident.";;
     *gst*) error_exit "gstreamer plugins are kept in lockstep.";;
     *electron*) error_exit "multi-platform srcs in file.";;
+    *linuxHeaders*) error_exit "Not updated until many packages depend on it (part of stdenv).";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
