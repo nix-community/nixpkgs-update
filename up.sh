@@ -44,6 +44,7 @@ case "$PACKAGE_NAME" in
     *electron*) error_exit "multi-platform srcs in file.";;
     *linuxHeaders*) error_exit "Not updated until many packages depend on it (part of stdenv).";;
     *mpich*) error_exit "Reported on repology.org as mischaracterized newest version";;
+    *xfce*) error_exit "@volth asked to not update xfce"
     *) true;;
 esac || error_exit "Package on blacklist."
 
