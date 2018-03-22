@@ -68,6 +68,14 @@ then
     error_exit "Packages from gnome are currently blacklisted."
 fi
 
+# Temporarily blacklist lua packages at @teto's request
+# https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646
+if echo "$ATTR_PATH" | grep "^lua"
+then
+    error_exit "Packages for lua are currently blacklisted."
+fi
+
+
 DERIVATION_FILE=$(EDITOR="echo" nix edit "$ATTR_PATH" -f .) || error_exit "Couldn't find derivation file."
 
 function error_cleanup {
