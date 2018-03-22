@@ -61,6 +61,7 @@ case "$PACKAGE_NAME" in
     *linuxHeaders*) error_exit "Not updated until many packages depend on it (part of stdenv).";;
     *mpich*) error_exit "Reported on repology.org as mischaracterized newest version";;
     *xfce*) error_exit "@volth asked to not update xfce";;
+    *cmakeWithQt4Gui*) error_exit "Derivation file is complicated";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
