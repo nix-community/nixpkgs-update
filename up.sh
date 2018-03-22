@@ -64,12 +64,12 @@ case "$PACKAGE_NAME" in
     *) true;;
 esac || error_exit "Package on blacklist."
 
+git fetch --prune --multiple upstream origin
+
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"
 then
     error_exit "Update branch already on origin."
 fi
-
-git fetch --prune --multiple upstream origin
 
 git reset --hard
 git checkout master
