@@ -11,7 +11,7 @@ export EDITOR
 OLD_HOME=~/
 HOME=/homeless-shelter
 
-pushd "$(mktemp -d)"
+pushd "$(mktemp -d)" >/dev/null
 
 rm -f $LOG_FILE
 
@@ -79,6 +79,6 @@ then
    echo "- directory tree listing: $GIST" >> $LOG_FILE
 fi
 
-popd
+popd >/dev/null
 
 cat $LOG_FILE || true
