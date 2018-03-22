@@ -76,7 +76,7 @@ function error_cleanup {
 }
 trap error_cleanup ERR
 
-(( $(grep -c "fetchurl" "$DERIVATION_FILE") + $(grep -c "fetchgit" "$DERIVATION_FILE") + $(grep -c "fetchFromGitHub" "$DERIVATION_FILE") == 1 )) || error_exit "More than one fetcher in $DERIVATION_FILE"
+(( $(grep -c "fetchurl {" "$DERIVATION_FILE") + $(grep -c "fetchgit {" "$DERIVATION_FILE") + $(grep -c "fetchFromGitHub {" "$DERIVATION_FILE") <= 1 )) || error_exit "More than one fetcher in $DERIVATION_FILE"
 
 if grep -q "DO NOT EDIT" "$DERIVATION_FILE"
 then
