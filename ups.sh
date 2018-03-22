@@ -12,6 +12,7 @@ export GITHUB_TOKEN
 
 ARGUMENTS=$(cat packages-to-update.txt)
 
+# shellcheck source=setup-nixpkgs.sh
 source "$SCRIPT_DIR/setup-nixpkgs.sh"
 
 echo "

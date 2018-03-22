@@ -3,6 +3,7 @@ set -euxo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# shellcheck source=setup-nixpkgs.sh
 source "$SCRIPT_DIR/setup-nixpkgs.sh"
 
 NIX_PATH=nixpkgs="$NIXPKGS"
@@ -30,7 +31,7 @@ function cleanup {
 
 function error_exit {
     cleanup
-    if ( >&3 ) 2> /dev/null
+    if ( true >&3 ) 2> /dev/null
     then
         echo "$(date -Iseconds) $1" >&3
     else
