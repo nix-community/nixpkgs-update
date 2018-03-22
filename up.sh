@@ -52,8 +52,6 @@ case "$PACKAGE_NAME" in
     *google-cloud-sdk*) error_exit "complicated package";;
     *github-release*) error_exit "complicated package";;
     *fcitx*) error_exit "gets stuck in daemons";;
-    *fricas*) error_exit "gets stuck in emacs";;
-#    *git-extras*) error_exit "gets stuck in emacs";;
     *libxc*) error_exit "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821";;
     *perl*) error_exit "currently don't know how to update perl";;
     *python*) error_exit "currently don't know how to update python";;
