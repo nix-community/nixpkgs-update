@@ -1,17 +1,5 @@
 language: bash
-
-# Use container-based infrastructure for quicker build start-up
-sudo: false
-
-addons:
-  apt:
-    sources:
-    - debian-sid    # Grab shellcheck from the Debian repo (o_O)
-    packages:
-    - shellcheck
-
-script:
- - bash -c 'shopt -s globstar; shellcheck **/*.{sh,bash}'
-
-matrix:
-  fast_finish: true
+before_install:
+  - wget -c https://goo.gl/ZzKHFv -O - | tar -xvJ -C /tmp/
+  - PATH="/tmp/shellcheck-latest:$PATH"
+script: shellcheck *.sh
