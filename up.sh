@@ -133,6 +133,8 @@ then
     error_exit "Derivation contains buildPerlPackage."
 fi
 
+$("$SCRIPT_DIR"/check-attrpath-version.sh "$ATTR_PATH" "$NEW_VERSION") || error_exit "$ATTR_PATH version not compatible with $NEW_VERSION"
+
 # Make sure it hasn't been updated on master
 grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in master derivation file."
 
