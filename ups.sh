@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 set -euxo pipefail
 
 LOG_FILE=~/.nix-update/ups.log
@@ -12,20 +12,7 @@ export GITHUB_TOKEN
 
 ARGUMENTS=$(cat packages-to-update.txt)
 
-NIXPKGS=$HOME/.cache/nixpkgs
-if ! [ -d "$NIXPKGS" ]
-then
-    hub clone nixpkgs "$NIXPKGS" # requires that user has forked nixpkgs
-    cd "$NIXPKGS"
-    git remote add upstream https://github.com/NixOS/nixpkgs
-    git fetch upstream
-    git fetch origin staging
-    git fetch upstream staging
-fi
-
-cd "$NIXPKGS"
-
-export DRY_RUN=true
+source "$SCRIPT_DIR/setup-nixpkgs.sh"
 
 echo "
 

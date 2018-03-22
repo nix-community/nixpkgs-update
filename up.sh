@@ -1,13 +1,23 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 set -euxo pipefail
 
-NIX_PATH=nixpkgs="$(pwd)"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source "$SCRIPT_DIR/setup-nixpkgs.sh"
+
+NIX_PATH=nixpkgs="$NIXPKGS"
 export NIX_PATH
 
 PACKAGE_NAME=$1
 OLD_VERSION=$2
 NEW_VERSION=$3
-OK_TO_PR_AT=$4
+
+if [ "$#" -eq 4 ]
+then
+    OK_TO_PR_AT=$4
+else
+    OK_TO_PR_AT="0"
+fi
 
 BRANCH_NAME="auto-update/$1"
 
@@ -20,7 +30,12 @@ function cleanup {
 
 function error_exit {
     cleanup
-    echo "$(date -Iseconds) $1" >&3
+    if ( >&3 ) 2> /dev/null
+    then
+        echo "$(date -Iseconds) $1" >&3
+    else
+        echo "$(date -Iseconds) $1"
+    fi
     exit 1
 }
 
@@ -148,7 +163,7 @@ nix build -f . "$ATTR_PATH" || error_exit "nix build failed."
 
 RESULT=$(readlink ./result || readlink ./result-bin || error_exit "Couldn't find result link.")
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 
 CHECK_RESULT="$("$SCRIPT_DIR"/check-result.sh "$RESULT" "$NEW_VERSION")"
 
