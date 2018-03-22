@@ -24,6 +24,7 @@ BRANCH_NAME="auto-update/$1"
 
 function cleanup {
     git reset --hard
+    git clean -fd
     git checkout master
     git reset --hard upstream/master
     git branch -D "$BRANCH_NAME" || true
@@ -52,7 +53,7 @@ case "$PACKAGE_NAME" in
     *github-release*) error_exit "complicated package";;
     *fcitx*) error_exit "gets stuck in daemons";;
     *fricas*) error_exit "gets stuck in emacs";;
-    *git-extras*) error_exit "gets stuck in emacs";;
+#    *git-extras*) error_exit "gets stuck in emacs";;
     *libxc*) error_exit "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821";;
     *perl*) error_exit "currently don't know how to update perl";;
     *python*) error_exit "currently don't know how to update python";;
@@ -74,8 +75,10 @@ then
 fi
 
 git reset --hard
+git clean -fd
 git checkout master
 git reset --hard upstream/master
+git clean -fd
 
 # This is extremely slow but will give us better results
 ATTR_PATH=$(nix-env -qa "$PACKAGE_NAME-$OLD_VERSION" -f . --attr-path | head -n1 | cut -d' ' -f1) || error_exit "nix-env -q failed to find package name with old version"
@@ -101,6 +104,12 @@ function error_cleanup {
     exit 1
 }
 trap error_cleanup ERR
+
+function interrupt_cleanup {
+    cleanup
+    exit 2
+}
+trap interrupt_cleanup INT
 
 (( $(grep -c "fetchurl {" "$DERIVATION_FILE") + $(grep -c "fetchgit {" "$DERIVATION_FILE") + $(grep -c "fetchFromGitHub {" "$DERIVATION_FILE") <= 1 )) || error_exit "More than one fetcher in $DERIVATION_FILE"
 
@@ -142,8 +151,10 @@ grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in
 
 # Make sure it hasn't been updated on staging
 git reset --hard
+git clean -fd
 git checkout staging
 git reset --hard upstream/staging
+git clean -fd
 grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in staging derivation file."
 
 git checkout "$(git merge-base upstream/master upstream/staging)"
@@ -167,8 +178,6 @@ rm -f result*
 nix build -f . "$ATTR_PATH" || error_exit "nix build failed."
 
 RESULT=$(readlink ./result || readlink ./result-bin || error_exit "Couldn't find result link.")
-
-
 
 CHECK_RESULT="$("$SCRIPT_DIR"/check-result.sh "$RESULT" "$NEW_VERSION")"
 
@@ -224,7 +233,9 @@ else
 fi
 
 git reset --hard
+git clean -fd
 git checkout master
 git reset --hard
+git clean -fd
 
 exit 0

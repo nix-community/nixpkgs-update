@@ -5,6 +5,14 @@ RESULT_PATH=$1
 EXPECTED_VERSION=$2
 LOG_FILE=~/.nix-update/check-result-log.tmp
 
+EDITOR="echo"
+export EDITOR
+
+OLD_HOME=~/
+HOME=/homeless-shelter
+
+pushd "$(mktemp -d)"
+
 rm -f $LOG_FILE
 
 function check_binary_help()
@@ -63,10 +71,14 @@ then
     echo "- found $EXPECTED_VERSION in filename of file in $RESULT_PATH" >> $LOG_FILE
 fi
 
+HOME="$OLD_HOME"
+
 GIST=$(tree "$RESULT_PATH" | gist || "")
 if [ -n "$GIST" ]
 then
    echo "- directory tree listing: $GIST" >> $LOG_FILE
 fi
+
+popd
 
 cat $LOG_FILE || true
