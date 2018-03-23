@@ -58,7 +58,7 @@ case "$PACKAGE_NAME" in
     *cdrtools*) error_exit "We keep downgrading this by accident.";;
     *gst*) error_exit "gstreamer plugins are kept in lockstep.";;
     *electron*) error_exit "multi-platform srcs in file.";;
-    *linuxHeaders*) error_exit "Not updated until many packages depend on it (part of stdenv).";;
+    *linux-headers*) error_exit "Not updated until many packages depend on it (part of stdenv).";;
     *mpich*) error_exit "Reported on repology.org as mischaracterized newest version";;
     *xfce*) error_exit "@volth asked to not update xfce";;
     *cmake-cursesUI-qt4UI*) error_exit "Derivation file is complicated";;
