@@ -213,7 +213,13 @@ function push() {
 }
 push || push || push
 
-PR_MESSAGE="$COMMIT_MESSAGE$MAINTAINERS"
+BROKEN_WARNING=
+if [ "$(nix eval -f . '(let pkgs = import ./. {}; in pkgs.'"${ATTR_PATH}"'.meta.broken or false)')" == "true" ]
+then
+    BROKEN_WARNING="- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
+fi
+
+PR_MESSAGE="$COMMIT_MESSAGE$BROKEN_WARNING$MAINTAINERS"
 
 if [[ -v DRY_RUN ]]
 then
