@@ -4,7 +4,7 @@ set -euxo pipefail
 ATTR_PATH=$1
 NEW_VERSION=$2
 
-HAS_UNDERSCORES=$(echo "$ATTR_PATH" | grep "_")
+HAS_UNDERSCORES="$(echo "$ATTR_PATH" | grep "_" || echo "")"
 
 if [ -n "$HAS_UNDERSCORES" ]
 then
@@ -27,6 +27,7 @@ then
         fi
     fi
 else
+    echo "other path"
     ATTR_VERSION_PART=$(echo "$ATTR_PATH" | sed -n 's/^[^0-9]*\([0-9]*\)$/\1/p')
 
     # If we don't find version numbers in the attr path, exit success.
