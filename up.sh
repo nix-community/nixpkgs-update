@@ -160,7 +160,16 @@ git checkout "$(git merge-base upstream/master upstream/staging)"
 git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.$ATTR_PATH.src.drvAttrs.outputHash" || error_exit "Couldn't find old output hash at ATTR_PATH.src.drvAttrs.outputHash.")
 
+OLD_SRC_URL=$(nix eval -f . '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
+
 sed -i "s/${OLD_VERSION//\./\\.}/$NEW_VERSION/g" "$DERIVATION_FILE" || error_exit "Could not replace OLD_VERSION with NEW_VERSION."
+
+NEW_SRC_URL=$(nix eval -f . '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
+
+if [ "$OLD_SRC_URL" == "$NEW_SRC_URL" ]
+then
+    error_exit "Source url did not change."
+fi
 
 NEW_HASH=$(nix-prefetch-url -A "$ATTR_PATH.src" || error_exit "Could not prefetch new version URL.")
 
