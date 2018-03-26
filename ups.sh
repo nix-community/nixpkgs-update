@@ -45,3 +45,5 @@ do
         ;;
     esac
 done
+
+echo "$(date -Iseconds) ups.sh finished" >> $LOG_FILE
