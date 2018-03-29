@@ -62,6 +62,7 @@ case "$PACKAGE_NAME" in
     *mpich*) error_exit "Reported on repology.org as mischaracterized newest version";;
     *xfce*) error_exit "@volth asked to not update xfce";;
     *cmake-cursesUI-qt4UI*) error_exit "Derivation file is complicated";;
+    *varnish*) error_exit "Temporary blacklist because of multiple versions and slow nixpkgs update";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
