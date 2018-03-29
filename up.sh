@@ -160,18 +160,21 @@ git checkout "$(git merge-base upstream/master upstream/staging)"
 git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.$ATTR_PATH.src.drvAttrs.outputHash" || error_exit "Couldn't find old output hash at ATTR_PATH.src.drvAttrs.outputHash.")
 
-OLD_SRC_URL=$(nix eval -f . '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
+OLD_SRC_URL=$(nix eval -f . --raw '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
 
 sed -i "s/${OLD_VERSION//\./\\.}/$NEW_VERSION/g" "$DERIVATION_FILE" || error_exit "Could not replace OLD_VERSION with NEW_VERSION."
 
-NEW_SRC_URL=$(nix eval -f . '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
+NEW_SRC_URL=$(nix eval -f . --raw '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
 
 if [ "$OLD_SRC_URL" == "$NEW_SRC_URL" ]
 then
     error_exit "Source url did not change."
 fi
 
-NEW_HASH=$(nix-prefetch-url -A "$ATTR_PATH.src" || error_exit "Could not prefetch new version URL.")
+NEW_HASH=$(
+    nix-prefetch-url -A "$ATTR_PATH.src" || \
+    "$SCRIPT_DIR"/fix-src-url.sh "$PACKAGE_NAME" "$OLD_VERSION" "$NEW_VERSION" "$DERIVATION_FILE" "$ATTR_PATH" "$OLD_SRC_URL" || \
+    error_exit "Could not prefetch new version URL.")
 
 if [ "$OLD_HASH" = "$NEW_HASH" ]
 then
@@ -182,7 +185,8 @@ sed -i "s/$OLD_HASH/$NEW_HASH/g" "$DERIVATION_FILE" || error_exit "Could not rep
 
 rm -f result*
 
-nix build -f . "$ATTR_PATH" || error_exit "nix build failed."
+nix build -f . "$ATTR_PATH" || error_exit "nix build failed.
+$(nix log -f . "$ATTR_PATH" | tail -n 30)"
 
 RESULT=$(readlink ./result || readlink ./result-bin || error_exit "Couldn't find result link.")
 
