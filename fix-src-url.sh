@@ -16,14 +16,6 @@ DERIVATION_FILE=$4
 ATTR_PATH=$5
 OLD_SRC_URL=$6
 
-
-DOWNLOADS=$(curl "https://repology.org/api/v1/metapackage/$PACKAGE_NAME" | jq '.[].downloads | select(values) | .[] ' | grep "$NEW_VERSION" | sed 's|"||g')
-
-# if [ -z "$DOWNLOADS" ]
-# then
-#     exit 1
-# fi
-
 OLD_DERIVATION_NAME=$(nix eval -f ~/p/nixpkgs --raw "pkgs.$ATTR_PATH.name")
 NEW_DERIVATION_NAME=$(sed "s|$OLD_VERSION|$NEW_VERSION|" <<< "$OLD_DERIVATION_NAME")
 NAME=$(nix eval --raw "(let pkgs = import ./. {}; in (builtins.parseDrvName pkgs.$ATTR_PATH.name).name)")
@@ -38,13 +30,17 @@ then
     grep -q "version = \"$NEW_VERSION\";" "$DERIVATION_FILE"
 fi
 
-for d in $DOWNLOADS
+ESCAPED_NEW_VERSION="${NEW_VERSION//\./\\.}"
+DOWNLOADS=$(curl "https://repology.org/api/v1/metapackage/$PACKAGE_NAME" | jq '.[].downloads | select(values) | .[] ')
+FILTERED_DOWNLOADS=$(echo "$DOWNLOADS" | grep "$ESCAPED_NEW_VERSION" | grep -vE "$ESCAPED_NEW_VERSION[^/]+\.tar" | grep -vE "$ESCAPED_NEW_VERSION[^/]+\.zip" | sed 's|"||g')
+
+for d in $FILTERED_DOWNLOADS
 do
     OLD_URL="$OLD_SRC_URL"
-    OLD_URL=$(sed "s|$OLD_DERIVATION_NAME|\${name}|" <<< "$OLD_URL")
-    OLD_URL=$(sed "s|$OLD_VERSION|\${version}|" <<< "$OLD_URL")
+    OLD_URL=$(sed "s|$OLD_DERIVATION_NAME|\${name}|g" <<< "$OLD_URL")
+    OLD_URL=$(sed "s|$OLD_VERSION|\${version}|g" <<< "$OLD_URL")
 
-    NEW_URL=$(sed "s|$NEW_DERIVATION_NAME|\${name}|" <<< "$d" | sed "s|$NEW_VERSION|\${version}|")
+    NEW_URL=$(sed "s|$NEW_DERIVATION_NAME|\${name}|g" <<< "$d" | sed "s|$NEW_VERSION|\${version}|g")
     sed -i "s|$OLD_URL|$NEW_URL|" "$DERIVATION_FILE"
     grep -q 'url = "'"$NEW_URL"'";' "$DERIVATION_FILE" || continue
 
