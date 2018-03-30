@@ -7,18 +7,17 @@ Scripts to try to update nixpkgs packages. Uses `hub` to automatically make PRs.
 # Instructions
 
 1. Clone this repo:
-```
-    git clone https://github.com/ryantm/nixpkgs-update
-```
+    ```
+    git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
+    ```
 2. Get a list of oudated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
+    ```
+    git clone https://github.com/ryantm/repology-api.git && cd repology-api
+    nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > ../packages-to-update.txt
+    ```
+3. Return back `cd ..` and run `./ups.sh`
 
-```
-    git clone https://github.com/ryantm/repology-api.git
-    cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > packages-to-update.txt
-```
-3. `./ups.sh`
+# Prior work
 
-# prior work
-
-https://github.com/NixOS/nixpkgs/blob/master/pkgs/common-updater/scripts/update-source-version
-https://github.com/NixOS/nixpkgs/tree/master/pkgs/build-support/upstream-updater
+* https://github.com/NixOS/nixpkgs/blob/master/pkgs/common-updater/scripts/update-source-version
+* https://github.com/NixOS/nixpkgs/tree/master/pkgs/build-support/upstream-updater
