@@ -32,7 +32,7 @@ fi
 
 ESCAPED_NEW_VERSION="${NEW_VERSION//\./\\.}"
 DOWNLOADS=$(curl "https://repology.org/api/v1/metapackage/$PACKAGE_NAME" | jq '.[].downloads | select(values) | .[] ')
-FILTERED_DOWNLOADS=$(echo "$DOWNLOADS" | grep "$ESCAPED_NEW_VERSION" | grep -vE "$ESCAPED_NEW_VERSION[^/]+\.tar" | grep -vE "$ESCAPED_NEW_VERSION[^/]+\.zip" | sed 's|"||g')
+FILTERED_DOWNLOADS=$(echo "$DOWNLOADS" | grep "$ESCAPED_NEW_VERSION" | grep -vE "$ESCAPED_NEW_VERSION[^/]+\\.tar" | grep -vE "$ESCAPED_NEW_VERSION[^/]+\\.zip" | sed 's|"||g')
 
 for d in $FILTERED_DOWNLOADS
 do
