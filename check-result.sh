@@ -25,7 +25,7 @@ function check_binary_help()
 
 function check_version_type()
 {
-    if timeout -k 2 1 "$1" "$2" 2>&1 | grep "$EXPECTED_VERSION" >/dev/null
+    if timeout -k 2 1 "$1" "$2" 2>&1 | tr '\n' ' ' | grep -qE "[^\\.]+$EXPECTED_VERSION(\\.)*[[:space:]]*"
     then
         echo "- ran \`$1 $2\` and found version $EXPECTED_VERSION" >> $LOG_FILE
     fi
