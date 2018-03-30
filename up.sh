@@ -64,6 +64,8 @@ case "$PACKAGE_NAME" in
     *cmake-cursesUI-qt4UI*) error_exit "Derivation file is complicated";;
     *varnish*) error_exit "Temporary blacklist because of multiple versions and slow nixpkgs update";;
     *iana-etc*) error_exit "@mic92 takes care of this package";;
+    isl) error_exit "multi-version long building package";;
+    tokei) error_exit "got stuck forever building with no CPU usage";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
