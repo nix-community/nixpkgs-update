@@ -63,6 +63,7 @@ case "$PACKAGE_NAME" in
     *xfce*) error_exit "@volth asked to not update xfce";;
     *cmake-cursesUI-qt4UI*) error_exit "Derivation file is complicated";;
     *varnish*) error_exit "Temporary blacklist because of multiple versions and slow nixpkgs update";;
+    *iana-etc*) error_exit "@mic92 takes care of this package";;
     *) true;;
 esac || error_exit "Package on blacklist."
 
