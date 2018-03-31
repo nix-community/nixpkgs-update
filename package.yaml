@@ -1,0 +1,22 @@
+name: nix-update
+version: 0.2.0
+synopsis: Tool for automatic updating of nixpkgs repository
+homepage: https://github.com/ryantm/nix-update#readme
+license: BSD3
+author: Ryan Mulligan
+maintainer: ryan@ryantm.com
+copyright: 2018 Ryan Mulligan
+category: Web
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+  - shelly >= 1.6 && < 1.8
+  - text
+  - filepath
+
+executables:
+  nix-update:
+    source-dirs: src
+    main: Main.hs
