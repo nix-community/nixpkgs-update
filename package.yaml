@@ -20,3 +20,11 @@ executables:
   nix-update:
     source-dirs: src
     main: Main.hs
+
+tests:
+  doctests:
+    main: doctests.hs
+    ghc-options: -threaded
+    source-dirs: test
+    dependencies:
+      - doctest >= 0.11.1 && < 0.16

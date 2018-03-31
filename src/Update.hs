@@ -8,7 +8,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
 import Shelly
-import Utils (Version, Options(..), setupNixpkgs, tRead)
+import Utils (Version, Options(..), setupNixpkgs, tRead, checkAttrPathVersion)
 import Data.Semigroup ((<>))
 default (T.Text)
 
@@ -148,7 +148,7 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
             errorExit "Derivation contains buildPerlPackage."
         else return ()
 
-        cmd "./check-attrpath-version.sh" attrPath newVersion `orElse`
+        unless (checkAttrPathVersion attrPath newVersion) $ do
             errorExit ("Version in attr path " <> attrPath <> " not compatible with " <> newVersion)
 
         -- Make sure it hasn't been updated on master
