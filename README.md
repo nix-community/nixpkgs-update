@@ -1,6 +1,6 @@
-# nix-update
+# nixpkgs-update
 
-[![Build Status](https://travis-ci.org/ryantm/nix-update.svg?branch=master)](https://travis-ci.org/ryantm/nix-update)
+[![Build Status](https://travis-ci.org/ryantm/nixpkgs-update.svg?branch=master)](https://travis-ci.org/ryantm/nixpkgs-update)
 
 Scripts to try to update nixpkgs packages. Uses `hub` to automatically make PRs.
 
@@ -8,7 +8,7 @@ Scripts to try to update nixpkgs packages. Uses `hub` to automatically make PRs.
 
 1. Clone this repo:
 ```
-    git clone https://github.com/ryantm/nix-update
+    git clone https://github.com/ryantm/nixpkgs-update
 ```
 2. Get a list of oudated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
 
