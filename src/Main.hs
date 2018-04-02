@@ -21,7 +21,13 @@ makeOptions :: Sh Options
 makeOptions = do
     dryRun <- isJust <$> get_env "DRY_RUN"
     workingDir <- (</> ".nix-update") <$> get_env_text "HOME"
-    return $ Options dryRun workingDir
+    githubToken <- cmd "cat" "github_token.txt"
+    return $ Options dryRun workingDir githubToken
+
+setUpEnvironment :: Options -> Sh ()
+setUpEnvironment options = do
+    setenv "PAGER" ""
+    setenv "GITHUB_TOKEN" (githubToken options)
 
 main :: IO ()
 main = shelly $ do
@@ -32,7 +38,7 @@ main = shelly $ do
     mkdir_p (workingDir options)
     touchfile logFile
 
-    githubToken <- cmd "cat" "github_token.txt"
+    setUpEnvironment options
 
     updates <- cmd "cat" "packages-to-update.txt"
 

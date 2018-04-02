@@ -15,7 +15,8 @@ type Version = Text
 
 data Options = Options {
     dryRun :: Bool,
-    workingDir :: FilePath
+    workingDir :: FilePath,
+    githubToken :: Text
 }
 
 setupNixpkgs :: Sh FilePath
