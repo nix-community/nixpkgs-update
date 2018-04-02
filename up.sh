@@ -71,7 +71,7 @@ esac || error_exit "Package on blacklist."
 
 ONEHOURAGO=$(date +%s -d "-1 hour")
 FETCHEDLAST=$(stat -c %Y .git/FETCH_HEAD)
-if (( ONEHOURAGO < FETCHEDLAST ))
+if (( FETCHEDLAST < ONEHOURAGO ))
 then
     git fetch --prune --multiple upstream origin || true
 fi
