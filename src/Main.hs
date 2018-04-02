@@ -10,12 +10,9 @@ import Data.Maybe (isJust)
 import Update (updatePackage)
 import Data.Semigroup ((<>))
 default (T.Text)
-workingDir = "~/.nix-update"
-logFile = workingDir </> "ups.log"
 
-logSep = appendfile logFile "\n\n"
 
-log msg = do
+log' logFile msg = do
     runDate <- cmd "date" "-Iseconds"
     appendfile logFile (runDate <> msg)
 
@@ -23,13 +20,16 @@ log msg = do
 makeOptions :: Sh Options
 makeOptions = do
     dryRun <- isJust <$> get_env "DRY_RUN"
-    return $ Options dryRun
+    workingDir <- (</> ".nix-update") <$> get_env_text "HOME"
+    return $ Options dryRun workingDir
 
 main :: IO ()
 main = shelly $ do
     options <- makeOptions
 
-    mkdir_p workingDir
+    let logFile = workingDir options </> "ups.log"
+
+    mkdir_p (workingDir options)
     touchfile logFile
 
     githubToken <- cmd "cat" "github_token.txt"
@@ -38,14 +38,16 @@ main = shelly $ do
 
     setupNixpkgs
 
-    logSep
+    let log = log' logFile
+
+    appendfile logFile "\n\n"
     log "New run of ups.sh"
 
-    loop options (parseUpdates updates) 0
+    loop options log (parseUpdates updates) 0
 
-loop :: Options -> [(Text, Version, Version)] -> Int -> Sh ()
-loop _ [] _ = log "ups.sh finished"
-loop options ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
+loop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Int -> Sh ()
+loop _ log [] _ = log "ups.sh finished"
+loop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
     log package
 
     updated <- updatePackage options package oldVersion newVersion okToPrAt
@@ -58,5 +60,5 @@ loop options ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
             log "FAIL"
             return okToPrAt
 
-    loop options moreUpdates okToPrAt
+    loop options log moreUpdates okToPrAt
 

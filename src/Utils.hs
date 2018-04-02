@@ -14,7 +14,8 @@ default (T.Text)
 type Version = Text
 
 data Options = Options {
-    dryRun :: Bool
+    dryRun :: Bool,
+    workingDir :: FilePath
 }
 
 setupNixpkgs :: Sh FilePath
