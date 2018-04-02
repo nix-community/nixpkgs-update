@@ -69,7 +69,12 @@ case "$PACKAGE_NAME" in
     *) true;;
 esac || error_exit "Package on blacklist."
 
-git fetch --prune --multiple upstream origin
+ONEHOURAGO=$(date +%s -d "-1 hour")
+FETCHEDLAST=$(stat -c %Y .git/FETCH_HEAD)
+if (( ONEHOURAGO < FETCHEDLAST ))
+then
+    git fetch --prune --multiple upstream origin || true
+fi
 
 if git branch --remote | grep "origin/auto-update/${PACKAGE_NAME}"
 then
