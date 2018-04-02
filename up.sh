@@ -25,7 +25,7 @@ BRANCH_NAME="auto-update/$1"
 function cleanup {
     git reset --hard
     git clean -fd
-    git checkout master
+    git checkout -B master upstream/master
     git reset --hard upstream/master
     git branch -D "$BRANCH_NAME" || true
 }
@@ -159,14 +159,13 @@ grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in
 # Make sure it hasn't been updated on staging
 git reset --hard
 git clean -fd
-git checkout staging
+git checkout -B staging upstream/staging
 git reset --hard upstream/staging
 git clean -fd
 grep "$OLD_VERSION" "$DERIVATION_FILE" || error_exit "Old version not present in staging derivation file."
 
-git checkout "$(git merge-base upstream/master upstream/staging)"
+git checkout -B "$BRANCH_NAME" "$(git merge-base upstream/master upstream/staging)"
 
-git checkout -B "$BRANCH_NAME"
 OLD_HASH=$(nix eval -f . --raw "pkgs.$ATTR_PATH.src.drvAttrs.outputHash" || error_exit "Couldn't find old output hash at ATTR_PATH.src.drvAttrs.outputHash.")
 
 OLD_SRC_URL=$(nix eval -f . --raw '(let pkgs = import ./. {}; in builtins.elemAt pkgs.'"$ATTR_PATH"'.src.drvAttrs.urls 0)')
@@ -264,7 +263,7 @@ fi
 
 git reset --hard
 git clean -fd
-git checkout master
+git checkout -B master upstream/master
 git reset --hard
 git clean -fd
 
