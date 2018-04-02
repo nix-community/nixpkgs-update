@@ -2,6 +2,8 @@
 set -euxo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PAGER=
+export PAGER
 
 # shellcheck source=setup-nixpkgs.sh
 source "$SCRIPT_DIR/setup-nixpkgs.sh"
