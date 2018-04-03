@@ -62,8 +62,7 @@ loop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
       (\ e ->
          case e of
            ExitCode 0 -> return True
-           ExitCode _ -> return False
-           _ -> throw e)
+           ExitCode _ -> return False)
 
     okToPrAt <-
         if updated then do
