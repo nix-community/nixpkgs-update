@@ -2,7 +2,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Update (updatePackage) where
+module Update (updateAll) where
 
 import Control.Exception (throw)
 import qualified Data.Text as T
@@ -11,7 +11,7 @@ import Data.Maybe (fromMaybe)
 import Shelly
 import Clean (fixSrcUrl)
 import Check (checkResult)
-import Utils (Version, Options(..), ExitCode(..), canFail, orElse, setupNixpkgs, tRead, checkAttrPathVersion)
+import Utils (Version, Options(..), ExitCode(..), canFail, orElse, parseUpdates, setupNixpkgs, tRead, checkAttrPathVersion)
 import Data.Semigroup ((<>))
 default (T.Text)
 
@@ -61,6 +61,53 @@ push branchName options =
         return ()
     else
         cmd "git" "push" "--set-upstream" "origin" branchName "--force"
+
+
+log' logFile msg = do
+    runDate <- cmd "date" "-Iseconds"
+    appendfile logFile (runDate <> msg)
+
+
+updateAll :: Options -> Sh ()
+updateAll options = do
+    let logFile = workingDir options </> "ups.log"
+
+    mkdir_p (workingDir options)
+    touchfile logFile
+
+    updates <- cmd "cat" "packages-to-update.txt"
+
+    let log = log' logFile
+
+    appendfile logFile "\n\n"
+    log "New run of ups.sh"
+
+    updateLoop options log (parseUpdates updates) 0
+
+
+updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Int -> Sh ()
+updateLoop _ log [] _ = log "ups.sh finished"
+updateLoop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
+    log package
+
+    updated <- catch_sh
+      (updatePackage options package oldVersion newVersion okToPrAt)
+      (\ e ->
+         case e of
+           ExitCode 0 -> return True
+           ExitCode _ -> return False)
+
+    okToPrAt <-
+        if updated then do
+            log "SUCCESS"
+            tRead <$> cmd "date" "+%s" "-d" "+15 minutes"
+        else do
+            log "FAIL"
+            return okToPrAt
+
+    updateLoop options log moreUpdates okToPrAt
+
+
 
 updatePackage :: Options -> Text -> Version -> Version -> Int -> Sh Bool
 updatePackage options packageName oldVersion newVersion okToPrAt = do

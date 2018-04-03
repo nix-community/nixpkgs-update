@@ -15,6 +15,7 @@ dependencies:
   - shelly >= 1.6 && < 1.8
   - text
   - filepath
+  - optparse-applicative
   - regex-applicative
 
 executables:
