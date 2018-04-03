@@ -8,7 +8,8 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
 import Shelly
-import Utils (Version, Options(..), setupNixpkgs, tRead, checkAttrPathVersion)
+import Check (checkResult)
+import Utils (Version, Options(..), canFail, orElse, setupNixpkgs, tRead, checkAttrPathVersion)
 import Data.Semigroup ((<>))
 default (T.Text)
 
@@ -50,20 +51,6 @@ isOnBlackList _ _ = return ""
 
 rawEval :: Text -> Sh Text
 rawEval expr = cmd "nix" "eval" "-f" "." "--raw" expr
-
-canFail :: Sh a -> Sh a
-canFail = errExit False
-
-orElse :: Sh a -> Sh a -> Sh a
-orElse a b = do
-    v <- canFail a
-    status <- lastExitCode
-    if status == 0 then
-        return v
-    else
-        b
-
-infixl 3 `orElse`
 
 fixSrcUrl :: Text -> Version -> Version -> Text -> Text -> Text -> Sh Text
 fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = cmd "./fix-src-url.sh" packageName oldVersion newVersion derivationFile attrPath oldSrcUrl
@@ -197,10 +184,10 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
             buildLog <- T.unlines . reverse . take 30 . reverse . T.lines <$> cmd "nix" "log" "-f" "." attrPath
             errorExit ("nix build failed.\n" <> buildLog)
 
-        result <- cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin" `orElse`
+        result <- fromText <$> (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin") `orElse`
             errorExit "Could not find result link."
 
-        checkResult <- cmd "./check-result.sh" result newVersion
+        resultCheckReport <- checkResult result newVersion
 
         hasMaintainers <- const True <$> cmd "nix" "eval" ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers") `orElse` return False
         maintainers <- if hasMaintainers then rawEval ("let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addat = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addat (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers)))") else return ""
@@ -216,7 +203,7 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
                <> "This update was made based on information from https://repology.org/metapackage/" <> packageName <> "/versions.\n\n"
                <> "These checks were done:\n\n"
                <> "- built on NixOS\n"
-               <> checkResult
+               <> resultCheckReport
 
         cmd "git" "commit" "-am" commitMessage
 

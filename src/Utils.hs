@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module Utils (Options(..), Version, checkAttrPathVersion, setupNixpkgs, tRead, parseUpdates) where
+module Utils (Options(..), Version, canFail, checkAttrPathVersion, orElse, setupNixpkgs, tRead, parseUpdates, succeded) where
 
 import Prelude hiding (FilePath)
 import Data.Text (Text)
@@ -35,6 +35,29 @@ setupNixpkgs = do
     cmd "cd" nixpkgsPath
 
     return nixpkgsPath
+
+
+canFail :: Sh a -> Sh a
+canFail = errExit False
+
+
+succeded :: Sh a -> Sh Bool
+succeded s = do
+    canFail s
+    status <- lastExitCode
+    return (status == 0)
+
+
+orElse :: Sh a -> Sh a -> Sh a
+orElse a b = do
+    v <- canFail a
+    status <- lastExitCode
+    if status == 0 then
+        return v
+    else
+        b
+
+infixl 3 `orElse`
 
 
 parseUpdates :: Text -> [(Text, Version, Version)]

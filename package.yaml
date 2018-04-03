@@ -15,6 +15,7 @@ dependencies:
   - shelly >= 1.6 && < 1.8
   - text
   - filepath
+  - regex-applicative
 
 executables:
   nix-update:
