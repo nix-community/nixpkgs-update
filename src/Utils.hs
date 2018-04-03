@@ -26,13 +26,13 @@ setupNixpkgs = do
 
     unlessM (test_e nixpkgsPath) $ do
         cmd "hub" "clone" "nixpkgs" nixpkgsPath -- requires that user has forked nixpkgs
-        cmd "cd" nixpkgsPath
+        cd nixpkgsPath
         cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
         cmd "git" "fetch" "upstream"
         cmd "git" "fetch" "origin" "staging"
         cmd "git" "fetch" "upstream" "staging"
 
-    cmd "cd" nixpkgsPath
+    cd nixpkgsPath
 
     return nixpkgsPath
 
