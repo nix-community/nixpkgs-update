@@ -74,8 +74,9 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
     let errorExit = errorExit' branchName
 
     versionComparison <- cmd "nix" "eval" "-f" "." ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <> "\")")
-    unless (versionComparison == "1") $ do
-        errorExit $ newVersion <> " is not newer than " <> oldVersion <> " according to Nix"
+
+    unless (versionComparison == "1\n") $ do
+        errorExit $ newVersion <> " is not newer than " <> oldVersion <> " according to Nix; versionComparison: " <> versionComparison
 
     -- Package blacklist
     isOnBlackList errorExit packageName
