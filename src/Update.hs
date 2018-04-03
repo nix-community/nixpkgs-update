@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
 import Shelly
+import Clean (fixSrcUrl)
 import Check (checkResult)
 import Utils (Version, Options(..), ExitCode(..), canFail, orElse, setupNixpkgs, tRead, checkAttrPathVersion)
 import Data.Semigroup ((<>))
@@ -53,8 +54,6 @@ isOnBlackList _ _ = return ""
 rawEval :: Text -> Sh Text
 rawEval expr = cmd "nix" "eval" "-f" "." "--raw" expr
 
-fixSrcUrl :: Text -> Version -> Version -> Text -> Text -> Text -> Sh Text
-fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = cmd "./fix-src-url.sh" packageName oldVersion newVersion derivationFile attrPath oldSrcUrl
 
 push :: Text -> Options -> Sh ()
 push branchName options =
