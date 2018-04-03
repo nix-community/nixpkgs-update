@@ -101,7 +101,7 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
         errorExit "nix-env -q failed to find package name with old version"
 
     -- Temporarily blacklist gnome sources for lockstep update
-    whenM (("gnome" `T.isInfixOf`) <$> cmd "nix" "eval" "-f" "." ("pkgs." <> attrPath <> ".src.urls")) $ do
+    whenM (("gnome" `T.isInfixOf`) <$> (cmd "nix" "eval" "-f" "." ("pkgs." <> attrPath <> ".src.urls")) `orElse` (errorExit ("No src.urls found for pkgs." <> attrPath))) $ do
         errorExit "Packages from gnome are currently blacklisted."
 
     -- Temporarily blacklist lua packages at @teto's request
