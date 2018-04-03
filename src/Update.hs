@@ -51,7 +51,7 @@ isOnBlackList errorExit "tokei" = errorExit "got stuck forever building with no 
 isOnBlackList _ _ = return ""
 
 rawEval :: Text -> Sh Text
-rawEval expr = cmd "nix" "eval" "-f" "." "--raw" expr
+rawEval expr = T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr
 
 fixSrcUrl :: Text -> Version -> Version -> Text -> Text -> Text -> Sh Text
 fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = cmd "./fix-src-url.sh" packageName oldVersion newVersion derivationFile attrPath oldSrcUrl
@@ -73,9 +73,9 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
 
     let errorExit = errorExit' branchName
 
-    versionComparison <- cmd "nix" "eval" "-f" "." ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <> "\")")
+    versionComparison <- T.strip <$> cmd "nix" "eval" "-f" "." ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <> "\")")
 
-    unless (versionComparison == "1\n") $ do
+    unless (versionComparison == "1") $ do
         errorExit $ newVersion <> " is not newer than " <> oldVersion <> " according to Nix; versionComparison: " <> versionComparison
 
     -- Package blacklist
@@ -110,11 +110,10 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
         errorExit "Packages for lua are currently blacklisted."
 
 
-    derivationFile <- cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
-
+    derivationFile <- T.strip <$> cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
 
     flip finally_sh (cleanup branchName) $ do
-        numberOfFetchers <- tRead <$> cmd "grep" "-c" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile
+        numberOfFetchers <- tRead <$> canFail (cmd "grep" "-c" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile)
         unless ((numberOfFetchers :: Int) <= 1) $ do
             errorExit $ "More than one fetcher in " <> derivationFile
 
@@ -154,7 +153,8 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
         cmd "grep" oldVersion derivationFile `orElse`
             errorExit "Old version not present in staging derivation file."
 
-        base <- cmd "git" "merge-base" "upstream/master" "upstream/staging"
+        base <- T.strip <$> cmd "git" "merge-base" "upstream/master" "upstream/staging"
+
         cmd "git" "checkout" "-B" branchName base
 
         oldHash <- rawEval ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") `orElse`
