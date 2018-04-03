@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module Utils (Options(..), Version, canFail, checkAttrPathVersion, orElse, setupNixpkgs, tRead, parseUpdates, succeded) where
+module Utils (Options(..), Version, canFail, checkAttrPathVersion, orElse, setupNixpkgs, tRead, parseUpdates, succeded, ExitCode(..)) where
 
 import Prelude hiding (FilePath)
+import Control.Exception (Exception)
 import Data.Text (Text)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
@@ -147,3 +148,5 @@ checkAttrPathVersion attrPath newVersion =
                 in
                     attrVersionPart `isNonEmptyPrefixOf` noPeriodNewVersion
 
+data ExitCode = ExitCode Int deriving (Show)
+instance Exception ExitCode

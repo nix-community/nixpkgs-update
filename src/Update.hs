@@ -4,12 +4,13 @@
 
 module Update (updatePackage) where
 
+import Control.Exception (throw)
 import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Maybe (fromMaybe)
 import Shelly
 import Check (checkResult)
-import Utils (Version, Options(..), canFail, orElse, setupNixpkgs, tRead, checkAttrPathVersion)
+import Utils (Version, Options(..), ExitCode(..), canFail, orElse, setupNixpkgs, tRead, checkAttrPathVersion)
 import Data.Semigroup ((<>))
 default (T.Text)
 
@@ -25,7 +26,7 @@ errorExit' :: Text -> Text -> Sh a
 errorExit' branchName message = do
     cleanup branchName
     echo $ "$(date -Iseconds) " <> message
-    exit 1
+    throw (ExitCode 1)
 
 isOnBlackList :: (Text -> Sh Text) -> Text -> Sh Text
 isOnBlackList errorExit packageName
@@ -230,4 +231,4 @@ updatePackage options packageName oldVersion newVersion okToPrAt = do
         cmd "git" "reset" "--hard"
         cmd "git" "clean" "-fd"
 
-        exit 0
+        return True

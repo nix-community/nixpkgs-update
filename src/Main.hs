@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+import Control.Exception
 import qualified Data.Text as T
 import Shelly
 import Prelude hiding (log)
-import Utils (Options(..), Version, setupNixpkgs, parseUpdates, tRead)
+import Utils (Options(..), Version, ExitCode(..), setupNixpkgs, parseUpdates, tRead, canFail)
 import Data.Text (Text)
 import Data.Maybe (isJust)
 import Update (updatePackage)
@@ -56,7 +57,13 @@ loop _ log [] _ = log "ups.sh finished"
 loop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
     log package
 
-    updated <- updatePackage options package oldVersion newVersion okToPrAt
+    updated <- catch_sh
+      (updatePackage options package oldVersion newVersion okToPrAt)
+      (\ e ->
+         case e of
+           ExitCode 0 -> return True
+           ExitCode _ -> return False
+           _ -> throw e)
 
     okToPrAt <-
         if updated then do
