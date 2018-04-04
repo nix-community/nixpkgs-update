@@ -248,10 +248,10 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
             buildLog <- T.unlines . reverse . take 30 . reverse . T.lines <$> cmd "nix" "log" "-f" "." attrPath
             errorExit ("nix build failed.\n" <> buildLog)
 
-        result <- fromText <$> (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin") `orElse`
+        result <- fromText <$> (T.strip <$> cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin") `orElse`
             errorExit "Could not find result link."
 
-        resultCheckReport <- checkResult options result newVersion
+        resultCheckReport <- sub (checkResult options result newVersion)
 
         hasMaintainers <- const True <$> nixEval ("(let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers)") `orElse` return False
         maintainers <- if hasMaintainers then rawEval ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers))))") else return ""
