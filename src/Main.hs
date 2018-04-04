@@ -5,7 +5,6 @@ import Control.Applicative ((<|>), (<**>))
 import Control.Exception
 import qualified Data.Text as T
 import Shelly
-import Prelude hiding (log)
 import Utils (Options(..))
 import Data.Text (Text)
 import Data.Maybe (isJust)
