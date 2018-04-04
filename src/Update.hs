@@ -95,7 +95,7 @@ updateAll options = do
     mkdir_p (workingDir options)
     touchfile logFile
 
-    updates <- cmd "cat" "packages-to-update.txt"
+    updates <- readfile "packages-to-update.txt"
 
     let log = log' logFile
 
@@ -177,14 +177,14 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
     when (T.isPrefixOf "lua" attrPath) $ do
         errorExit "Packages for lua are currently blacklisted."
 
-    derivationFile <- T.strip <$> cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
+    derivationFile <- fromText . T.strip <$> cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
 
     flip finally_sh (cleanup branchName) $ do
         numberOfFetchers <- tRead <$> canFail (cmd "grep" "-c" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile)
         unless ((numberOfFetchers :: Int) <= 1) $ do
-            errorExit $ "More than one fetcher in " <> derivationFile
+            errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
 
-        derivationContents <- cmd "cat" derivationFile
+        derivationContents <- readfile derivationFile
 
         forM_ contentBlacklist $ \(offendingContent, message) -> do
             when (offendingContent `T.isInfixOf` derivationContents) $ errorExit message

@@ -35,7 +35,7 @@ makeOptions :: Sh Options
 makeOptions = do
     dryRun <- isJust <$> get_env "DRY_RUN"
     workingDir <- (</> ".nixpkgs-update") <$> get_env_text "HOME"
-    githubToken <- cmd "cat" "github_token.txt"
+    githubToken <- T.strip <$> readfile "github_token.txt"
     return $ Options dryRun workingDir githubToken
 
 setUpEnvironment :: Options -> Sh ()

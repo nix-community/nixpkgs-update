@@ -88,4 +88,4 @@ checkResult options resultPath expectedVersion = do
         unless (T.null gist) $ do
            addToReport $ "- directory tree listing: " <> gist
 
-    canFail $ cmd "cat" logFile
+    canFail $ readfile logFile

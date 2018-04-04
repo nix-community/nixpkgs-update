@@ -13,6 +13,7 @@ import Data.Maybe (isNothing)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
+import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
@@ -24,7 +25,7 @@ default (T.Text)
 archiveRegex :: Version -> RE Char ()
 archiveRegex version = (\_ _ _ _ -> ()) <$> RE.string (T.unpack version) <*> some (RE.psym (/= '/')) <*> RE.sym '.' <*> (RE.string "tar" <|> RE.string "zip")
 
-fixSrcUrl :: Text -> Version -> Version -> Text -> Text -> Text -> Sh Text
+fixSrcUrl :: Text -> Version -> Version -> FilePath -> Text -> Text -> Sh Text
 fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = do
     nixpkgsPath <- setupNixpkgs
 
