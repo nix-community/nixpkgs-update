@@ -2,7 +2,7 @@ name: nixpkgs-update
 version: 0.2.0
 synopsis: Tool for automatic updating of nixpkgs repository
 homepage: https://github.com/ryantm/nixpkgs-update#readme
-license: BSD3
+license: PublicDomain
 author: Ryan Mulligan
 maintainer: ryan@ryantm.com
 copyright: 2018 Ryan Mulligan
