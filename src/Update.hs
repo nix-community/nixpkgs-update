@@ -51,8 +51,13 @@ isOnBlackList errorExit "isl" = errorExit "multi-version long building package"
 isOnBlackList errorExit "tokei" = errorExit "got stuck forever building with no CPU usage"
 isOnBlackList _ _ = return ""
 
-rawEval :: Text -> Sh Text
-rawEval expr = T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr
+nixEval' :: (Text -> Sh Text) -> Text -> Sh Text
+nixEval' errorExit expr = (T.strip <$> cmd "nix" "eval" "-f" "." expr) `orElse`
+  errorExit ("nix eval failed for " <> expr)
+
+rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
+rawEval' errorExit expr = (T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr) `orElse`
+  errorExit ("raw nix eval failed for " <> expr)
 
 
 push :: Text -> Options -> Sh ()
@@ -119,6 +124,10 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
     let errorExit = errorExit' log branchName
 
+    let nixEval = nixEval' errorExit
+
+    let rawEval = rawEval' errorExit
+
     versionComparison <- T.strip <$> cmd "nix" "eval" "-f" "." ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <> "\")")
 
     unless (versionComparison == "1") $ do
@@ -147,7 +156,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         errorExit "nix-env -q failed to find package name with old version"
 
     -- Temporarily blacklist gnome sources for lockstep update
-    whenM (("gnome" `T.isInfixOf`) <$> (cmd "nix" "eval" "-f" "." ("pkgs." <> attrPath <> ".src.urls")) `orElse` (errorExit ("No src.urls found for pkgs." <> attrPath))) $ do
+    whenM (("gnome" `T.isInfixOf`) <$> (nixEval ("pkgs." <> attrPath <> ".src.urls"))) $ do
         errorExit "Packages from gnome are currently blacklisted."
 
     -- Temporarily blacklist lua packages at @teto's request
@@ -237,7 +246,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
         resultCheckReport <- checkResult result newVersion
 
-        hasMaintainers <- const True <$> cmd "nix" "eval" ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers") `orElse` return False
+        hasMaintainers <- const True <$> nixEval ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers") `orElse` return False
         maintainers <- if hasMaintainers then rawEval ("let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addat = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addat (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers)))") else return ""
 
         let maintainersCc = if not (T.null maintainers) then "\n\ncc " <> maintainers <> " for review" else ""
@@ -258,7 +267,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         -- Try to push it three times
         push branchName options `orElse` push branchName options `orElse` push branchName options
 
-        isBroken <- cmd "nix" "eval" "-f" "." ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.broken or false")
+        isBroken <- nixEval ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.broken or false")
         let brokenWarning = if isBroken == "true" then "" else "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
 
         let prMessage = commitMessage <> brokenWarning <> maintainersCc
