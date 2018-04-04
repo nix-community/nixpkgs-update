@@ -29,9 +29,9 @@ fixSrcUrl :: Text -> Version -> Version -> FilePath -> Text -> Text -> Sh Text
 fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = do
     nixpkgsPath <- setupNixpkgs
 
-    oldDerivationName <- cmd "nix" "eval" "-f" nixpkgsPath "--raw" ("pkgs." <> attrPath <> ".name")
+    oldDerivationName <- T.strip <$> cmd "nix" "eval" "-f" nixpkgsPath "--raw" ("pkgs." <> attrPath <> ".name")
     let newDerivationName = T.replace oldVersion newVersion oldDerivationName
-    name <- cmd "nix" "eval" "--raw" ("(let pkgs = import ./. {}; in (builtins.parseDrvName pkgs." <> attrPath <> ".name).name)")
+    name <- T.strip <$> cmd "nix" "eval" "--raw" ("(let pkgs = import ./. {}; in (builtins.parseDrvName pkgs." <> attrPath <> ".name).name)")
 
     whenM (succeded $ cmd "grep" "-q" ("name = \"" <> newDerivationName <> "\"") derivationFile) $ do
         -- Separate name and version

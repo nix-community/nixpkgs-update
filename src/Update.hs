@@ -14,6 +14,8 @@ import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
+import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import Shelly
 import Utils (ExitCode(..), Options(..), Version, canFail, checkAttrPathVersion, orElse, parseUpdates, setupNixpkgs, tRead)
 
@@ -85,7 +87,8 @@ push branchName options =
         cmd "git" "push" "--set-upstream" "origin" branchName "--force"
 
 log' logFile msg = do
-    runDate <- T.strip <$> cmd "date" "-Iseconds"
+    -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
+    runDate <- T.pack . formatTime defaultTimeLocale (iso8601DateFormat (Just "%H:%M:%S")) <$> liftIO getCurrentTime
     appendfile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> Sh ()
@@ -102,9 +105,10 @@ updateAll options = do
     appendfile logFile "\n\n"
     log "New run of ups.sh"
 
-    updateLoop options log (parseUpdates updates) 0
+    currentTime <- liftIO getCurrentTime
+    updateLoop options log (parseUpdates updates) currentTime
 
-updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Int -> Sh ()
+updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> UTCTime -> Sh ()
 updateLoop _ log [] _ = log "ups.sh finished"
 updateLoop options log ((package, oldVersion, newVersion):moreUpdates) okToPrAt = do
     log package
@@ -119,14 +123,15 @@ updateLoop options log ((package, oldVersion, newVersion):moreUpdates) okToPrAt 
     okToPrAt <-
         if updated then do
             log "SUCCESS"
-            tRead <$> cmd "date" "+%s" "-d" "+15 minutes"
+            -- current time + 15 minutes
+            addUTCTime (fromInteger $ 15 * 60) <$> liftIO getCurrentTime
         else do
             log "FAIL"
             return okToPrAt
 
     updateLoop options log moreUpdates okToPrAt
 
-updatePackage :: Options -> (Text -> Sh ()) -> Text -> Version -> Version -> Int -> Sh Bool
+updatePackage :: Options -> (Text -> Sh ()) -> Text -> Version -> Version -> UTCTime -> Sh Bool
 updatePackage options log packageName oldVersion newVersion okToPrAt = do
     nixpkgsPath <- setupNixpkgs
 
@@ -274,11 +279,12 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         let prMessage = commitMessage <> brokenWarning <> maintainersCc
 
         unless (dryRun options) $ do
-            current <- tRead <$> cmd "date" "+%s"
+            current <- liftIO getCurrentTime
             when (current < okToPrAt) $ do
-                let sleepSeconds = okToPrAt - current
+                let sleepSeconds = diffUTCTime okToPrAt current
                 echo $ "Sleeping " <> T.pack (show sleepSeconds) <> " seconds."
-                sleep sleepSeconds
+                -- TODO: use nominalDiffTimeToSeconds once time-1.9.1 is available
+                sleep (fromEnum sleepSeconds)
 
             cmd "hub" "pull-request" "-m" prMessage
 

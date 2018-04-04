@@ -15,6 +15,7 @@ dependencies:
   - shelly >= 1.6 && < 1.8
   - text
   - filepath
+  - time >= 1.8 && < 1.10
   - optparse-applicative
   - regex-applicative
 
