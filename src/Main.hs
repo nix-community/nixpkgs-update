@@ -1,21 +1,38 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+import Control.Applicative ((<|>), (<**>))
 import Control.Exception
 import qualified Data.Text as T
 import Shelly
 import Prelude hiding (log)
-import Utils (Options(..), Version, ExitCode(..), setupNixpkgs, parseUpdates, tRead, canFail)
+import Utils (Options(..))
 import Data.Text (Text)
 import Data.Maybe (isJust)
-import Update (updatePackage)
+import DeleteMerged (deleteMerged)
+import Update (updateAll)
 import Data.Semigroup ((<>))
+import qualified Options.Applicative as Opt
+
 default (T.Text)
 
 
-log' logFile msg = do
-    runDate <- cmd "date" "-Iseconds"
-    appendfile logFile (runDate <> msg)
+data Mode =
+    Update
+    | DeleteMerged
+
+
+modeParser :: Opt.Parser Mode
+modeParser =
+    Opt.flag' Update (Opt.long "update" <> Opt.help "Update packages (default mode)" )
+    <|> Opt.flag' DeleteMerged ( Opt.long "delete-merged" <> Opt.help "Delete branches that were already merged" )
+
+
+programInfo :: Opt.ParserInfo Mode
+programInfo = Opt.info (modeParser <**> Opt.helper)
+    (Opt.fullDesc
+    <> Opt.progDesc "Update packages in nixpkgs repository"
+    <> Opt.header "nixpkgs-update" )
 
 
 makeOptions :: Sh Options
@@ -32,45 +49,12 @@ setUpEnvironment options = do
 
 main :: IO ()
 main = shelly $ do
+    mode <- liftIO $ Opt.execParser programInfo
+
     options <- makeOptions
-
-    let logFile = workingDir options </> "ups.log"
-
-    mkdir_p (workingDir options)
-    touchfile logFile
 
     setUpEnvironment options
 
-    updates <- cmd "cat" "packages-to-update.txt"
-
-    setupNixpkgs
-
-    let log = log' logFile
-
-    appendfile logFile "\n\n"
-    log "New run of ups.sh"
-
-    loop options log (parseUpdates updates) 0
-
-loop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Int -> Sh ()
-loop _ log [] _ = log "ups.sh finished"
-loop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
-    log package
-
-    updated <- catch_sh
-      (updatePackage options package oldVersion newVersion okToPrAt)
-      (\ e ->
-         case e of
-           ExitCode 0 -> return True
-           ExitCode _ -> return False)
-
-    okToPrAt <-
-        if updated then do
-            log "SUCCESS"
-            tRead <$> cmd "date" "+%s" "-d" "+15 minutes"
-        else do
-            log "FAIL"
-            return okToPrAt
-
-    loop options log moreUpdates okToPrAt
-
+    case mode of
+        DeleteMerged -> deleteMerged
+        Update -> updateAll options
