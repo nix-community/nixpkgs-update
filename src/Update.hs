@@ -23,10 +23,10 @@ cleanup branchName = do
     cmd "git" "reset" "--hard" "upstream/master"
     canFail $ cmd "git" "branch" "-D" branchName
 
-errorExit' :: Text -> Text -> Sh a
-errorExit' branchName message = do
+errorExit' :: (Text -> Sh ()) -> Text -> Text -> Sh a
+errorExit' log branchName message = do
     cleanup branchName
-    echo $ "$(date -Iseconds) " <> message
+    log message
     throw (ExitCode 1)
 
 isOnBlackList :: (Text -> Sh Text) -> Text -> Sh Text
@@ -64,8 +64,8 @@ push branchName options =
 
 
 log' logFile msg = do
-    runDate <- cmd "date" "-Iseconds"
-    appendfile logFile (runDate <> msg)
+    runDate <- T.strip <$> cmd "date" "-Iseconds"
+    appendfile logFile (runDate <> " " <> msg <> "\n")
 
 
 updateAll :: Options -> Sh ()
@@ -91,7 +91,7 @@ updateLoop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrA
     log package
 
     updated <- catch_sh
-      (updatePackage options package oldVersion newVersion okToPrAt)
+      (updatePackage options log package oldVersion newVersion okToPrAt)
       (\ e ->
          case e of
            ExitCode 0 -> return True
@@ -109,15 +109,15 @@ updateLoop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrA
 
 
 
-updatePackage :: Options -> Text -> Version -> Version -> Int -> Sh Bool
-updatePackage options packageName oldVersion newVersion okToPrAt = do
+updatePackage :: Options -> (Text -> Sh ()) -> Text -> Version -> Version -> Int -> Sh Bool
+updatePackage options log packageName oldVersion newVersion okToPrAt = do
     nixpkgsPath <- setupNixpkgs
 
     setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
 
     let branchName = "auto-update/" <> packageName
 
-    let errorExit = errorExit' branchName
+    let errorExit = errorExit' log branchName
 
     versionComparison <- T.strip <$> cmd "nix" "eval" "-f" "." ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <> "\")")
 
