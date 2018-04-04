@@ -11,7 +11,7 @@ import Control.Applicative (many)
 import Data.Text (Text)
 import Data.Char (isSpace)
 import Data.Maybe (isJust)
-import Utils (Version, canFail, succeded)
+import Utils (Options(..), Version, canFail, succeded)
 import Data.Semigroup ((<>))
 import Shelly
 import qualified Text.Regex.Applicative as RE
@@ -53,10 +53,11 @@ checkBinary addToReport expectedVersion program = do
     checkVersionType addToReport expectedVersion program "help"
 
 
-checkResult :: FilePath -> Version -> Sh Text
-checkResult resultPath expectedVersion = do
+checkResult :: Options -> FilePath -> Version -> Sh Text
+checkResult options resultPath expectedVersion = do
     home <- get_env_text "home"
-    let logFile = home </> ".nix-update/check-result-log.tmp"
+
+    let logFile = workingDir options </> "check-result-log.tmp"
 
     setenv "EDITOR" "echo"
 

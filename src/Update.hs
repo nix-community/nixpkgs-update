@@ -244,7 +244,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         result <- fromText <$> (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin") `orElse`
             errorExit "Could not find result link."
 
-        resultCheckReport <- checkResult result newVersion
+        resultCheckReport <- checkResult options result newVersion
 
         hasMaintainers <- const True <$> nixEval ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers") `orElse` return False
         maintainers <- if hasMaintainers then rawEval ("let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addat = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addat (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers)))") else return ""

@@ -37,7 +37,7 @@ programInfo = Opt.info (modeParser <**> Opt.helper)
 makeOptions :: Sh Options
 makeOptions = do
     dryRun <- isJust <$> get_env "DRY_RUN"
-    workingDir <- (</> ".nix-update") <$> get_env_text "HOME"
+    workingDir <- (</> ".nixpkgs-update") <$> get_env_text "HOME"
     githubToken <- cmd "cat" "github_token.txt"
     return $ Options dryRun workingDir githubToken
 

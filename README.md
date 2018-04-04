@@ -16,7 +16,7 @@ Scripts to try to update nixpkgs packages. Uses `hub` to automatically make PRs.
     git clone https://github.com/ryantm/repology-api.git && cd repology-api
     nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > ../packages-to-update.txt
     ```
-3. Return back `cd ..` and run the tool `result/bin/nix-update`
+3. Return back `cd ..` and run the tool `result/bin/nixpkgs-update`
 
 # Prior work
 

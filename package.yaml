@@ -1,4 +1,4 @@
-name: nix-update
+name: nixpkgs-update
 version: 0.2.0
 synopsis: Tool for automatic updating of nixpkgs repository
 homepage: https://github.com/ryantm/nixpkgs-update#readme
@@ -19,7 +19,7 @@ dependencies:
   - regex-applicative
 
 executables:
-  nix-update:
+  nixpkgs-update:
     source-dirs: src
     main: Main.hs
 
