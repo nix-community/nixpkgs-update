@@ -17,6 +17,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import Shelly
+import System.Directory (getModificationTime)
 import Utils (ExitCode(..), Options(..), Version, canFail, checkAttrPathVersion, orElse, parseUpdates, setupNixpkgs, tRead)
 
 default (T.Text)
@@ -154,8 +155,8 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
     forM_ nameBlackList $ \(isBlacklisted, message) -> do
         when (isBlacklisted packageName) $ errorExit message
 
-    oneHourAgo <- cmd "date" "+%s" "-d" "-1 hour"
-    fetchedLast <- cmd "stat" "-c" "%Y" ".git/FETCH_HEAD"
+    oneHourAgo <- addUTCTime (fromInteger $ - 60 * 60) <$> liftIO getCurrentTime
+    fetchedLast <- liftIO $ getModificationTime ".git/FETCH_HEAD"
     when (fetchedLast < oneHourAgo) $ do
         canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin"
 
