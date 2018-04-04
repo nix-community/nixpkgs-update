@@ -179,7 +179,10 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
     derivationFile <- fromText . T.strip <$> cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
 
-    flip finally_sh (cleanup branchName) $ do
+    flip catchany_sh (\ e -> do
+                         cleanup branchName
+                         errorExit (T.pack (show e))
+                     ) $ do
         numberOfFetchers <- tRead <$> canFail (cmd "grep" "-c" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile)
         unless ((numberOfFetchers :: Int) <= 1) $ do
             errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
