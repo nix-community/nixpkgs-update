@@ -82,10 +82,7 @@ rawEval' errorExit expr =
 
 push :: Text -> Options -> Sh ()
 push branchName options =
-    if dryRun options then
-        return ()
-    else
-        cmd "git" "push" "--set-upstream" "origin" branchName "--force"
+    cmd "git" "push" (if dryRun options then "--dry-run" else "") "--set-upstream" "origin" branchName "--force"
 
 log' logFile msg = do
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
