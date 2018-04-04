@@ -160,7 +160,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
     cmd "git" "reset" "--hard"
     cmd "git" "clean" "-fd"
-    cmd "git" "checkout" "master"
+    cmd "git" "checkout" "-B" "master" "upstream/master"
     cmd "git" "reset" "--hard" "upstream/master"
     cmd "git" "clean" "-fd"
 
