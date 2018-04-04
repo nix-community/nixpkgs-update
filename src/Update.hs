@@ -213,12 +213,12 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         oldHash <- rawEval ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") `orElse`
             errorExit ("Could not find old output hash at " <> attrPath <> ".src.drvAttrs.outputHash.")
 
-        oldSrcUrl <- rawEval ("let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <> ".src.drvAttrs.urls 0)")
+        oldSrcUrl <- rawEval ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <> ".src.drvAttrs.urls 0)")
 
         cmd "sed" "-i" ("s/" <> (T.replace "." "\\." oldVersion) <> "/" <> newVersion <> "/g") derivationFile `orElse`
             errorExit "Could not replace oldVersion with newVersion."
 
-        newSrcUrl <- rawEval ("let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <> ".src.drvAttrs.urls 0")
+        newSrcUrl <- rawEval ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <> ".src.drvAttrs.urls 0)")
 
         when (oldSrcUrl == newSrcUrl) $ do
             errorExit "Source url did not change."
@@ -244,8 +244,8 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
         resultCheckReport <- checkResult options result newVersion
 
-        hasMaintainers <- const True <$> nixEval ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers") `orElse` return False
-        maintainers <- if hasMaintainers then rawEval ("let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addat = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addat (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers)))") else return ""
+        hasMaintainers <- const True <$> nixEval ("(let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers)") `orElse` return False
+        maintainers <- if hasMaintainers then rawEval ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers))))") else return ""
 
         let maintainersCc = if not (T.null maintainers) then "\n\ncc " <> maintainers <> " for review" else ""
 
@@ -265,7 +265,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         -- Try to push it three times
         push branchName options `orElse` push branchName options `orElse` push branchName options
 
-        isBroken <- nixEval ("let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.broken or false")
+        isBroken <- nixEval ("(let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.broken or false)")
         let brokenWarning = if isBroken == "true" then "" else "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
 
         let prMessage = commitMessage <> brokenWarning <> maintainersCc
