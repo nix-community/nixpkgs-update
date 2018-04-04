@@ -42,8 +42,6 @@ setupNixpkgs = do
         cd nixpkgsPath
         cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
         cmd "git" "fetch" "upstream"
-        cmd "git" "fetch" "origin" "staging"
-        cmd "git" "fetch" "upstream" "staging"
 
     cd nixpkgsPath
 
