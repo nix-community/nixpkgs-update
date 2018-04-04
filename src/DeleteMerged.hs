@@ -1,19 +1,20 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module DeleteMerged (deleteMerged) where
+module DeleteMerged
+    ( deleteMerged
+    ) where
 
-import Data.Function ((&))
-import qualified Data.Text as T
 import Control.Monad (forM_)
+import Data.Function ((&))
 import Data.Maybe (mapMaybe)
-import Utils (setupNixpkgs)
 import Data.Semigroup ((<>))
+import qualified Data.Text as T
 import Shelly
+import Utils (setupNixpkgs)
 
 default (T.Text)
-
 
 deleteMerged :: Sh ()
 deleteMerged = do
@@ -34,4 +35,3 @@ deleteMerged = do
     let mergedAutoUpdateBranches = mergedBranches & filter ("auto-update/" `T.isInfixOf`)
     forM_ mergedAutoUpdateBranches $ \branch -> do
         cmd "git" "branch" "-d" branch
-

@@ -1,27 +1,28 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Clean (fixSrcUrl) where
+module Clean
+    ( fixSrcUrl
+    ) where
 
 import Control.Applicative ((<|>), some)
-import Data.Function ((&))
-import qualified Data.Text as T
 import Control.Monad (forM_)
+import Data.Function ((&))
 import Data.Maybe (isNothing)
-import Data.Text (Text)
-import Utils (Version, succeded, setupNixpkgs)
 import Data.Semigroup ((<>))
+import qualified Data.Text as T
+import Data.Text (Text)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
+import Utils (Version, setupNixpkgs, succeded)
 
 default (T.Text)
 
 -- | Construct regex: ${version}[^/]+\.(tar|zip)
 archiveRegex :: Version -> RE Char ()
 archiveRegex version = (\_ _ _ _ -> ()) <$> RE.string (T.unpack version) <*> some (RE.psym (/= '/')) <*> RE.sym '.' <*> (RE.string "tar" <|> RE.string "zip")
-
 
 fixSrcUrl :: Text -> Version -> Version -> Text -> Text -> Text -> Sh Text
 fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = do

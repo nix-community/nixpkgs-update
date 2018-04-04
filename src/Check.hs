@@ -1,24 +1,25 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Check (checkResult) where
+module Check
+    ( checkResult
+    ) where
 
-import Prelude hiding (FilePath)
-import qualified Data.Text as T
-import Control.Monad (forM_)
 import Control.Applicative (many)
-import Data.Text (Text)
+import Control.Monad (forM_)
 import Data.Char (isSpace)
 import Data.Maybe (isJust)
-import Utils (Options(..), Version, canFail, succeded)
 import Data.Semigroup ((<>))
+import qualified Data.Text as T
+import Data.Text (Text)
+import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
+import Utils (Options(..), Version, canFail, succeded)
 
 default (T.Text)
-
 
 checkBinaryHelp :: (Text -> Sh ()) -> FilePath -> Text -> Sh ()
 checkBinaryHelp addToReport program argument = do
@@ -29,14 +30,12 @@ checkBinaryHelp addToReport program argument = do
 versionRegex :: Text -> RE Char ()
 versionRegex version = (\_ _ _ _ -> ()) <$> many (RE.psym (/= '.')) <*> RE.string (T.unpack version) <*> many (RE.sym '.') <*> many (RE.psym isSpace)
 
-
 checkVersionType :: (Text -> Sh ()) -> Version -> FilePath -> Text -> Sh ()
 checkVersionType addToReport expectedVersion program argument = do
     stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
     stderr <- lastStderr
     when (isJust $ (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~ versionRegex expectedVersion) $ do
         addToReport $ "- ran ‘" <> toTextIgnore program <> " " <> argument <> "’ and found version " <> expectedVersion
-
 
 checkBinary :: (Text -> Sh ()) -> Version -> FilePath -> Sh ()
 checkBinary addToReport expectedVersion program = do
@@ -51,7 +50,6 @@ checkBinary addToReport expectedVersion program = do
     checkVersionType addToReport expectedVersion program "-h"
     checkVersionType addToReport expectedVersion program "--help"
     checkVersionType addToReport expectedVersion program "help"
-
 
 checkResult :: Options -> FilePath -> Version -> Sh Text
 checkResult options resultPath expectedVersion = do

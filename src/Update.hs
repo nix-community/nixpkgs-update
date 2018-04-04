@@ -1,19 +1,22 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Update (updateAll) where
+module Update
+    ( updateAll
+    ) where
 
+import Check (checkResult)
+import Clean (fixSrcUrl)
 import Control.Exception (throw)
 import Control.Monad (forM_)
+import Data.Maybe (fromMaybe)
+import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
-import Data.Maybe (fromMaybe)
 import Shelly
-import Clean (fixSrcUrl)
-import Check (checkResult)
-import Utils (Version, Options(..), ExitCode(..), canFail, orElse, parseUpdates, setupNixpkgs, tRead, checkAttrPathVersion)
-import Data.Semigroup ((<>))
+import Utils (ExitCode(..), Options(..), Version, canFail, checkAttrPathVersion, orElse, parseUpdates, setupNixpkgs, tRead)
+
 default (T.Text)
 
 cleanup :: Text -> Sh ()
@@ -31,49 +34,48 @@ errorExit' log branchName message = do
     throw (ExitCode 1)
 
 nameBlackList :: [(Text -> Bool, Text)]
-nameBlackList = [
-    (("jquery" `T.isInfixOf`), "this isn't a real package"),
-    (("google-cloud-sdk" `T.isInfixOf`), "complicated package"),
-    (("github-release" `T.isInfixOf`), "complicated package"),
-    (("fcitx" `T.isInfixOf`), "gets stuck in daemons"),
-    (("libxc" `T.isInfixOf`), "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821"),
-    (("perl" `T.isInfixOf`), "currently don't know how to update perl"),
-    (("python" `T.isInfixOf`), "currently don't know how to update python"),
-    (("cdrtools" `T.isInfixOf`), "We keep downgrading this by accident."),
-    (("gst" `T.isInfixOf`), "gstreamer plugins are kept in lockstep."),
-    (("electron" `T.isInfixOf`), "multi-platform srcs in file."),
-    (("linux-headers" `T.isInfixOf`), "Not updated until many packages depend on it (part of stdenv)."),
-    (("mpich" `T.isInfixOf`), "Reported on repology.org as mischaracterized newest version"),
-    (("xfce" `T.isInfixOf`), "@volth asked to not update xfce"),
-    (("cmake-cursesUI-qt4UI" `T.isInfixOf`), "Derivation file is complicated"),
-    (("varnish" `T.isInfixOf`), "Temporary blacklist because of multiple versions and slow nixpkgs update"),
-    (("iana-etc" `T.isInfixOf`), "@mic92 takes care of this package"),
-    ((== "isl"), "multi-version long building package"),
-    ((== "tokei"), "got stuck forever building with no CPU usage")
-  ]
-
+nameBlackList =
+    [ (("jquery" `T.isInfixOf`), "this isn't a real package")
+    , (("google-cloud-sdk" `T.isInfixOf`), "complicated package")
+    , (("github-release" `T.isInfixOf`), "complicated package")
+    , (("fcitx" `T.isInfixOf`), "gets stuck in daemons")
+    , (("libxc" `T.isInfixOf`), "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821")
+    , (("perl" `T.isInfixOf`), "currently don't know how to update perl")
+    , (("python" `T.isInfixOf`), "currently don't know how to update python")
+    , (("cdrtools" `T.isInfixOf`), "We keep downgrading this by accident.")
+    , (("gst" `T.isInfixOf`), "gstreamer plugins are kept in lockstep.")
+    , (("electron" `T.isInfixOf`), "multi-platform srcs in file.")
+    , (("linux-headers" `T.isInfixOf`), "Not updated until many packages depend on it (part of stdenv).")
+    , (("mpich" `T.isInfixOf`), "Reported on repology.org as mischaracterized newest version")
+    , (("xfce" `T.isInfixOf`), "@volth asked to not update xfce")
+    , (("cmake-cursesUI-qt4UI" `T.isInfixOf`), "Derivation file is complicated")
+    , (("varnish" `T.isInfixOf`), "Temporary blacklist because of multiple versions and slow nixpkgs update")
+    , (("iana-etc" `T.isInfixOf`), "@mic92 takes care of this package")
+    , ((== "isl"), "multi-version long building package")
+    , ((== "tokei"), "got stuck forever building with no CPU usage")
+    ]
 
 contentBlacklist :: [(Text, Text)]
-contentBlacklist = [
-    ("DO NOT EDIT", "Derivation file says not to edit it."),
+contentBlacklist =
+    [ ("DO NOT EDIT", "Derivation file says not to edit it.")
     -- Skip packages that have special builders
-    ("buildGoPackage", "Derivation contains buildGoPackage."),
-    ("buildRustCrate", "Derivation contains buildRustCrate."),
-    ("buildPythonPackage", "Derivation contains buildPythonPackage."),
-    ("buildRubyGem", "Derivation contains buildRubyGem."),
-    ("bundlerEnv", "Derivation contains bundlerEnv."),
-    ("buildPerlPackage", "Derivation contains buildPerlPackage.")
-  ]
-
+    , ("buildGoPackage", "Derivation contains buildGoPackage.")
+    , ("buildRustCrate", "Derivation contains buildRustCrate.")
+    , ("buildPythonPackage", "Derivation contains buildPythonPackage.")
+    , ("buildRubyGem", "Derivation contains buildRubyGem.")
+    , ("bundlerEnv", "Derivation contains bundlerEnv.")
+    , ("buildPerlPackage", "Derivation contains buildPerlPackage.")
+    ]
 
 nixEval' :: (Text -> Sh Text) -> Text -> Sh Text
-nixEval' errorExit expr = (T.strip <$> cmd "nix" "eval" "-f" "." expr) `orElse`
-  errorExit ("nix eval failed for " <> expr)
+nixEval' errorExit expr =
+    (T.strip <$> cmd "nix" "eval" "-f" "." expr) `orElse`
+        errorExit ("nix eval failed for " <> expr)
 
 rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
-rawEval' errorExit expr = (T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr) `orElse`
-  errorExit ("raw nix eval failed for " <> expr)
-
+rawEval' errorExit expr =
+    (T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr) `orElse`
+        errorExit ("raw nix eval failed for " <> expr)
 
 push :: Text -> Options -> Sh ()
 push branchName options =
@@ -82,11 +84,9 @@ push branchName options =
     else
         cmd "git" "push" "--set-upstream" "origin" branchName "--force"
 
-
 log' logFile msg = do
     runDate <- T.strip <$> cmd "date" "-Iseconds"
     appendfile logFile (runDate <> " " <> msg <> "\n")
-
 
 updateAll :: Options -> Sh ()
 updateAll options = do
@@ -104,10 +104,9 @@ updateAll options = do
 
     updateLoop options log (parseUpdates updates) 0
 
-
 updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Int -> Sh ()
 updateLoop _ log [] _ = log "ups.sh finished"
-updateLoop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrAt = do
+updateLoop options log ((package, oldVersion, newVersion):moreUpdates) okToPrAt = do
     log package
 
     updated <- catch_sh
@@ -126,8 +125,6 @@ updateLoop options log ((package, oldVersion, newVersion) : moreUpdates) okToPrA
             return okToPrAt
 
     updateLoop options log moreUpdates okToPrAt
-
-
 
 updatePackage :: Options -> (Text -> Sh ()) -> Text -> Version -> Version -> Int -> Sh Bool
 updatePackage options log packageName oldVersion newVersion okToPrAt = do
@@ -179,7 +176,6 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
     -- https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646
     when (T.isPrefixOf "lua" attrPath) $ do
         errorExit "Packages for lua are currently blacklisted."
-
 
     derivationFile <- T.strip <$> cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
 

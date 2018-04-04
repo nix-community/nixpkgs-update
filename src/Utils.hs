@@ -1,24 +1,36 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module Utils (Options(..), Version, canFail, checkAttrPathVersion, orElse, setupNixpkgs, tRead, parseUpdates, succeded, ExitCode(..)) where
 
-import Prelude hiding (FilePath)
+module Utils
+    ( Options(..)
+    , Version
+    , canFail
+    , checkAttrPathVersion
+    , orElse
+    , setupNixpkgs
+    , tRead
+    , parseUpdates
+    , succeded
+    , ExitCode(..)
+    ) where
+
 import Control.Exception (Exception)
-import Data.Text (Text)
 import Data.Semigroup ((<>))
+import Data.Text (Text)
 import qualified Data.Text as T
+import Prelude hiding (FilePath)
 import Shelly
 
 default (T.Text)
 
 type Version = Text
 
-data Options = Options {
-    dryRun :: Bool,
-    workingDir :: FilePath,
-    githubToken :: Text
-}
+data Options = Options
+    { dryRun :: Bool
+    , workingDir :: FilePath
+    , githubToken :: Text
+    }
 
 setupNixpkgs :: Sh FilePath
 setupNixpkgs = do
@@ -37,17 +49,14 @@ setupNixpkgs = do
 
     return nixpkgsPath
 
-
 canFail :: Sh a -> Sh a
 canFail = errExit False
-
 
 succeded :: Sh a -> Sh Bool
 succeded s = do
     canFail s
     status <- lastExitCode
     return (status == 0)
-
 
 orElse :: Sh a -> Sh a -> Sh a
 orElse a b = do
@@ -60,7 +69,6 @@ orElse a b = do
 
 infixl 3 `orElse`
 
-
 parseUpdates :: Text -> [(Text, Version, Version)]
 parseUpdates = map (toTriple . T.words) . T.lines where
     toTriple :: [Text] -> (Text, Version, Version)
@@ -70,14 +78,11 @@ parseUpdates = map (toTriple . T.words) . T.lines where
 tRead ::  Read a => Text -> a
 tRead = read . T.unpack
 
-
 isNonEmptyPrefixOf :: Text -> Text -> Bool
 isNonEmptyPrefixOf prefix string = not (T.null prefix) && prefix `T.isPrefixOf` string
 
-
 notElemOf :: (Eq a, Foldable t) => t a -> a -> Bool
 notElemOf options = not . flip elem options
-
 
 -- | Similar to @breakOn@, but will not keep the pattern at the beginning of the suffix.
 --
@@ -91,7 +96,6 @@ clearBreakOn boundary string =
         (prefix, suffix) = T.breakOn boundary string
     in
         if T.null suffix then (prefix, suffix) else (prefix, T.drop (T.length boundary) suffix)
-
 
 -- | Check if attribute path is not pinned to a certain version.
 -- If a derivation is expected to stay at certain version branch,
@@ -148,5 +152,8 @@ checkAttrPathVersion attrPath newVersion =
                 in
                     attrVersionPart `isNonEmptyPrefixOf` noPeriodNewVersion
 
-data ExitCode = ExitCode Int deriving (Show)
+data ExitCode =
+    ExitCode Int
+    deriving (Show)
+
 instance Exception ExitCode
