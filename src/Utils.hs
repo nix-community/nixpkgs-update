@@ -78,9 +78,6 @@ parseUpdates = map (toTriple . T.words) . T.lines where
 tRead ::  Read a => Text -> a
 tRead = read . T.unpack
 
-isNonEmptyPrefixOf :: Text -> Text -> Bool
-isNonEmptyPrefixOf prefix string = not (T.null prefix) && prefix `T.isPrefixOf` string
-
 notElemOf :: (Eq a, Foldable t) => t a -> a -> Bool
 notElemOf options = not . flip elem options
 
@@ -122,35 +119,25 @@ checkAttrPathVersion attrPath newVersion =
                 let
                     (name, version) = clearBreakOn "_" attrPath
                 in
-                    if T.any (notElemOf ('_' : ['0'..'9'])) version then "" else version
+                    if T.any (notElemOf ('_' : ['0'..'9'])) version then Nothing else Just version
+        -- Check assuming version part has underscore separators
+            attrVersionPeriods = T.replace "_" "." <$> attrVersionPart
         in
-            if T.null attrVersionPart then
-                -- If we don't find version numbers in the attr path, exit success.
-                True
-            else
-                -- Check assuming version part has underscore separators
-                let
-                    attrVersionPeriods = T.replace "_" "." attrVersionPart
-                in
-                    attrVersionPeriods `isNonEmptyPrefixOf` newVersion
+        -- If we don't find version numbers in the attr path, exit success.
+            maybe True (`T.isPrefixOf` newVersion) attrVersionPeriods
     else -- other path
         let
             attrVersionPart =
                 let
                     version = T.dropWhile (notElemOf ['0'..'9']) attrPath
                 in
-                    if T.any (notElemOf ['0'..'9']) version then "" else version
+                    if T.any (notElemOf ['0'..'9']) version then Nothing else Just version
+        -- Check assuming version part is the prefix of the version with dots
+        -- removed. For example, 91 => "9.1"
+            noPeriodNewVersion = T.replace "." "" newVersion
         in
-            if T.null attrVersionPart then
-                -- If we don't find version numbers in the attr path, exit success.
-                True
-            else
-                -- Check assuming version part is the prefix of the version with dots
-                -- removed. For example, 91 => "9.1"
-                let
-                    noPeriodNewVersion = T.replace "." "" newVersion
-                in
-                    attrVersionPart `isNonEmptyPrefixOf` noPeriodNewVersion
+            -- If we don't find version numbers in the attr path, exit success.
+            maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 
 data ExitCode =
     ExitCode Int
