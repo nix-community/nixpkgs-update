@@ -44,7 +44,7 @@ setUpEnvironment options = do
     setenv "GITHUB_TOKEN" (githubToken options)
 
 main :: IO ()
-main = shelly $ do
+main = shelly $ verbosely $ do
     mode <- liftIO $ Opt.execParser programInfo
 
     options <- makeOptions
