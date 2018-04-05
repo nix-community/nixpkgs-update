@@ -250,8 +250,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
         resultCheckReport <- sub (checkResult options result newVersion)
 
-        hasMaintainers <- const True <$> nixEval ("(let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.maintainers)") `orElse` return False
-        maintainers <- if hasMaintainers then rawEval ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers))))") else return ""
+        maintainers <- rawEval ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <> attrPath <> ".meta.maintainers or []))))")
 
         let maintainersCc = if not (T.null maintainers) then "\n\ncc " <> maintainers <> " for review" else ""
 

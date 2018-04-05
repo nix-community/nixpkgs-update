@@ -53,7 +53,7 @@ checkBinary addToReport expectedVersion program = do
 
 checkResult :: Options -> FilePath -> Version -> Sh Text
 checkResult options resultPath expectedVersion = do
-    home <- get_env_text "home"
+    home <- get_env_text "HOME"
 
     let logFile = workingDir options </> "check-result-log.tmp"
 
@@ -63,11 +63,18 @@ checkResult options resultPath expectedVersion = do
 
     let addToReport = appendfile logFile
 
-    tempdir <- fromText <$> cmd "mktemp" "-d"
+    tempdir <- fromText <$> T.strip <$> cmd "mktemp" "-d"
     chdir tempdir $ do
         rm_f logFile
 
-        binaries <- findWhen test_f (resultPath </> "bin")
+        let binaryDir = resultPath </> "bin"
+
+        binExists <- test_d binaryDir
+
+        binaries <- if binExists then
+                      findWhen test_f (resultPath </> "bin")
+                    else
+                      return []
 
         forM_ binaries $ \binary -> do
             checkBinary addToReport expectedVersion binary
