@@ -61,7 +61,7 @@ checkResult options resultPath expectedVersion = do
 
     setenv "HOME" "/homeless-shelter"
 
-    let addToReport = appendfile logFile
+    let addToReport = \input -> appendfile logFile (input <> "\n")
 
     tempdir <- fromText <$> T.strip <$> cmd "mktemp" "-d"
     chdir tempdir $ do
@@ -84,7 +84,7 @@ checkResult options resultPath expectedVersion = do
 
         canFail $ cmd "grep" "-r" expectedVersion resultPath
         whenM ((== 0) <$> lastExitCode) $ do
-            addToReport $ "- found " <> expectedVersion <> " with grep in " <> toTextIgnore resultPath <> "\n"
+            addToReport $ "- found " <> expectedVersion <> " with grep in " <> toTextIgnore resultPath
 
         whenM (null <$> findWhen (\path -> ((expectedVersion `T.isInfixOf` toTextIgnore path) &&) <$> test_f path) resultPath) $ do
             addToReport $ "- found " <> expectedVersion <> " in filename of file in " <> toTextIgnore resultPath
