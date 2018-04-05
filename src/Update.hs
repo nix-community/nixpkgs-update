@@ -193,7 +193,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
     flip catches_sh [ ShellyHandler ( \ ( ex :: ExitCode) -> throw ex)
                     , ShellyHandler ( \ ( ex :: SomeException) ->
                                         errorExit (T.pack (show ex))) ] $ do
-        numberOfFetchers <- tRead <$> canFail (cmd "grep" "-c" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile)
+        numberOfFetchers <- tRead <$> canFail (cmd "grep" "-Ec" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile)
         unless ((numberOfFetchers :: Int) <= 1) $ do
             errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
 
