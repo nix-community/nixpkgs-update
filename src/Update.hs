@@ -164,7 +164,10 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
     when (fetchedLast < oneHourAgo) $ do
         canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin"
 
-    remotes <- T.lines <$> cmd "git" "branch" "--remote"
+    remotes' <- T.lines <$> cmd "git" "branch" "--remote"
+
+    let remotes = T.strip <$> remotes'
+
     when (("origin/auto-update/" <> packageName) `elem` remotes) $ do
         errorExit "Update branch already on origin."
 
