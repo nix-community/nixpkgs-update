@@ -84,7 +84,7 @@ checkResult options resultPath expectedVersion = do
 
         canFail $ cmd "grep" "-r" expectedVersion resultPath
         whenM ((== 0) <$> lastExitCode) $ do
-            addToReport $ "- found " <> expectedVersion <> " with grep in " <> toTextIgnore resultPath
+            addToReport $ "- found " <> expectedVersion <> " with grep in " <> toTextIgnore resultPath <> "\n"
 
         whenM (null <$> findWhen (\path -> ((expectedVersion `T.isInfixOf` toTextIgnore path) &&) <$> test_f path) resultPath) $ do
             addToReport $ "- found " <> expectedVersion <> " in filename of file in " <> toTextIgnore resultPath
