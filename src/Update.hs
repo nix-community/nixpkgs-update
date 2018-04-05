@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -8,7 +9,7 @@ module Update
 
 import Check (checkResult)
 import Clean (fixSrcUrl)
-import Control.Exception (throw)
+import Control.Exception (throw, toException, SomeException)
 import Control.Monad (forM_)
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
@@ -182,10 +183,10 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
 
     derivationFile <- fromText . T.strip <$> cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse` errorExit "Couldn't find derivation file."
 
-    flip catchany_sh (\ e -> do
-                         cleanup branchName
-                         errorExit (T.pack (show e))
-                     ) $ do
+
+    flip catches_sh [ ShellyHandler ( \ ( ex :: ExitCode) -> throw ex)
+                    , ShellyHandler ( \ ( ex :: SomeException) ->
+                                        errorExit (T.pack (show ex))) ] $ do
         numberOfFetchers <- tRead <$> canFail (cmd "grep" "-c" "fetchurl {|fetchgit {|fetchFromGitHub {" derivationFile)
         unless ((numberOfFetchers :: Int) <= 1) $ do
             errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
