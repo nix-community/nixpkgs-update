@@ -278,7 +278,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         push branchName options `orElse` push branchName options `orElse` push branchName options
 
         isBroken <- nixEval ("(let pkgs = import ./. {}; in pkgs." <> attrPath <> ".meta.broken or false)")
-        let brokenWarning = if isBroken == "true" then "" else "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
+        let brokenWarning = if isBroken == "true" then "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute." else ""
 
         let prMessage = commitMessage <> brokenWarning <> maintainersCc
 
