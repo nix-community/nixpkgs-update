@@ -32,6 +32,6 @@ deleteMerged = do
         cmd "git" "push" "origin" (":" <> branch)
 
     mergedBranches <- T.lines <$> cmd "git" "branch" "-a" "--merged"
-    let mergedAutoUpdateBranches = mergedBranches & filter ("auto-update/" `T.isInfixOf`)
+    let mergedAutoUpdateBranches = mergedBranches & filter ("auto-update/" `T.isInfixOf`) & map T.strip
     forM_ mergedAutoUpdateBranches $ \branch -> do
         cmd "git" "branch" "-d" branch
