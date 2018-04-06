@@ -168,6 +168,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
   let errorExit = errorExit' log branchName
   let nixEval = nixEval' errorExit
   let rawEval = rawEval' errorExit
+  -- Check whether requested version is newer than the current one
   versionComparison <-
     T.strip <$>
     cmd
@@ -182,9 +183,10 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
       newVersion <> " is not newer than " <> oldVersion <>
       " according to Nix; versionComparison: " <>
       versionComparison
-    -- Package blacklist
+  -- Check whether package name is on blacklist
   forM_ nameBlackList $ \(isBlacklisted, message) -> do
     when (isBlacklisted packageName) $ errorExit message
+  -- Do not fetch remote branches more than once a hour
   oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> liftIO getCurrentTime
   fetchedLast <- liftIO $ getModificationTime ".git/FETCH_HEAD"
   when (fetchedLast < oneHourAgo) $ do
@@ -220,8 +222,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
     fromText . T.strip <$>
     cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse`
     errorExit "Couldn't find derivation file."
-  flip
-    catches_sh
+  (flip catches_sh)
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
@@ -312,8 +313,7 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
             then "\n\ncc " <> maintainers <> " for review"
             else ""
     cmd "git" "diff"
-    let commitMessage :: Text
-        commitMessage =
+    let commitMessage =
           [text|
                 $attrPath: $oldVersion -> $newVersion
 

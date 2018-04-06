@@ -65,6 +65,8 @@ fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = 
        "\";|")
       derivationFile
     cmd "grep" "-q" ("version = \"" <> newVersion <> "\";") derivationFile
+  -- Obtain download URLs from repology
+  -- TODO: use repology-api package
   downloads <-
     cmd "curl" ("https://repology.org/api/v1/metapackage/" <> packageName) -|-
     cmd "jq" ".[].downloads | select(values) | .[]"
