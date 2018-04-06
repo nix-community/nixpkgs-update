@@ -239,9 +239,9 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
         when (oldSrcUrl == newSrcUrl) $ do
             errorExit "Source url did not change."
 
-        newHash <- T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src") `orElse`
-            fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl `orElse`
-            errorExit "Could not prefetch new version URL."
+        newHash <- canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
+                   fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl `orElse`
+                   errorExit "Could not prefetch new version URL."
 
         when (oldHash == newHash) $ do
             errorExit "Hashes equal; no update necessary"

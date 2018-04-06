@@ -20,6 +20,8 @@ dependencies:
   - shelly >= 1.6 && < 1.8
   - text
   - time >= 1.8 && < 1.10
+  - errors
+  - mtl
 
 executables:
   nixpkgs-update:
