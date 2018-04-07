@@ -227,6 +227,7 @@ These checks were done:
 - built on NixOS
 $CHECK_RESULT"
 
+nox-review wip
 git commit -am "$COMMIT_MESSAGE"
 
 # Try to push it three times
