@@ -123,45 +123,27 @@ updateAll options = do
   let log = log' logFile
   appendfile logFile "\n\n"
   log "New run of ups.sh"
-  currentTime <- liftIO getCurrentTime
-  updateLoop options log (parseUpdates updates) currentTime
+  updateLoop options log (parseUpdates updates)
 
-updateLoop ::
-     Options
-  -> (Text -> Sh ())
-  -> [(Text, Version, Version)]
-  -> UTCTime
-  -> Sh ()
-updateLoop _ log [] _ = log "ups.sh finished"
-updateLoop options log ((package, oldVersion, newVersion):moreUpdates) okToPrAt = do
+updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Sh ()
+updateLoop _ log [] = log "ups.sh finished"
+updateLoop options log ((package, oldVersion, newVersion):moreUpdates) = do
   log package
   updated <-
     catch_sh
-      (updatePackage options log package oldVersion newVersion okToPrAt)
+      (updatePackage options log package oldVersion newVersion)
       (\e ->
          case e of
            ExitCode 0 -> return True
            ExitCode _ -> return False)
-  okToPrAt <-
-    if updated
-      then do
-        log "SUCCESS"
-            -- current time + 15 minutes
-        addUTCTime (fromInteger $ 15 * 60) <$> liftIO getCurrentTime
-      else do
-        log "FAIL"
-        return okToPrAt
-  updateLoop options log moreUpdates okToPrAt
+  if updated
+    then log "SUCCESS"
+    else log "FAIL"
+  updateLoop options log moreUpdates
 
 updatePackage ::
-     Options
-  -> (Text -> Sh ())
-  -> Text
-  -> Version
-  -> Version
-  -> UTCTime
-  -> Sh Bool
-updatePackage options log packageName oldVersion newVersion okToPrAt = do
+     Options -> (Text -> Sh ()) -> Text -> Version -> Version -> Sh Bool
+updatePackage options log packageName oldVersion newVersion = do
   nixpkgsPath <- setupNixpkgs
   setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
   let branchName = "auto-update/" <> packageName
@@ -339,17 +321,22 @@ updatePackage options log packageName oldVersion newVersion okToPrAt = do
             then "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
             else ""
     let prMessage = commitMessage <> brokenWarning <> maintainersCc
-    unless (dryRun options) $ do
-      current <- liftIO getCurrentTime
-      when (current < okToPrAt) $ do
-        let sleepSeconds = diffUTCTime okToPrAt current
-        echo $ "Sleeping " <> T.pack (show sleepSeconds) <> " seconds."
-                -- TODO: use nominalDiffTimeToSeconds once time-1.9.1 is available
-        sleep (fromEnum sleepSeconds)
-      cmd "hub" "pull-request" "-m" prMessage
+    untilOfBorgFree
+    cmd "hub" "pull-request" "-m" prMessage
     cmd "git" "reset" "--hard"
     cmd "git" "clean" "-fd"
     cmd "git" "checkout" "-B" "master" "upstream/master"
     cmd "git" "reset" "--hard"
     cmd "git" "clean" "-fd"
     return True
+
+untilOfBorgFree :: Sh ()
+untilOfBorgFree = do
+  waiting :: Int <-
+    tRead <$>
+    canFail
+      (cmd "curl" "-s" "https://events.nix.ci/stats.php" -|-
+       cmd "jq" ".evaluator.messages.waiting")
+  when (waiting > 2) $ do
+    sleep 60
+    untilOfBorgFree

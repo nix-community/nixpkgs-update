@@ -66,7 +66,7 @@ fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = 
       derivationFile
     cmd "grep" "-q" ("version = \"" <> newVersion <> "\";") derivationFile
   downloads <-
-    cmd "curl" ("https://repology.org/api/v1/metapackage/" <> packageName) -|-
+    cmd "curl" "-s" ("https://repology.org/api/v1/metapackage/" <> packageName) -|-
     cmd "jq" ".[].downloads | select(values) | .[]"
   let filteredDownloads =
         downloads & T.lines &
