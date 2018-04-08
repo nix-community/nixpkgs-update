@@ -44,6 +44,7 @@ makeOptions = do
   githubToken <- T.strip <$> readfile "github_token.txt"
   return $ Options dryRun workingDir githubToken
 
+-- | Set environment variables needed by various programs
 setUpEnvironment :: Options -> Sh ()
 setUpEnvironment options = do
   setenv "PAGER" ""

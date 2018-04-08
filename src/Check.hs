@@ -21,6 +21,9 @@ import Utils (Options(..), Version, canFail, succeded)
 
 default (T.Text)
 
+-- | Run a program with a provided argument and report whether
+-- it exits successfully
+-- Failure hints that the argument is not supported.
 checkBinaryHelp :: (Text -> Sh ()) -> FilePath -> Text -> Sh ()
 checkBinaryHelp addToReport program argument = do
   whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $ do
@@ -35,6 +38,8 @@ versionRegex version =
   many (RE.sym '.') <*>
   many (RE.psym isSpace)
 
+-- | Run a program with provided argument and report whether the output
+-- mentions the expected version
 checkVersionType :: (Text -> Sh ()) -> Version -> FilePath -> Text -> Sh ()
 checkVersionType addToReport expectedVersion program argument = do
   stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
@@ -48,6 +53,8 @@ checkVersionType addToReport expectedVersion program argument = do
       "’ and found version " <>
       expectedVersion
 
+-- | Run a program with various version or help flags and report
+-- when they succeded
 checkBinary :: (Text -> Sh ()) -> Version -> FilePath -> Sh ()
 checkBinary addToReport expectedVersion program = do
   checkBinaryHelp addToReport program "-h"
@@ -67,8 +74,8 @@ checkResult options resultPath expectedVersion = do
   let logFile = workingDir options </> "check-result-log.tmp"
   setenv "EDITOR" "echo"
   setenv "HOME" "/homeless-shelter"
-  let addToReport = \input -> appendfile logFile (input <> "\n")
-  tempdir <- fromText <$> T.strip <$> cmd "mktemp" "-d"
+  let addToReport input = appendfile logFile (input <> "\n")
+  tempdir <- fromText . T.strip <$> cmd "mktemp" "-d"
   chdir tempdir $ do
     rm_f logFile
     let binaryDir = resultPath </> "bin"

@@ -16,6 +16,7 @@ import Utils (setupNixpkgs)
 
 default (T.Text)
 
+-- | Delete the already merged branches both from local and remote repository
 deleteMerged :: Sh ()
 deleteMerged = do
   setupNixpkgs
