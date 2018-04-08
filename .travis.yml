@@ -1,5 +1,2 @@
-language: bash
-before_install:
-  - wget -c https://goo.gl/ZzKHFv -O - | tar -xvJ -C /tmp/
-  - PATH="/tmp/shellcheck-latest:$PATH"
-script: shellcheck *.sh
+language: nix
+script:  nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix
