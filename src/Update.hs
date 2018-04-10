@@ -128,7 +128,7 @@ updateAll options = do
 updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Sh ()
 updateLoop _ log [] = log "ups.sh finished"
 updateLoop options log ((package, oldVersion, newVersion):moreUpdates) = do
-  log package
+  log (package <> " " <> oldVersion <> " -> " <> newVersion)
   updated <-
     catch_sh
       (updatePackage options log package oldVersion newVersion)
