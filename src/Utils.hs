@@ -63,14 +63,13 @@ orElse a b = do
 
 infixl 3 `orElse`
 
-parseUpdates :: Text -> [(Text, Version, Version)]
+parseUpdates :: Text -> [Either Text (Text, Version, Version)]
 parseUpdates = map (toTriple . T.words) . T.lines
   where
-    toTriple :: [Text] -> (Text, Version, Version)
+    toTriple :: [Text] -> Either Text (Text, Version, Version)
     toTriple [package, oldVersion, newVersion] =
-      (package, oldVersion, newVersion)
-    toTriple line =
-      error $ T.unpack ("Unable to parse update: " <> T.unwords line)
+      Right (package, oldVersion, newVersion)
+    toTriple line = Left $ "Unable to parse update: " <> T.unwords line
 
 tRead :: Read a => Text -> a
 tRead = read . T.unpack

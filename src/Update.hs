@@ -125,9 +125,16 @@ updateAll options = do
   log "New run of ups.sh"
   updateLoop options log (parseUpdates updates)
 
-updateLoop :: Options -> (Text -> Sh ()) -> [(Text, Version, Version)] -> Sh ()
+updateLoop ::
+     Options
+  -> (Text -> Sh ())
+  -> [Either Text (Text, Version, Version)]
+  -> Sh ()
 updateLoop _ log [] = log "ups.sh finished"
-updateLoop options log ((package, oldVersion, newVersion):moreUpdates) = do
+updateLoop options log ((Left e):moreUpdates) = do
+  log e
+  updateLoop options log moreUpdates
+updateLoop options log ((Right (package, oldVersion, newVersion)):moreUpdates) = do
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
   updated <-
     catch_sh
