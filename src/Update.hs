@@ -37,11 +37,22 @@ default (T.Text)
 
 cleanup :: Text -> Sh ()
 cleanup branchName = do
+  cleanAndResetToMaster
+  canFail $ cmd "git" "branch" "-D" branchName
+
+cleanAndResetTo :: Text -> Text -> Sh ()
+cleanAndResetTo branch target = do
   cmd "git" "reset" "--hard"
   cmd "git" "clean" "-fd"
-  cmd "git" "checkout" "-B" "master" "upstream/master"
-  cmd "git" "reset" "--hard" "upstream/master"
-  canFail $ cmd "git" "branch" "-D" branchName
+  cmd "git" "checkout" "-B" branch target
+  cmd "git" "reset" "--hard" target
+  cmd "git" "clean" "-fd"
+
+cleanAndResetToMaster :: Sh ()
+cleanAndResetToMaster = cleanAndResetTo "master" "upstream/master"
+
+cleanAndResetToStaging :: Sh ()
+cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
 
 errorExit' :: (Text -> Sh ()) -> Text -> Text -> Sh a
 errorExit' log branchName message = do
@@ -159,12 +170,7 @@ updatePackage options log packageName oldVersion newVersion = do
   let rawEval = rawEval' errorExit
   -- Check whether requested version is newer than the current one
   versionComparison <-
-    T.strip <$>
-    cmd
-      "nix"
-      "eval"
-      "-f"
-      "."
+    nixEval
       ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <>
        "\")")
   unless (versionComparison == "1") $ do
@@ -183,11 +189,7 @@ updatePackage options log packageName oldVersion newVersion = do
   remotes <- map T.strip . T.lines <$> cmd "git" "branch" "--remote"
   when (("origin/auto-update/" <> packageName) `elem` remotes) $ do
     errorExit "Update branch already on origin."
-  cmd "git" "reset" "--hard"
-  cmd "git" "clean" "-fd"
-  cmd "git" "checkout" "-B" "master" "upstream/master"
-  cmd "git" "reset" "--hard" "upstream/master"
-  cmd "git" "clean" "-fd"
+  cleanAndResetToMaster
     -- This is extremely slow but will give us better results
   attrPath <-
     head . T.words . head . T.lines <$>
@@ -233,15 +235,11 @@ updatePackage options log packageName oldVersion newVersion = do
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
          newVersion)
-        -- Make sure it hasn't been updated on master
+    -- Make sure it hasn't been updated on master
     cmd "grep" oldVersion derivationFile `orElse`
       errorExit "Old version not present in master derivation file."
-        -- Make sure it hasn't been updated on staging
-    cmd "git" "reset" "--hard"
-    cmd "git" "clean" "-fd"
-    cmd "git" "checkout" "-B" "staging" "upstream/staging"
-    cmd "git" "reset" "--hard" "upstream/staging"
-    cmd "git" "clean" "-fd"
+    -- Make sure it hasn't been updated on staging
+    cleanAndResetToStaging
     cmd "grep" oldVersion derivationFile `orElse`
       errorExit "Old version not present in staging derivation file."
     base <-
@@ -330,11 +328,7 @@ updatePackage options log packageName oldVersion newVersion = do
     let prMessage = commitMessage <> brokenWarning <> maintainersCc
     untilOfBorgFree
     cmd "hub" "pull-request" "-m" prMessage
-    cmd "git" "reset" "--hard"
-    cmd "git" "clean" "-fd"
-    cmd "git" "checkout" "-B" "master" "upstream/master"
-    cmd "git" "reset" "--hard"
-    cmd "git" "clean" "-fd"
+    cleanAndResetToMaster
     return True
 
 untilOfBorgFree :: Sh ()
