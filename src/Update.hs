@@ -16,11 +16,10 @@ import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
-import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import NeatInterpolation (text)
 import Shelly
-import System.Directory (getModificationTime)
 import Utils
   ( ExitCode(..)
   , Options(..)
@@ -28,6 +27,7 @@ import Utils
   , canFail
   , checkAttrPathVersion
   , orElse
+  , fetchIfStale
   , parseUpdates
   , setupNixpkgs
   , tRead
@@ -181,11 +181,7 @@ updatePackage options log packageName oldVersion newVersion = do
   -- Check whether package name is on blacklist
   forM_ nameBlackList $ \(isBlacklisted, message) -> do
     when (isBlacklisted packageName) $ errorExit message
-  -- Do not fetch remote branches more than once a hour
-  oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> liftIO getCurrentTime
-  fetchedLast <- liftIO $ getModificationTime ".git/FETCH_HEAD"
-  when (fetchedLast < oneHourAgo) $ do
-    canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin"
+  fetchIfStale
   remotes <- map T.strip . T.lines <$> cmd "git" "branch" "--remote"
   when (("origin/auto-update/" <> packageName) `elem` remotes) $ do
     errorExit "Update branch already on origin."
