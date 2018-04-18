@@ -131,9 +131,8 @@ checkAttrPathVersion attrPath newVersion =
             -- If we don't find version numbers in the attr path, exit success.
           in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 
-data ExitCode =
+newtype ExitCode =
   ExitCode Int
   deriving (Show)
 
 instance Exception ExitCode
-

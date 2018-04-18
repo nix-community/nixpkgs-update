@@ -12,13 +12,13 @@ module Git
   , autoUpdateBranchExists
   ) where
 
-import Shelly
-import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
-import Data.Semigroup ((<>))
+import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Shelly
 import System.Directory (getModificationTime)
-import Utils (canFail, Options(..))
+import Utils (Options(..), canFail)
 
 default (T.Text)
 
@@ -48,24 +48,22 @@ staleFetchHead = do
   return (fetchedLast < oneHourAgo)
 
 fetchIfStale :: Sh ()
-fetchIfStale = do
-  stale <- liftIO $ staleFetchHead
-  when stale $ do
-    canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin"
+fetchIfStale =
+  whenM
+    (liftIO staleFetchHead)
+    (canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin")
 
 push :: Text -> Options -> Sh ()
 push branchName options =
   run_
     "git"
     (["push", "--force", "--set-upstream", "origin", branchName] ++
-     if dryRun options
-       then ["--dry-run"]
-       else [])
+     ["--dry-run" | dryRun options])
 
 checkoutAtMergeBase :: Text -> Sh ()
 checkoutAtMergeBase branchName = do
-  base <- T.strip <$>
-    cmd "git" "merge-base" "upstream/master" "upstream/staging"
+  base <-
+    T.strip <$> cmd "git" "merge-base" "upstream/master" "upstream/staging"
   cmd "git" "checkout" "-B" branchName base
 
 autoUpdateBranchExists :: Text -> Sh Bool

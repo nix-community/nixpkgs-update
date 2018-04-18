@@ -28,9 +28,9 @@ deleteMerged = do
   let mergedRemoteAutoUpdateBranches =
         mergedRemoteBranches & filter ("origin/auto-update/" `T.isInfixOf`) &
         mapMaybe (T.stripPrefix "remotes/origin/" . T.strip)
-  forM_ mergedRemoteAutoUpdateBranches $ \branch -> do
+  forM_ mergedRemoteAutoUpdateBranches $ \branch ->
     cmd "git" "push" "origin" (":" <> branch)
   mergedBranches <- T.lines <$> cmd "git" "branch" "-a" "--merged"
   let mergedAutoUpdateBranches =
         mergedBranches & filter ("auto-update/" `T.isInfixOf`) & map T.strip
-  forM_ mergedAutoUpdateBranches $ \branch -> do cmd "git" "branch" "-d" branch
+  forM_ mergedAutoUpdateBranches $ \branch -> cmd "git" "branch" "-d" branch

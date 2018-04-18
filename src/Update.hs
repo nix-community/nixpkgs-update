@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
@@ -19,13 +20,13 @@ import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import Git
-  ( cleanAndResetToMaster
+  ( autoUpdateBranchExists
+  , checkoutAtMergeBase
+  , cleanAndResetToMaster
   , cleanAndResetToStaging
   , cleanup
   , fetchIfStale
   , push
-  , checkoutAtMergeBase
-  , autoUpdateBranchExists
   )
 import NeatInterpolation (text)
 import Shelly
@@ -97,7 +98,6 @@ rawEval' errorExit expr =
   (T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr) `orElse`
   errorExit ("raw nix eval failed for " <> expr)
 
-
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
  = do
@@ -123,18 +123,17 @@ updateLoop ::
   -> [Either Text (Text, Version, Version)]
   -> Sh ()
 updateLoop _ log [] = log "ups.sh finished"
-updateLoop options log ((Left e):moreUpdates) = do
+updateLoop options log (Left e:moreUpdates) = do
   log e
   updateLoop options log moreUpdates
-updateLoop options log ((Right (package, oldVersion, newVersion)):moreUpdates) = do
+updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = do
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
   updated <-
     catch_sh
       (updatePackage options log package oldVersion newVersion)
-      (\e ->
-         case e of
-           ExitCode 0 -> return True
-           ExitCode _ -> return False)
+      (\case
+         ExitCode 0 -> return True
+         ExitCode _ -> return False)
   if updated
     then log "SUCCESS"
     else log "FAIL"
@@ -154,13 +153,13 @@ updatePackage options log packageName oldVersion newVersion = do
     nixEval
       ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <>
        "\")")
-  unless (versionComparison == "1") $ do
+  unless (versionComparison == "1") $
     errorExit $
-      newVersion <> " is not newer than " <> oldVersion <>
-      " according to Nix; versionComparison: " <>
-      versionComparison
+    newVersion <> " is not newer than " <> oldVersion <>
+    " according to Nix; versionComparison: " <>
+    versionComparison
   -- Check whether package name is on blacklist
-  forM_ nameBlackList $ \(isBlacklisted, message) -> do
+  forM_ nameBlackList $ \(isBlacklisted, message) ->
     when (isBlacklisted packageName) $ errorExit message
   fetchIfStale
   whenM
@@ -180,17 +179,18 @@ updatePackage options log packageName oldVersion newVersion = do
     errorExit "nix-env -q failed to find package name with old version"
     -- Temporarily blacklist gnome sources for lockstep update
   whenM
-    (("gnome" `T.isInfixOf`) <$> (nixEval ("pkgs." <> attrPath <> ".src.urls")))
+    (("gnome" `T.isInfixOf`) <$> nixEval ("pkgs." <> attrPath <> ".src.urls"))
     (errorExit "Packages from gnome are currently blacklisted.")
     -- Temporarily blacklist lua packages at @teto's request
     -- https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646
-  when (T.isPrefixOf "lua" attrPath) $ do
+  when (T.isPrefixOf "lua" attrPath) $
     errorExit "Packages for lua are currently blacklisted."
   derivationFile <-
     fromText . T.strip <$>
     cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse`
     errorExit "Couldn't find derivation file."
-  (flip catches_sh)
+  flip
+    catches_sh
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
@@ -202,13 +202,13 @@ updatePackage options log packageName oldVersion newVersion = do
            "-Ec"
            "fetchurl {|fetchgit {|fetchFromGitHub {"
            derivationFile)
-    unless ((numberOfFetchers :: Int) <= 1) $ do
+    unless ((numberOfFetchers :: Int) <= 1) $
       errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
     derivationContents <- readfile derivationFile
-    forM_ contentBlacklist $ \(offendingContent, message) -> do
+    forM_ contentBlacklist $ \(offendingContent, message) ->
       when (offendingContent `T.isInfixOf` derivationContents) $
-        errorExit message
-    unless (checkAttrPathVersion attrPath newVersion) $ do
+      errorExit message
+    unless (checkAttrPathVersion attrPath newVersion) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
          newVersion)
@@ -239,7 +239,7 @@ updatePackage options log packageName oldVersion newVersion = do
       rawEval
         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
          ".src.drvAttrs.urls 0)")
-    when (oldSrcUrl == newSrcUrl) $ do errorExit "Source url did not change."
+    when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
     newHash <-
       canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
       fixSrcUrl
@@ -250,7 +250,7 @@ updatePackage options log packageName oldVersion newVersion = do
         attrPath
         oldSrcUrl `orElse`
       errorExit "Could not prefetch new version URL."
-    when (oldHash == newHash) $ do errorExit "Hashes equal; no update necessary"
+    when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     cmd "sed" "-i" ("s/" <> oldHash <> "/" <> newHash <> "/g") derivationFile `orElse`
       errorExit "Could not replace oldHash with newHash."
     cmd "rm" "-f" "result*"

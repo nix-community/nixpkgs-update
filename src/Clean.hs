@@ -15,7 +15,7 @@ import Data.Maybe (isNothing)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
-import Prelude hiding (FilePath, break)
+import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))

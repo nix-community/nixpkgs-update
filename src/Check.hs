@@ -25,8 +25,8 @@ default (T.Text)
 -- it exits successfully
 -- Failure hints that the argument is not supported.
 checkBinaryHelp :: (Text -> Sh ()) -> FilePath -> Text -> Sh ()
-checkBinaryHelp addToReport program argument = do
-  whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $ do
+checkBinaryHelp addToReport program argument =
+  whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $
     addToReport $
       "- ran ‘" <> toTextIgnore program <> " " <> argument <>
       "’ got 0 exit code"
@@ -47,7 +47,7 @@ checkVersionType addToReport expectedVersion program argument = do
   when
     (isJust $
      (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
-     versionRegex expectedVersion) $ do
+     versionRegex expectedVersion) $
     addToReport $
       "- ran ‘" <> toTextIgnore program <> " " <> argument <>
       "’ and found version " <>
@@ -84,13 +84,13 @@ checkResult options resultPath expectedVersion = do
       if binExists
         then findWhen test_f (resultPath </> "bin")
         else return []
-    forM_ binaries $ \binary -> do
+    forM_ binaries $ \binary ->
       checkBinary addToReport expectedVersion binary
-    unlessM (succeded $ cmd "test" "-s" logFile) $ do
+    unlessM (succeded $ cmd "test" "-s" logFile) $
       addToReport
         "- Warning: no binary found that responded to help or version flags. (This warning appears even if the package isn't expected to have binaries.)"
     canFail $ cmd "grep" "-r" expectedVersion resultPath
-    whenM ((== 0) <$> lastExitCode) $ do
+    whenM ((== 0) <$> lastExitCode) $
       addToReport $
         "- found " <> expectedVersion <> " with grep in " <>
         toTextIgnore resultPath
@@ -100,11 +100,11 @@ checkResult options resultPath expectedVersion = do
          (\path ->
             ((expectedVersion `T.isInfixOf` toTextIgnore path) &&) <$>
             test_f path)
-         resultPath) $ do
+         resultPath) $
       addToReport $
         "- found " <> expectedVersion <> " in filename of file in " <>
         toTextIgnore resultPath
     setenv "HOME" home
     gist <- cmd "tree" resultPath -|- cmd "gist"
-    unless (T.null gist) $ do addToReport $ "- directory tree listing: " <> gist
+    unless (T.null gist) $ addToReport $ "- directory tree listing: " <> gist
   canFail $ readfile logFile
