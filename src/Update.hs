@@ -163,8 +163,9 @@ updatePackage options log packageName oldVersion newVersion = do
   forM_ nameBlackList $ \(isBlacklisted, message) -> do
     when (isBlacklisted packageName) $ errorExit message
   fetchIfStale
-  alreadyExists <- autoUpdateBranchExists packageName
-  when alreadyExists $ errorExit "Update branch already on origin."
+  whenM
+    (autoUpdateBranchExists packageName)
+    (errorExit "Update branch already on origin.")
   cleanAndResetToMaster
     -- This is extremely slow but will give us better results
   attrPath <-
@@ -179,8 +180,8 @@ updatePackage options log packageName oldVersion newVersion = do
     errorExit "nix-env -q failed to find package name with old version"
     -- Temporarily blacklist gnome sources for lockstep update
   whenM
-    (("gnome" `T.isInfixOf`) <$> (nixEval ("pkgs." <> attrPath <> ".src.urls"))) $ do
-    errorExit "Packages from gnome are currently blacklisted."
+    (("gnome" `T.isInfixOf`) <$> (nixEval ("pkgs." <> attrPath <> ".src.urls")))
+    (errorExit "Packages from gnome are currently blacklisted.")
     -- Temporarily blacklist lua packages at @teto's request
     -- https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646
   when (T.isPrefixOf "lua" attrPath) $ do
