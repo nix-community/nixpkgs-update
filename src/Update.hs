@@ -18,6 +18,15 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
+import Git
+  ( cleanAndResetToMaster
+  , cleanAndResetToStaging
+  , cleanup
+  , fetchIfStale
+  , push
+  , checkoutAtMergeBase
+  , autoUpdateBranchExists
+  )
 import NeatInterpolation (text)
 import Shelly
 import Utils
@@ -27,32 +36,12 @@ import Utils
   , canFail
   , checkAttrPathVersion
   , orElse
-  , fetchIfStale
   , parseUpdates
   , setupNixpkgs
   , tRead
   )
 
 default (T.Text)
-
-cleanup :: Text -> Sh ()
-cleanup branchName = do
-  cleanAndResetToMaster
-  canFail $ cmd "git" "branch" "-D" branchName
-
-cleanAndResetTo :: Text -> Text -> Sh ()
-cleanAndResetTo branch target = do
-  cmd "git" "reset" "--hard"
-  cmd "git" "clean" "-fd"
-  cmd "git" "checkout" "-B" branch target
-  cmd "git" "reset" "--hard" target
-  cmd "git" "clean" "-fd"
-
-cleanAndResetToMaster :: Sh ()
-cleanAndResetToMaster = cleanAndResetTo "master" "upstream/master"
-
-cleanAndResetToStaging :: Sh ()
-cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
 
 errorExit' :: (Text -> Sh ()) -> Text -> Text -> Sh a
 errorExit' log branchName message = do
@@ -108,14 +97,6 @@ rawEval' errorExit expr =
   (T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr) `orElse`
   errorExit ("raw nix eval failed for " <> expr)
 
-push :: Text -> Options -> Sh ()
-push branchName options =
-  run_
-    "git"
-    (["push", "--force", "--set-upstream", "origin", branchName] ++
-     if dryRun options
-       then ["--dry-run"]
-       else [])
 
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
@@ -182,9 +163,8 @@ updatePackage options log packageName oldVersion newVersion = do
   forM_ nameBlackList $ \(isBlacklisted, message) -> do
     when (isBlacklisted packageName) $ errorExit message
   fetchIfStale
-  remotes <- map T.strip . T.lines <$> cmd "git" "branch" "--remote"
-  when (("origin/auto-update/" <> packageName) `elem` remotes) $ do
-    errorExit "Update branch already on origin."
+  alreadyExists <- autoUpdateBranchExists packageName
+  when alreadyExists $ errorExit "Update branch already on origin."
   cleanAndResetToMaster
     -- This is extremely slow but will give us better results
   attrPath <-
@@ -238,9 +218,7 @@ updatePackage options log packageName oldVersion newVersion = do
     cleanAndResetToStaging
     cmd "grep" oldVersion derivationFile `orElse`
       errorExit "Old version not present in staging derivation file."
-    base <-
-      T.strip <$> cmd "git" "merge-base" "upstream/master" "upstream/staging"
-    cmd "git" "checkout" "-B" branchName base
+    checkoutAtMergeBase branchName
     oldHash <-
       rawEval ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") `orElse`
       errorExit
@@ -295,7 +273,6 @@ updatePackage options log packageName oldVersion newVersion = do
           if not (T.null maintainers)
             then "\n\ncc " <> maintainers <> " for review"
             else ""
-    cmd "git" "diff"
     let commitMessage =
           [text|
                 $attrPath: $oldVersion -> $newVersion

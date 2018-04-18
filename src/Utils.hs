@@ -12,18 +12,15 @@ module Utils
   , tRead
   , parseUpdates
   , succeded
-  , fetchIfStale
   , ExitCode(..)
   ) where
 
 import Control.Exception (Exception)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
-import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import Shelly
-import System.Directory (getModificationTime)
 
 default (T.Text)
 
@@ -140,14 +137,3 @@ data ExitCode =
 
 instance Exception ExitCode
 
-staleFetchHead :: IO Bool
-staleFetchHead = do
-  oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
-  fetchedLast <- getModificationTime ".git/FETCH_HEAD"
-  return (fetchedLast < oneHourAgo)
-
-fetchIfStale :: Sh ()
-fetchIfStale = do
-  stale <- liftIO $ staleFetchHead
-  when stale $ do
-    canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin"
