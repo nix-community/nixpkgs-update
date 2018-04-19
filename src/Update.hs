@@ -19,6 +19,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
+import qualified File
 import Git
   ( autoUpdateBranchExists
   , checkoutAtMergeBase
@@ -229,12 +230,7 @@ updatePackage options log packageName oldVersion newVersion = do
       rawEval
         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
          ".src.drvAttrs.urls 0)")
-    cmd
-      "sed"
-      "-i"
-      ("s/" <> (T.replace "." "\\." oldVersion) <> "/" <> newVersion <> "/g")
-      derivationFile `orElse`
-      errorExit "Could not replace oldVersion with newVersion."
+    File.replace oldVersion newVersion derivationFile
     newSrcUrl <-
       rawEval
         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
@@ -251,8 +247,7 @@ updatePackage options log packageName oldVersion newVersion = do
         oldSrcUrl `orElse`
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
-    cmd "sed" "-i" ("s/" <> oldHash <> "/" <> newHash <> "/g") derivationFile `orElse`
-      errorExit "Could not replace oldHash with newHash."
+    File.replace oldHash newHash derivationFile
     cmd "rm" "-f" "result*"
     cmd "nix" "build" "-f" "." attrPath `orElse` do
       buildLog <-

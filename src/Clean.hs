@@ -20,6 +20,7 @@ import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
 import Utils (Version, canFail, setupNixpkgs, succeded)
+import qualified File
 
 default (T.Text)
 
@@ -50,21 +51,18 @@ fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = 
      cmd "grep" "-q" ("name = \"" <> newDerivationName <> "\"") derivationFile) $
     -- Separate name and version
    do
-    cmd
-      "sed"
-      "-i"
-      ("s|" <> newDerivationName <> "|" <> name <> "-${version}|")
-      derivationFile
-    cmd "grep" "-q" ("name = \"" <> name <> "-${version}\"") derivationFile
-    cmd
-      "sed"
-      "-i"
-      ("s|^\\([ ]*\\)\\(name = \"" <> name <>
-       "-${version}\";\\)|\\1\\2\n\\1version = \"" <>
-       newVersion <>
-       "\";|")
-      derivationFile
-    cmd "grep" "-q" ("version = \"" <> newVersion <> "\";") derivationFile
+     let newName = name <> "-${version}"
+     File.replace newDerivationName newName derivationFile
+     cmd "grep" "-q" ("name = \"" <> newName <> "\"") derivationFile
+     cmd
+       "sed"
+       "-i"
+       ("s|^\\([ ]*\\)\\(name = \"" <> name <>
+        "-${version}\";\\)|\\1\\2\n\\1version = \"" <>
+        newVersion <>
+        "\";|")
+       derivationFile
+     cmd "grep" "-q" ("version = \"" <> newVersion <> "\";") derivationFile
   -- Obtain download URLs from repology
   -- TODO: use repology-api package
   downloads <-
@@ -91,8 +89,7 @@ fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = 
               newVersion
               "${version}"
               (T.replace newDerivationName "${name}" downloadUrl)
-      lift $
-        cmd "sed" "-i" ("s|" <> oldUrl <> "|" <> newUrl <> "|") derivationFile
+      lift $ File.replace oldUrl newUrl derivationFile
       lift $ cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile
       whenM
         (lift $
