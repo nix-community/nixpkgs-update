@@ -248,7 +248,6 @@ updatePackage options log packageName oldVersion newVersion = do
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     File.replace oldHash newHash derivationFile
-    cmd "rm" "-f" "result*"
     cmd "nix" "build" "-f" "." attrPath `orElse` do
       buildLog <-
         T.unlines . reverse . take 30 . reverse . T.lines <$>
