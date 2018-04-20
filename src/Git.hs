@@ -10,6 +10,8 @@ module Git
   , push
   , checkoutAtMergeBase
   , autoUpdateBranchExists
+  , commit
+  , pr
   ) where
 
 import Data.Semigroup ((<>))
@@ -70,3 +72,9 @@ autoUpdateBranchExists :: Text -> Sh Bool
 autoUpdateBranchExists packageName = do
   remotes <- map T.strip . T.lines <$> cmd "git" "branch" "--remote"
   return $ ("origin/auto-update/" <> packageName) `elem` remotes
+
+commit :: Text -> Sh ()
+commit commitMessage = cmd "git" "commit" "-am" commitMessage
+
+pr :: Text -> Sh ()
+pr prMessage = cmd "hub" "pull-request" "-m" prMessage

@@ -28,6 +28,8 @@ import Git
   , cleanup
   , fetchIfStale
   , push
+  , commit
+  , pr
   )
 import NeatInterpolation (text)
 import Shelly
@@ -281,8 +283,8 @@ updatePackage options log packageName oldVersion newVersion = do
                 - built on NixOS
                 $resultCheckReport
             |]
-    cmd "git" "commit" "-am" commitMessage
-        -- Try to push it three times
+    commit commitMessage
+    -- Try to push it three times
     push branchName options `orElse` push branchName options `orElse`
       push branchName options
     isBroken <-
@@ -295,7 +297,7 @@ updatePackage options log packageName oldVersion newVersion = do
             else ""
     let prMessage = commitMessage <> brokenWarning <> maintainersCc
     untilOfBorgFree
-    cmd "hub" "pull-request" "-m" prMessage
+    pr prMessage
     cleanAndResetToMaster
     return True
 
