@@ -75,6 +75,7 @@ nameBlackList =
   , ( ("varnish" `T.isInfixOf`)
     , "Temporary blacklist because of multiple versions and slow nixpkgs update")
   , (("iana-etc" `T.isInfixOf`), "@mic92 takes care of this package")
+  , (("checkbashism" `T.isInfixOf`), "needs to be fixed, see https://github.com/NixOS/nixpkgs/pull/39552")
   , ((== "isl"), "multi-version long building package")
   , ((== "tokei"), "got stuck forever building with no CPU usage")
   ]
