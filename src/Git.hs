@@ -24,13 +24,16 @@ import Utils (Options(..), canFail)
 
 default (T.Text)
 
+clean :: Sh ()
+clean = cmd "git" "clean" "-fdx"
+
 cleanAndResetTo :: Text -> Text -> Sh ()
 cleanAndResetTo branch target = do
   cmd "git" "reset" "--hard"
-  cmd "git" "clean" "-fd"
+  clean
   cmd "git" "checkout" "-B" branch target
   cmd "git" "reset" "--hard" target
-  cmd "git" "clean" "-fd"
+  clean
 
 cleanAndResetToMaster :: Sh ()
 cleanAndResetToMaster = cleanAndResetTo "master" "upstream/master"
