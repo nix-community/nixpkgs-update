@@ -26,7 +26,7 @@ default (T.Text)
 -- Failure hints that the argument is not supported.
 checkBinaryHelp :: (Text -> Sh ()) -> FilePath -> Text -> Sh ()
 checkBinaryHelp addToReport program argument =
-  whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $
+  (whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $
     addToReport $
       "- ran ‘" <> toTextIgnore program <> " " <> argument <>
       "’ got 0 exit code"
@@ -41,17 +41,20 @@ versionRegex version =
 -- | Run a program with provided argument and report whether the output
 -- mentions the expected version
 checkVersionType :: (Text -> Sh ()) -> Version -> FilePath -> Text -> Sh ()
-checkVersionType addToReport expectedVersion program argument = do
-  stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
-  stderr <- lastStderr
-  when
-    (isJust $
-     (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
-     versionRegex expectedVersion) $
-    addToReport $
-      "- ran ‘" <> toTextIgnore program <> " " <> argument <>
-      "’ and found version " <>
-      expectedVersion
+checkVersionType addToReport expectedVersion program argument =
+  catchany_sh
+  (do
+      stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
+      stderr <- lastStderr
+      when
+        (isJust $
+         (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
+         versionRegex expectedVersion) $
+        addToReport $
+        "- ran ‘" <> toTextIgnore program <> " " <> argument <>
+        "’ and found version " <>
+        expectedVersion)
+  (\ _ -> return ())
 
 -- | Run a program with various version or help flags and report
 -- when they succeded
