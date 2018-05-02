@@ -26,7 +26,7 @@ default (T.Text)
 -- Failure hints that the argument is not supported.
 checkBinaryHelp :: (Text -> Sh ()) -> FilePath -> Text -> Sh ()
 checkBinaryHelp addToReport program argument =
-  (whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $
+  whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $
     addToReport $
       "- ran ‘" <> toTextIgnore program <> " " <> argument <>
       "’ got 0 exit code"
