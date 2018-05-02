@@ -263,7 +263,7 @@ updatePackage options log packageName oldVersion newVersion = do
     result <-
       fromText <$>
       (T.strip <$>
-       cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin") `orElse`
+       (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
     resultCheckReport <- sub (checkResult options result newVersion)
     maintainers <-
