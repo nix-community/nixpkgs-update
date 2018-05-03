@@ -63,6 +63,7 @@ checkBinary addToReport expectedVersion program = do
   checkBinaryHelp addToReport program "-h"
   checkBinaryHelp addToReport program "--help"
   checkBinaryHelp addToReport program "help"
+  checkVersionType addToReport expectedVersion program ""
   checkVersionType addToReport expectedVersion program "-V"
   checkVersionType addToReport expectedVersion program "-v"
   checkVersionType addToReport expectedVersion program "--version"
