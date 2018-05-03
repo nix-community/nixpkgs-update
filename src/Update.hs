@@ -78,6 +78,7 @@ nameBlackList =
   , (("checkbashism" `T.isInfixOf`), "needs to be fixed, see https://github.com/NixOS/nixpkgs/pull/39552")
   , ((== "isl"), "multi-version long building package")
   , ((== "tokei"), "got stuck forever building with no CPU usage")
+  , (("qscintilla" `T.isInfixOf`), "https://github.com/ryantm/nixpkgs-update/issues/51")
   ]
 
 contentBlacklist :: [(Text, Text)]
