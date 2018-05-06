@@ -34,7 +34,7 @@ import Git
   , push
   )
 import NeatInterpolation (text)
-import Nix (compareVersions, nixEvalE)
+import Nix (compareVersions, lookupAttrPath, nixEvalE)
 import Shelly
 import Utils
   ( ExitCode(..)
@@ -169,17 +169,8 @@ updatePackage log updateEnv = do
     (errorExit "Update branch already on origin.")
   cleanAndResetToMaster
     -- This is extremely slow but will give us better results
-  attrPath <-
-    head . T.words . head . T.lines <$>
-    cmd
-      "nix-env"
-      "-qa"
-      (packageName updateEnv <> "-" <> oldVersion updateEnv)
-      "-f"
-      "."
-      "--attr-path" `orElse`
-    errorExit "nix-env -q failed to find package name with old version"
-    -- Temporarily blacklist gnome sources for lockstep update
+  attrPath <- eitherToError errorExit (lookupAttrPath updateEnv)
+  -- Temporarily blacklist gnome sources for lockstep update
   whenM
     (("gnome" `T.isInfixOf`) <$> nixEval ("pkgs." <> attrPath <> ".src.urls"))
     (errorExit "Packages from gnome are currently blacklisted.")
