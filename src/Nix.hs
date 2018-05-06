@@ -10,6 +10,7 @@ module Nix
   , compareVersions
   , lookupAttrPath
   , getDerivationFile
+  , getMaintainers
   , getOldHash
   , getSrcUrl
   , Raw(..)
@@ -95,3 +96,12 @@ getSrcUrl attrPath =
     Raw
     ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
      ".src.drvAttrs.urls 0)")
+
+getMaintainers :: Text -> Sh (Either Text Text)
+getMaintainers attrPath =
+  nixEvalE
+    Raw
+    ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <>
+      attrPath <>
+      ".meta.maintainers or []))))") &
+  rewriteError ("Could not fetch maintainers for" <> attrPath)

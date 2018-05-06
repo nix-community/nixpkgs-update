@@ -38,6 +38,7 @@ import Nix
   ( Raw(..)
   , compareVersions
   , getDerivationFile
+  , getMaintainers
   , getOldHash
   , getSrcUrl
   , lookupAttrPath
@@ -247,11 +248,7 @@ updatePackage log updateEnv = do
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
     resultCheckReport <- sub (checkResult updateEnv result)
-    maintainers <-
-      rawEval
-        ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <>
-         attrPath <>
-         ".meta.maintainers or []))))")
+    maintainers <- eitherToError errorExit (getMaintainers attrPath)
     let maintainersCc =
           if not (T.null maintainers)
             then "\n\ncc " <> maintainers <> " for review"
