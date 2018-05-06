@@ -17,6 +17,7 @@ module Utils
   , shE
   , rewriteError
   , eitherToError
+  , branchName
   ) where
 
 import Control.Exception (Exception)
@@ -90,6 +91,9 @@ orElse a b = do
     else b
 
 infixl 3 `orElse`
+
+branchName :: UpdateEnv -> Text
+branchName ue = "auto-update/" <> packageName ue
 
 parseUpdates :: Text -> [Either Text (Text, Version, Version)]
 parseUpdates = map (toTriple . T.words) . T.lines

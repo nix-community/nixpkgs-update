@@ -49,6 +49,7 @@ import Utils
   , Options(..)
   , UpdateEnv(..)
   , Version
+  , branchName
   , canFail
   , checkAttrPathVersion
   , eitherToError
@@ -156,9 +157,6 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
     then log "SUCCESS"
     else log "FAIL"
   updateLoop options log moreUpdates
-
-branchName :: UpdateEnv -> Text
-branchName ue = "auto-update/" <> packageName ue
 
 updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
 updatePackage log updateEnv = do
@@ -276,8 +274,7 @@ updatePackage log updateEnv = do
             |]
     commit commitMessage
     -- Try to push it three times
-    let push' = push (branchName updateEnv) (options updateEnv)
-    push' `orElse` push' `orElse` push'
+    push updateEnv `orElse` push updateEnv `orElse` push updateEnv
     isBroken <-
       nixEval
         ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>

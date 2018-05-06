@@ -20,7 +20,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Shelly
 import System.Directory (getModificationTime)
-import Utils (Options(..), canFail)
+import Utils (Options(..), UpdateEnv(..), branchName, canFail)
 
 default (T.Text)
 
@@ -58,12 +58,12 @@ fetchIfStale =
     (liftIO staleFetchHead)
     (canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin")
 
-push :: Text -> Options -> Sh ()
-push branchName options =
+push :: UpdateEnv -> Sh ()
+push updateEnv =
   run_
     "git"
-    (["push", "--force", "--set-upstream", "origin", branchName] ++
-     ["--dry-run" | dryRun options])
+    (["push", "--force", "--set-upstream", "origin", branchName updateEnv] ++
+     ["--dry-run" | dryRun (options updateEnv)])
 
 checkoutAtMergeBase :: Text -> Sh ()
 checkoutAtMergeBase branchName = do
