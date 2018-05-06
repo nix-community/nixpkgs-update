@@ -14,9 +14,13 @@ module Utils
   , parseUpdates
   , succeded
   , ExitCode(..)
+  , shE
+  , rewriteError
+  , eitherToError
   ) where
 
 import Control.Exception (Exception)
+import Data.Bifunctor (first)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -51,6 +55,22 @@ setupNixpkgs = do
     cmd "git" "fetch" "upstream"
   cd nixpkgsPath
   setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
+
+shE :: Sh a -> Sh (Either Text a)
+shE s = do
+  r <- canFail s
+  status <- lastExitCode
+  case status of
+    0 -> return $ Right r
+    c -> return $ Left ("Exit code: " <> T.pack (show c))
+
+rewriteError :: Text -> Sh (Either Text a) -> Sh (Either Text a)
+rewriteError t = fmap (first (const t))
+
+eitherToError :: (Text -> Sh a) -> Sh (Either Text a) -> Sh a
+eitherToError errorExit s = do
+  e <- s
+  either errorExit return e
 
 canFail :: Sh a -> Sh a
 canFail = errExit False

@@ -11,8 +11,10 @@ module Update
 
 import Check (checkResult)
 import Clean (fixSrcUrl)
+import Control.Category ((>>>))
 import Control.Exception (SomeException, throw, toException)
 import Control.Monad (forM_)
+import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
@@ -26,10 +28,10 @@ import Git
   , cleanAndResetToMaster
   , cleanAndResetToStaging
   , cleanup
-  , fetchIfStale
-  , push
   , commit
+  , fetchIfStale
   , pr
+  , push
   )
 import NeatInterpolation (text)
 import Shelly
@@ -40,9 +42,12 @@ import Utils
   , Version
   , canFail
   , checkAttrPathVersion
+  , eitherToError
   , orElse
   , parseUpdates
+  , rewriteError
   , setupNixpkgs
+  , shE
   , tRead
   )
 
@@ -76,10 +81,12 @@ nameBlackList =
   , ( ("varnish" `T.isInfixOf`)
     , "Temporary blacklist because of multiple versions and slow nixpkgs update")
   , (("iana-etc" `T.isInfixOf`), "@mic92 takes care of this package")
-  , (("checkbashism" `T.isInfixOf`), "needs to be fixed, see https://github.com/NixOS/nixpkgs/pull/39552")
+  , ( ("checkbashism" `T.isInfixOf`)
+    , "needs to be fixed, see https://github.com/NixOS/nixpkgs/pull/39552")
   , ((== "isl"), "multi-version long building package")
   , ((== "tokei"), "got stuck forever building with no CPU usage")
-  , (("qscintilla" `T.isInfixOf`), "https://github.com/ryantm/nixpkgs-update/issues/51")
+  , ( ("qscintilla" `T.isInfixOf`)
+    , "https://github.com/ryantm/nixpkgs-update/issues/51")
   ]
 
 contentBlacklist :: [(Text, Text)]
@@ -96,13 +103,17 @@ contentBlacklist =
 
 nixEval' :: (Text -> Sh Text) -> Text -> Sh Text
 nixEval' errorExit expr =
-  (T.strip <$> cmd "nix" "eval" "-f" "." expr) `orElse`
-  errorExit ("nix eval failed for " <> expr)
+  cmd "nix" "eval" "-f" "." expr &
+  (fmap T.strip >>>
+   shE >>>
+   rewriteError ("nix eval failed for " <> expr) >>> eitherToError errorExit)
 
 rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
 rawEval' errorExit expr =
-  (T.strip <$> cmd "nix" "eval" "-f" "." "--raw" expr) `orElse`
-  errorExit ("raw nix eval failed for " <> expr)
+  cmd "nix" "eval" "-f" "." "--raw" expr &
+  (fmap T.strip >>>
+   shE >>>
+   rewriteError ("nix eval failed for " <> expr) >>> eitherToError errorExit)
 
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
@@ -157,9 +168,7 @@ updatePackage log updateEnv = do
   -- Check whether requested version is newer than the current one
   versionComparison <-
     nixEval
-      ("(builtins.compareVersions \"" <>
-       newVersion updateEnv <>
-       "\" \"" <>
+      ("(builtins.compareVersions \"" <> newVersion updateEnv <> "\" \"" <>
        oldVersion updateEnv <>
        "\")")
   unless (versionComparison == "1") $
@@ -246,18 +255,20 @@ updatePackage log updateEnv = do
     when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
     newHash <-
       canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
-      fixSrcUrl updateEnv
-        derivationFile
-        attrPath
-        oldSrcUrl `orElse`
+      fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl `orElse`
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     File.replace oldHash newHash derivationFile
     cmd
       "nix-build"
-      "--option" "sandbox" "true"
-      "--option" "restrict-eval" "true"
-      "-A" attrPath `orElse` do
+      "--option"
+      "sandbox"
+      "true"
+      "--option"
+      "restrict-eval"
+      "true"
+      "-A"
+      attrPath `orElse` do
       buildLog <-
         T.unlines . reverse . take 30 . reverse . T.lines <$>
         cmd "nix" "log" "-f" "." attrPath
@@ -277,11 +288,10 @@ updatePackage log updateEnv = do
           if not (T.null maintainers)
             then "\n\ncc " <> maintainers <> " for review"
             else ""
-    let
-      oV = oldVersion updateEnv
-      nV = newVersion updateEnv
-      pN = packageName updateEnv
-      commitMessage =
+    let oV = oldVersion updateEnv
+        nV = newVersion updateEnv
+        pN = packageName updateEnv
+        commitMessage =
           [text|
                 $attrPath: $oV -> $nV
 
