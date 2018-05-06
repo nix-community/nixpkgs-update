@@ -38,6 +38,7 @@ import Nix
   ( Raw(..)
   , compareVersions
   , getDerivationFile
+  , getIsBroken
   , getMaintainers
   , getOldHash
   , getSrcUrl
@@ -272,10 +273,7 @@ updatePackage log updateEnv = do
     commit commitMessage
     -- Try to push it three times
     push updateEnv `orElse` push updateEnv `orElse` push updateEnv
-    isBroken <-
-      nixEval
-        ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-         ".meta.broken or false)")
+    isBroken <- eitherToError errorExit (getIsBroken attrPath)
     let brokenWarning =
           if isBroken == "true"
             then "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."

@@ -13,6 +13,7 @@ module Nix
   , getMaintainers
   , getOldHash
   , getSrcUrl
+  , getIsBroken
   , Raw(..)
   ) where
 
@@ -102,6 +103,14 @@ getMaintainers attrPath =
   nixEvalE
     Raw
     ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <>
-      attrPath <>
-      ".meta.maintainers or []))))") &
+     attrPath <>
+     ".meta.maintainers or []))))") &
   rewriteError ("Could not fetch maintainers for" <> attrPath)
+
+getIsBroken :: Text -> Sh (Either Text Text)
+getIsBroken attrPath =
+  nixEvalE
+    NoRaw
+    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
+     ".meta.broken or false)") &
+  rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
