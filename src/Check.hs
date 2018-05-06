@@ -17,7 +17,7 @@ import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (Options(..), Version, canFail, succeded)
+import Utils (Options(..), UpdateEnv (..), Version, canFail, succeded)
 
 default (T.Text)
 
@@ -72,10 +72,11 @@ checkBinary addToReport expectedVersion program = do
   checkVersionType addToReport expectedVersion program "--help"
   checkVersionType addToReport expectedVersion program "help"
 
-checkResult :: Options -> FilePath -> Version -> Sh Text
-checkResult options resultPath expectedVersion = do
+checkResult :: UpdateEnv -> FilePath  -> Sh Text
+checkResult updateEnv resultPath = do
+  let expectedVersion = newVersion updateEnv
   home <- get_env_text "HOME"
-  let logFile = workingDir options </> "check-result-log.tmp"
+  let logFile = workingDir (options updateEnv) </> "check-result-log.tmp"
   setenv "EDITOR" "echo"
   setenv "HOME" "/homeless-shelter"
   let addToReport input = appendfile logFile (input <> "\n")

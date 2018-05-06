@@ -5,6 +5,7 @@
 module Utils
   ( Options(..)
   , Version
+  , UpdateEnv(..)
   , canFail
   , checkAttrPathVersion
   , orElse
@@ -32,7 +33,14 @@ data Options = Options
   , githubToken :: Text
   }
 
-setupNixpkgs :: Sh FilePath
+data UpdateEnv = UpdateEnv
+  { packageName :: Text
+  , oldVersion :: Version
+  , newVersion :: Version
+  , options :: Options
+  }
+
+setupNixpkgs :: Sh ()
 setupNixpkgs = do
   home <- get_env_text "HOME"
   let nixpkgsPath = home </> ".cache" </> "nixpkgs"
@@ -42,7 +50,7 @@ setupNixpkgs = do
     cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
     cmd "git" "fetch" "upstream"
   cd nixpkgsPath
-  return nixpkgsPath
+  setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
 
 canFail :: Sh a -> Sh a
 canFail = errExit False

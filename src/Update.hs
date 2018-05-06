@@ -36,6 +36,7 @@ import Shelly
 import Utils
   ( ExitCode(..)
   , Options(..)
+  , UpdateEnv(..)
   , Version
   , canFail
   , checkAttrPathVersion
@@ -135,7 +136,7 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
   updated <-
     catch_sh
-      (updatePackage options log package oldVersion newVersion)
+      (updatePackage log (UpdateEnv package oldVersion newVersion options))
       (\case
          ExitCode 0 -> return True
          ExitCode _ -> return False)
@@ -144,31 +145,34 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
     else log "FAIL"
   updateLoop options log moreUpdates
 
-updatePackage ::
-     Options -> (Text -> Sh ()) -> Text -> Version -> Version -> Sh Bool
-updatePackage options log packageName oldVersion newVersion = do
-  nixpkgsPath <- setupNixpkgs
-  setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
-  let branchName = "auto-update/" <> packageName
-  let errorExit = errorExit' log branchName
+branchName :: UpdateEnv -> Text
+branchName ue = "auto-update/" <> packageName ue
+
+updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
+updatePackage log updateEnv = do
+  setupNixpkgs
+  let errorExit = errorExit' log (branchName updateEnv)
   let nixEval = nixEval' errorExit
   let rawEval = rawEval' errorExit
   -- Check whether requested version is newer than the current one
   versionComparison <-
     nixEval
-      ("(builtins.compareVersions \"" <> newVersion <> "\" \"" <> oldVersion <>
+      ("(builtins.compareVersions \"" <>
+       newVersion updateEnv <>
+       "\" \"" <>
+       oldVersion updateEnv <>
        "\")")
   unless (versionComparison == "1") $
     errorExit $
-    newVersion <> " is not newer than " <> oldVersion <>
+    newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
     " according to Nix; versionComparison: " <>
     versionComparison
   -- Check whether package name is on blacklist
   forM_ nameBlackList $ \(isBlacklisted, message) ->
-    when (isBlacklisted packageName) $ errorExit message
+    when (isBlacklisted (packageName updateEnv)) $ errorExit message
   fetchIfStale
   whenM
-    (autoUpdateBranchExists packageName)
+    (autoUpdateBranchExists (packageName updateEnv))
     (errorExit "Update branch already on origin.")
   cleanAndResetToMaster
     -- This is extremely slow but will give us better results
@@ -177,7 +181,7 @@ updatePackage options log packageName oldVersion newVersion = do
     cmd
       "nix-env"
       "-qa"
-      (packageName <> "-" <> oldVersion)
+      (packageName updateEnv <> "-" <> oldVersion updateEnv)
       "-f"
       "."
       "--attr-path" `orElse`
@@ -213,18 +217,18 @@ updatePackage options log packageName oldVersion newVersion = do
     forM_ contentBlacklist $ \(offendingContent, message) ->
       when (offendingContent `T.isInfixOf` derivationContents) $
       errorExit message
-    unless (checkAttrPathVersion attrPath newVersion) $
+    unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
-         newVersion)
+         (newVersion updateEnv))
     -- Make sure it hasn't been updated on master
-    cmd "grep" oldVersion derivationFile `orElse`
+    cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in master derivation file."
     -- Make sure it hasn't been updated on staging
     cleanAndResetToStaging
-    cmd "grep" oldVersion derivationFile `orElse`
+    cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in staging derivation file."
-    checkoutAtMergeBase branchName
+    checkoutAtMergeBase (branchName updateEnv)
     oldHash <-
       rawEval ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") `orElse`
       errorExit
@@ -234,7 +238,7 @@ updatePackage options log packageName oldVersion newVersion = do
       rawEval
         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
          ".src.drvAttrs.urls 0)")
-    File.replace oldVersion newVersion derivationFile
+    File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
     newSrcUrl <-
       rawEval
         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
@@ -242,10 +246,7 @@ updatePackage options log packageName oldVersion newVersion = do
     when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
     newHash <-
       canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
-      fixSrcUrl
-        packageName
-        oldVersion
-        newVersion
+      fixSrcUrl updateEnv
         derivationFile
         attrPath
         oldSrcUrl `orElse`
@@ -266,7 +267,7 @@ updatePackage options log packageName oldVersion newVersion = do
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    resultCheckReport <- sub (checkResult options result newVersion)
+    resultCheckReport <- sub (checkResult updateEnv result)
     maintainers <-
       rawEval
         ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <>
@@ -276,13 +277,17 @@ updatePackage options log packageName oldVersion newVersion = do
           if not (T.null maintainers)
             then "\n\ncc " <> maintainers <> " for review"
             else ""
-    let commitMessage =
+    let
+      oV = oldVersion updateEnv
+      nV = newVersion updateEnv
+      pN = packageName updateEnv
+      commitMessage =
           [text|
-                $attrPath: $oldVersion -> $newVersion
+                $attrPath: $oV -> $nV
 
                 Semi-automatic update generated by https://github.com/ryantm/nixpkgs-update tools.
 
-                This update was made based on information from https://repology.org/metapackage/$packageName/versions.
+                This update was made based on information from https://repology.org/metapackage/$pN/versions.
 
                 These checks were done:
 
@@ -291,8 +296,8 @@ updatePackage options log packageName oldVersion newVersion = do
             |]
     commit commitMessage
     -- Try to push it three times
-    push branchName options `orElse` push branchName options `orElse`
-      push branchName options
+    let push' = push (branchName updateEnv) (options updateEnv)
+    push' `orElse` push' `orElse` push'
     isBroken <-
       nixEval
         ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>

@@ -15,12 +15,12 @@ import Data.Maybe (isNothing)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
+import qualified File
 import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (Version, canFail, setupNixpkgs, succeded)
-import qualified File
+import Utils (UpdateEnv(..), Version, canFail, setupNixpkgs, succeded)
 
 default (T.Text)
 
@@ -31,13 +31,17 @@ archiveRegex version =
   RE.sym '.' <*>
   (RE.string "tar" <|> RE.string "zip")
 
-fixSrcUrl :: Text -> Version -> Version -> FilePath -> Text -> Text -> Sh Text
-fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = do
-  nixpkgsPath <- setupNixpkgs
+fixSrcUrl :: UpdateEnv -> FilePath -> Text -> Text -> Sh Text
+fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
+  setupNixpkgs
   oldDerivationName <-
     T.strip <$>
-    cmd "nix" "eval" "-f" nixpkgsPath "--raw" ("pkgs." <> attrPath <> ".name")
-  let newDerivationName = T.replace oldVersion newVersion oldDerivationName
+    cmd "nix" "eval" "-f" "." "--raw" ("pkgs." <> attrPath <> ".name")
+  let newDerivationName =
+        T.replace
+          (oldVersion updateEnv)
+          (newVersion updateEnv)
+          oldDerivationName
   name <-
     T.strip <$>
     cmd
@@ -51,29 +55,34 @@ fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = 
      cmd "grep" "-q" ("name = \"" <> newDerivationName <> "\"") derivationFile) $
     -- Separate name and version
    do
-     let newName = name <> "-${version}"
-     File.replace newDerivationName newName derivationFile
-     cmd "grep" "-q" ("name = \"" <> newName <> "\"") derivationFile
-     cmd
-       "sed"
-       "-i"
-       ("s|^\\([ ]*\\)\\(name = \"" <> name <>
-        "-${version}\";\\)|\\1\\2\n\\1version = \"" <>
-        newVersion <>
-        "\";|")
-       derivationFile
-     cmd "grep" "-q" ("version = \"" <> newVersion <> "\";") derivationFile
+    let newName = name <> "-${version}"
+    File.replace newDerivationName newName derivationFile
+    cmd "grep" "-q" ("name = \"" <> newName <> "\"") derivationFile
+    cmd
+      "sed"
+      "-i"
+      ("s|^\\([ ]*\\)\\(name = \"" <> name <>
+       "-${version}\";\\)|\\1\\2\n\\1version = \"" <>
+       (newVersion updateEnv) <>
+       "\";|")
+      derivationFile
+    cmd
+      "grep"
+      "-q"
+      ("version = \"" <> (newVersion updateEnv) <> "\";")
+      derivationFile
   -- Obtain download URLs from repology
   -- TODO: use repology-api package
   downloads <-
-    cmd "curl" "-s" ("https://repology.org/api/v1/metapackage/" <> packageName) -|-
+    cmd "curl" "-s" ("https://repology.org/api/v1/metapackage/"
+                     <> packageName updateEnv) -|-
     cmd "jq" ".[].downloads | select(values) | .[]"
   let filteredDownloads =
         downloads & T.lines &
         filter
           (\url ->
-             newVersion `T.isInfixOf` url &&
-             isNothing (T.unpack url =~ archiveRegex newVersion)) &
+             (newVersion updateEnv) `T.isInfixOf` url &&
+             isNothing (T.unpack url =~ archiveRegex (newVersion updateEnv))) &
         map (T.replace "\"" "")
   forResult <-
     runExceptT $
@@ -81,12 +90,12 @@ fixSrcUrl packageName oldVersion newVersion derivationFile attrPath oldSrcUrl = 
     forM_ filteredDownloads $ \downloadUrl -> do
       let oldUrl =
             T.replace
-              oldVersion
+              (oldVersion updateEnv)
               "${version}"
               (T.replace oldDerivationName "${name}" oldSrcUrl)
       let newUrl =
             T.replace
-              newVersion
+              (newVersion updateEnv)
               "${version}"
               (T.replace newDerivationName "${name}" downloadUrl)
       lift $ File.replace oldUrl newUrl derivationFile
