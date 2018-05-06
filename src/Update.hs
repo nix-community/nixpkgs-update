@@ -102,18 +102,22 @@ contentBlacklist =
   ]
 
 nixEval' :: (Text -> Sh Text) -> Text -> Sh Text
-nixEval' errorExit expr =
-  cmd "nix" "eval" "-f" "." expr &
-  (fmap T.strip >>>
-   shE >>>
-   rewriteError ("nix eval failed for " <> expr) >>> eitherToError errorExit)
+nixEval' errorExit expr = eitherToError errorExit $ nixEvalE False expr
 
 rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
-rawEval' errorExit expr =
-  cmd "nix" "eval" "-f" "." "--raw" expr &
-  (fmap T.strip >>>
-   shE >>>
-   rewriteError ("nix eval failed for " <> expr) >>> eitherToError errorExit)
+rawEval' errorExit expr = eitherToError errorExit $ nixEvalE True expr
+
+type Raw = Bool
+
+nixEvalE :: Raw -> Text -> Sh (Either Text Text)
+nixEvalE raw expr =
+  run
+    "nix"
+    (["eval", "-f", "."] <>
+     if raw
+       then ["--raw"]
+       else [] <> [expr]) &
+  (fmap T.strip >>> shE >>> rewriteError ("nix eval failed for " <> expr))
 
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
