@@ -17,8 +17,8 @@ import Control.Monad (forM_)
 import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
-import qualified Data.Text as T
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
@@ -34,6 +34,7 @@ import Git
   , push
   )
 import NeatInterpolation (text)
+import Nix (compareVersions, nixEvalE)
 import Shelly
 import Utils
   ( ExitCode(..)
@@ -107,18 +108,6 @@ nixEval' errorExit expr = eitherToError errorExit $ nixEvalE False expr
 rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
 rawEval' errorExit expr = eitherToError errorExit $ nixEvalE True expr
 
-type Raw = Bool
-
-nixEvalE :: Raw -> Text -> Sh (Either Text Text)
-nixEvalE raw expr =
-  run
-    "nix"
-    (["eval", "-f", "."] <>
-     if raw
-       then ["--raw"]
-       else [] <> [expr]) &
-  (fmap T.strip >>> shE >>> rewriteError ("nix eval failed for " <> expr))
-
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
  = do
@@ -170,16 +159,7 @@ updatePackage log updateEnv = do
   let nixEval = nixEval' errorExit
   let rawEval = rawEval' errorExit
   -- Check whether requested version is newer than the current one
-  versionComparison <-
-    nixEval
-      ("(builtins.compareVersions \"" <> newVersion updateEnv <> "\" \"" <>
-       oldVersion updateEnv <>
-       "\")")
-  unless (versionComparison == "1") $
-    errorExit $
-    newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
-    " according to Nix; versionComparison: " <>
-    versionComparison
+  eitherToError errorExit (compareVersions updateEnv)
   -- Check whether package name is on blacklist
   forM_ nameBlackList $ \(isBlacklisted, message) ->
     when (isBlacklisted (packageName updateEnv)) $ errorExit message
