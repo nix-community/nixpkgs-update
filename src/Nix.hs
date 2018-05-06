@@ -9,6 +9,10 @@ module Nix
   ( nixEvalE
   , compareVersions
   , lookupAttrPath
+  , getDerivationFile
+  , getOldHash
+  , getSrcUrl
+  , Raw(..)
   ) where
 
 import Control.Category ((>>>))
@@ -18,19 +22,21 @@ import Data.Function ((&))
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
-import Shelly (Sh, cmd, run)
+import Prelude hiding (FilePath)
+import Shelly (FilePath, Sh, cmd, fromText, run)
 import Utils (UpdateEnv(..), rewriteError, shE)
 
-type Raw = Bool
+data Raw
+  = Raw
+  | NoRaw
+
+rawOpt :: Raw -> [Text]
+rawOpt Raw = ["--raw"]
+rawOpt NoRaw = []
 
 nixEvalE :: Raw -> Text -> Sh (Either Text Text)
 nixEvalE raw expr =
-  run
-    "nix"
-    (["eval", "-f", "."] <>
-     if raw
-       then ["--raw"]
-       else [] <> [expr]) &
+  run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) &
   (fmap T.strip >>> shE >>> rewriteError ("nix eval failed for " <> expr))
 
 -- Error if the "new version" is actually newer according to nix
@@ -38,7 +44,7 @@ compareVersions :: UpdateEnv -> Sh (Either Text ())
 compareVersions updateEnv = do
   versionComparison <-
     nixEvalE
-      False
+      NoRaw
       ("(builtins.compareVersions \"" <> newVersion updateEnv <> "\" \"" <>
        oldVersion updateEnv <>
        "\")")
@@ -65,3 +71,27 @@ lookupAttrPath updateEnv =
   (fmap (head . T.words . head . T.lines) >>>
    shE >>>
    rewriteError "nix-env -q failed to find package name with old version")
+
+getDerivationFile :: UpdateEnv -> Text -> Sh (Either Text FilePath)
+getDerivationFile updateEnv attrPath =
+  cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." &
+  (fmap T.strip >>>
+   fmap fromText >>> shE >>> rewriteError "Couldn't find derivation file.")
+
+getHash :: Text -> Sh (Either Text Text)
+getHash attrPath =
+  nixEvalE Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")
+
+getOldHash :: Text -> Sh (Either Text Text)
+getOldHash attrPath =
+  getHash attrPath &
+  rewriteError
+    ("Could not find old output hash at " <> attrPath <>
+     ".src.drvAttrs.outputHash.")
+
+getSrcUrl :: Text -> Sh (Either Text Text)
+getSrcUrl attrPath =
+  nixEvalE
+    Raw
+    ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+     ".src.drvAttrs.urls 0)")

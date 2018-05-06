@@ -34,7 +34,15 @@ import Git
   , push
   )
 import NeatInterpolation (text)
-import Nix (compareVersions, lookupAttrPath, nixEvalE)
+import Nix
+  ( Raw(..)
+  , compareVersions
+  , getDerivationFile
+  , getOldHash
+  , getSrcUrl
+  , lookupAttrPath
+  , nixEvalE
+  )
 import Shelly
 import Utils
   ( ExitCode(..)
@@ -103,10 +111,10 @@ contentBlacklist =
   ]
 
 nixEval' :: (Text -> Sh Text) -> Text -> Sh Text
-nixEval' errorExit expr = eitherToError errorExit $ nixEvalE False expr
+nixEval' errorExit expr = eitherToError errorExit $ nixEvalE NoRaw expr
 
 rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
-rawEval' errorExit expr = eitherToError errorExit $ nixEvalE True expr
+rawEval' errorExit expr = eitherToError errorExit $ nixEvalE Raw expr
 
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
@@ -168,7 +176,6 @@ updatePackage log updateEnv = do
     (autoUpdateBranchExists (packageName updateEnv))
     (errorExit "Update branch already on origin.")
   cleanAndResetToMaster
-    -- This is extremely slow but will give us better results
   attrPath <- eitherToError errorExit (lookupAttrPath updateEnv)
   -- Temporarily blacklist gnome sources for lockstep update
   whenM
@@ -179,9 +186,7 @@ updatePackage log updateEnv = do
   when (T.isPrefixOf "lua" attrPath) $
     errorExit "Packages for lua are currently blacklisted."
   derivationFile <-
-    fromText . T.strip <$>
-    cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." `orElse`
-    errorExit "Couldn't find derivation file."
+    eitherToError errorExit (getDerivationFile updateEnv attrPath)
   flip
     catches_sh
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
@@ -213,20 +218,10 @@ updatePackage log updateEnv = do
     cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in staging derivation file."
     checkoutAtMergeBase (branchName updateEnv)
-    oldHash <-
-      rawEval ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") `orElse`
-      errorExit
-        ("Could not find old output hash at " <> attrPath <>
-         ".src.drvAttrs.outputHash.")
-    oldSrcUrl <-
-      rawEval
-        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-         ".src.drvAttrs.urls 0)")
+    oldHash <- eitherToError errorExit (getOldHash attrPath)
+    oldSrcUrl <- eitherToError errorExit (getSrcUrl attrPath)
     File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
-    newSrcUrl <-
-      rawEval
-        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-         ".src.drvAttrs.urls 0)")
+    newSrcUrl <- eitherToError errorExit (getSrcUrl attrPath)
     when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
     newHash <-
       canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
