@@ -202,7 +202,7 @@ updatePackage log updateEnv = do
     unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
-         (newVersion updateEnv))
+         newVersion updateEnv)
     -- Make sure it hasn't been updated on master
     cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in master derivation file."

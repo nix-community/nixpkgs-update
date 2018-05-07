@@ -77,7 +77,7 @@ autoUpdateBranchExists packageName = do
   return $ ("origin/auto-update/" <> packageName) `elem` remotes
 
 commit :: Text -> Sh ()
-commit commitMessage = cmd "git" "commit" "-am" commitMessage
+commit = cmd "git" "commit" "-am"
 
 pr :: Text -> Sh ()
-pr prMessage = cmd "hub" "pull-request" "-m" prMessage
+pr = cmd "hub" "pull-request" "-m"

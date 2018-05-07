@@ -63,13 +63,13 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
       "-i"
       ("s|^\\([ ]*\\)\\(name = \"" <> name <>
        "-${version}\";\\)|\\1\\2\n\\1version = \"" <>
-       (newVersion updateEnv) <>
+       newVersion updateEnv <>
        "\";|")
       derivationFile
     cmd
       "grep"
       "-q"
-      ("version = \"" <> (newVersion updateEnv) <> "\";")
+      ("version = \"" <> newVersion updateEnv <> "\";")
       derivationFile
   -- Obtain download URLs from repology
   -- TODO: use repology-api package
@@ -83,7 +83,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
         downloads & T.lines &
         filter
           (\url ->
-             (newVersion updateEnv) `T.isInfixOf` url &&
+             newVersion updateEnv `T.isInfixOf` url &&
              isNothing (T.unpack url =~ archiveRegex (newVersion updateEnv))) &
         map (T.replace "\"" "")
   forResult <-
