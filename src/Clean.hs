@@ -74,8 +74,10 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
   -- Obtain download URLs from repology
   -- TODO: use repology-api package
   downloads <-
-    cmd "curl" "-s" ("https://repology.org/api/v1/metapackage/"
-                     <> packageName updateEnv) -|-
+    cmd
+      "curl"
+      "-s"
+      ("https://repology.org/api/v1/metapackage/" <> packageName updateEnv) -|-
     cmd "jq" ".[].downloads | select(values) | .[]"
   let filteredDownloads =
         downloads & T.lines &
