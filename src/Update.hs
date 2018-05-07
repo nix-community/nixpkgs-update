@@ -245,7 +245,7 @@ updatePackage log updateEnv = do
     maintainers <- eitherToError errorExit (getMaintainers attrPath)
     let maintainersCc =
           if not (T.null maintainers)
-            then "\n\ncc " <> maintainers <> " for review"
+            then "\n\ncc " <> maintainers <> " for testing"
             else ""
     let oV = oldVersion updateEnv
         nV = newVersion updateEnv
