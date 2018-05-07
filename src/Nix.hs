@@ -13,6 +13,7 @@ module Nix
   , getMaintainers
   , getOldHash
   , getSrcUrl
+  , getSrcUrls
   , getIsBroken
   , Raw(..)
   ) where
@@ -114,3 +115,9 @@ getIsBroken attrPath =
     ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
      ".meta.broken or false)") &
   rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
+
+getSrcUrls :: Text -> Sh (Either Text Text)
+getSrcUrls attrPath =
+  nixEvalE
+    NoRaw
+    ("pkgs." <> attrPath <> ".src.urls")

@@ -42,6 +42,7 @@ import Nix
   , getMaintainers
   , getOldHash
   , getSrcUrl
+  , getSrcUrls
   , lookupAttrPath
   , nixEvalE
   )
@@ -113,12 +114,6 @@ contentBlacklist =
   , ("buildPerlPackage", "Derivation contains buildPerlPackage.")
   ]
 
-nixEval' :: (Text -> Sh Text) -> Text -> Sh Text
-nixEval' errorExit expr = eitherToError errorExit $ nixEvalE NoRaw expr
-
-rawEval' :: (Text -> Sh Text) -> Text -> Sh Text
-rawEval' errorExit expr = eitherToError errorExit $ nixEvalE Raw expr
-
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
  = do
@@ -164,8 +159,6 @@ updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
 updatePackage log updateEnv = do
   setupNixpkgs
   let errorExit = errorExit' log (branchName updateEnv)
-  let nixEval = nixEval' errorExit
-  let rawEval = rawEval' errorExit
   -- Check whether requested version is newer than the current one
   eitherToError errorExit (compareVersions updateEnv)
   -- Check whether package name is on blacklist
@@ -179,7 +172,7 @@ updatePackage log updateEnv = do
   attrPath <- eitherToError errorExit (lookupAttrPath updateEnv)
   -- Temporarily blacklist gnome sources for lockstep update
   whenM
-    (("gnome" `T.isInfixOf`) <$> nixEval ("pkgs." <> attrPath <> ".src.urls"))
+    (("gnome" `T.isInfixOf`) <$> eitherToError errorExit (getSrcUrls attrPath))
     (errorExit "Packages from gnome are currently blacklisted.")
     -- Temporarily blacklist lua packages at @teto's request
     -- https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646
