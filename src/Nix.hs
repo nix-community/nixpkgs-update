@@ -13,6 +13,7 @@ module Nix
   , getSrcUrl
   , getSrcUrls
   , getIsBroken
+  , nixBuild
   , Raw(..)
   ) where
 
@@ -115,7 +116,31 @@ getIsBroken attrPath =
   rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
 
 getSrcUrls :: Text -> Sh (Either Text Text)
-getSrcUrls attrPath =
-  nixEvalE
-    NoRaw
-    ("pkgs." <> attrPath <> ".src.urls")
+getSrcUrls attrPath = nixEvalE NoRaw ("pkgs." <> attrPath <> ".src.urls")
+
+nixBuild :: Text -> Sh (Either Text ())
+nixBuild attrPath = do
+  buildE <-
+    shE $
+    cmd
+      "nix-build"
+      "--option"
+      "sandbox"
+      "true"
+      "--option"
+      "restrict-eval"
+      "true"
+      "-A"
+      attrPath
+  case buildE of
+    Right _ -> return $ Right ()
+    Left _ -> do
+      buildLogE <-
+        cmd "nix" "log" "-f" "." attrPath &
+        (shE >>>
+         (fmap . fmap)
+           (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines))
+      return $
+        case buildLogE of
+          Left t -> Left "nix log failed trying to get build logs"
+          Right buildLog -> Left ("nix build failed.\n" <> buildLog)

@@ -45,6 +45,7 @@ import Nix
   , getSrcUrls
   , lookupAttrPath
   , nixEvalE
+  , nixBuild
   )
 import Shelly
 import Utils
@@ -222,20 +223,7 @@ updatePackage log updateEnv = do
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     File.replace oldHash newHash derivationFile
-    cmd
-      "nix-build"
-      "--option"
-      "sandbox"
-      "true"
-      "--option"
-      "restrict-eval"
-      "true"
-      "-A"
-      attrPath `orElse` do
-      buildLog <-
-        T.unlines . reverse . take 30 . reverse . T.lines <$>
-        cmd "nix" "log" "-f" "." attrPath
-      errorExit ("nix build failed.\n" <> buildLog)
+    eitherToError errorExit (nixBuild attrPath)
     result <-
       fromText <$>
       (T.strip <$>
