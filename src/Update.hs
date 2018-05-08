@@ -9,6 +9,7 @@ module Update
   ( updateAll
   ) where
 
+import qualified Blacklist
 import Check (checkResult)
 import Clean (fixSrcUrl)
 import Control.Category ((>>>))
@@ -73,48 +74,6 @@ errorExit' log branchName message = do
   log message
   throw (ExitCode 1)
 
-nameBlackList :: [(Text -> Bool, Text)]
-nameBlackList =
-  [ (("jquery" `T.isInfixOf`), "this isn't a real package")
-  , (("google-cloud-sdk" `T.isInfixOf`), "complicated package")
-  , (("github-release" `T.isInfixOf`), "complicated package")
-  , (("fcitx" `T.isInfixOf`), "gets stuck in daemons")
-  , ( ("libxc" `T.isInfixOf`)
-    , "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821")
-  , (("perl" `T.isInfixOf`), "currently don't know how to update perl")
-  , (("python" `T.isInfixOf`), "currently don't know how to update python")
-  , (("cdrtools" `T.isInfixOf`), "We keep downgrading this by accident.")
-  , (("gst" `T.isInfixOf`), "gstreamer plugins are kept in lockstep.")
-  , (("electron" `T.isInfixOf`), "multi-platform srcs in file.")
-  , ( ("linux-headers" `T.isInfixOf`)
-    , "Not updated until many packages depend on it (part of stdenv).")
-  , ( ("mpich" `T.isInfixOf`)
-    , "Reported on repology.org as mischaracterized newest version")
-  , (("xfce" `T.isInfixOf`), "@volth asked to not update xfce")
-  , (("cmake-cursesUI-qt4UI" `T.isInfixOf`), "Derivation file is complicated")
-  , ( ("varnish" `T.isInfixOf`)
-    , "Temporary blacklist because of multiple versions and slow nixpkgs update")
-  , (("iana-etc" `T.isInfixOf`), "@mic92 takes care of this package")
-  , ( ("checkbashism" `T.isInfixOf`)
-    , "needs to be fixed, see https://github.com/NixOS/nixpkgs/pull/39552")
-  , ((== "isl"), "multi-version long building package")
-  , ((== "tokei"), "got stuck forever building with no CPU usage")
-  , ( ("qscintilla" `T.isInfixOf`)
-    , "https://github.com/ryantm/nixpkgs-update/issues/51")
-  ]
-
-contentBlacklist :: [(Text, Text)]
-contentBlacklist =
-  [ ("DO NOT EDIT", "Derivation file says not to edit it.")
-    -- Skip packages that have special builders
-  , ("buildGoPackage", "Derivation contains buildGoPackage.")
-  , ("buildRustCrate", "Derivation contains buildRustCrate.")
-  , ("buildPythonPackage", "Derivation contains buildPythonPackage.")
-  , ("buildRubyGem", "Derivation contains buildRubyGem.")
-  , ("bundlerEnv", "Derivation contains bundlerEnv.")
-  , ("buildPerlPackage", "Derivation contains buildPerlPackage.")
-  ]
-
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
  = do
@@ -163,7 +122,7 @@ updatePackage log updateEnv = do
   -- Check whether requested version is newer than the current one
   eitherToError errorExit (compareVersions updateEnv)
   -- Check whether package name is on blacklist
-  forM_ nameBlackList $ \(isBlacklisted, message) ->
+  forM_ Blacklist.name $ \(isBlacklisted, message) ->
     when (isBlacklisted (packageName updateEnv)) $ errorExit message
   fetchIfStale
   whenM
@@ -197,7 +156,7 @@ updatePackage log updateEnv = do
     unless ((numberOfFetchers :: Int) <= 1) $
       errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
     derivationContents <- readfile derivationFile
-    forM_ contentBlacklist $ \(offendingContent, message) ->
+    forM_ Blacklist.content $ \(offendingContent, message) ->
       when (offendingContent `T.isInfixOf` derivationContents) $
       errorExit message
     unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
