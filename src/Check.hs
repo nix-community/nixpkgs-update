@@ -110,6 +110,8 @@ checkResult updateEnv resultPath = do
         "- found " <> expectedVersion <> " in filename of file in " <>
         toTextIgnore resultPath
     setenv "HOME" home
-    gist <- cmd "tree" resultPath -|- cmd "gist"
-    unless (T.null gist) $ addToReport $ "- directory tree listing: " <> gist
+    gist1 <- cmd "tree" resultPath -|- cmd "gist"
+    unless (T.null gist1) $ addToReport $ "- directory tree listing: " <> gist1
+    gist2 <- cmd "du" "-h" resultPath -|- cmd "gist"
+    unless (T.null gist2) $ addToReport $ "- du listing: " <> gist2
   canFail $ readfile logFile
