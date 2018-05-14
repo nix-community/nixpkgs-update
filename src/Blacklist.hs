@@ -1,15 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Blacklist
-  ( name
+  ( packageName
   , content
+  , url
+  , attrPath
   ) where
 
+import Data.Foldable (find)
 import Data.Text (Text)
 import qualified Data.Text as T
 
-name :: [(Text -> Bool, Text)]
-name =
+url :: [(Text -> Bool, Text)]
+url =
+  [(("gnome" `T.isInfixOf`), "Packages from gnome are currently blacklisted.")]
+
+attrPath :: [(Text -> Bool, Text)]
+attrPath =
+  [(("lua" `T.isPrefixOf`), "Packages for lua are currently blacklisted.")]
+
+packageName :: Text -> Maybe Text
+packageName pn =
+  snd <$> find (\(isBlacklisted, _) -> isBlacklisted pn) nameList
+
+nameList :: [(Text -> Bool, Text)]
+nameList =
   [ (("jquery" `T.isInfixOf`), "this isn't a real package")
   , (("google-cloud-sdk" `T.isInfixOf`), "complicated package")
   , (("github-release" `T.isInfixOf`), "complicated package")

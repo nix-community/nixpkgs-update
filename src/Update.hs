@@ -122,8 +122,9 @@ updatePackage log updateEnv = do
   -- Check whether requested version is newer than the current one
   eitherToError errorExit (compareVersions updateEnv)
   -- Check whether package name is on blacklist
-  forM_ Blacklist.name $ \(isBlacklisted, message) ->
-    when (isBlacklisted (packageName updateEnv)) $ errorExit message
+  case Blacklist.packageName (packageName updateEnv) of
+    Nothing -> return ()
+    Just msg -> errorExit msg
   fetchIfStale
   whenM
     (autoUpdateBranchExists (packageName updateEnv))
