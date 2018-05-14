@@ -111,7 +111,7 @@ checkResult updateEnv resultPath = do
         toTextIgnore resultPath
     setenv "HOME" home
     gist1 <- cmd "tree" resultPath -|- cmd "gist"
-    unless (T.null gist1) $ addToReport $ "- directory tree listing: " <> gist1
+    unless (T.null gist1) $ addToReport $ "- directory tree listing: " <> T.strip gist1
     gist2 <- cmd "du" "-h" resultPath -|- cmd "gist"
-    unless (T.null gist2) $ addToReport $ "- du listing: " <> gist2
+    unless (T.null gist2) $ addToReport $ "- du listing: " <> T.strip gist2
   canFail $ readfile logFile

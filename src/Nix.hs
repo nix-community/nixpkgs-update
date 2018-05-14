@@ -121,7 +121,7 @@ getDescription attrPath =
   nixEvalE
     NoRaw
     ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-     ".meta.description or '')") &
+     ".meta.description or \"\")") &
   rewriteError ("Could not get meta.description for attrpath " <> attrPath)
 
 getSrcUrls :: Text -> Sh (Either Text Text)
