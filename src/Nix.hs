@@ -14,6 +14,7 @@ module Nix
   , getSrcUrls
   , getIsBroken
   , nixBuild
+  , getDescription
   , Raw(..)
   ) where
 
@@ -114,6 +115,14 @@ getIsBroken attrPath =
     ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
      ".meta.broken or false)") &
   rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
+
+getDescription :: Text -> Sh (Either Text Text)
+getDescription attrPath =
+  nixEvalE
+    NoRaw
+    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
+     ".meta.description or '')") &
+  rewriteError ("Could not get meta.description for attrpath " <> attrPath)
 
 getSrcUrls :: Text -> Sh (Either Text Text)
 getSrcUrls attrPath = nixEvalE NoRaw ("pkgs." <> attrPath <> ".src.urls")

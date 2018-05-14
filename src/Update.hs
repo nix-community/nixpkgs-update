@@ -39,14 +39,15 @@ import Nix
   ( Raw(..)
   , compareVersions
   , getDerivationFile
+  , getDescription
   , getIsBroken
   , getMaintainers
   , getOldHash
   , getSrcUrl
   , getSrcUrls
   , lookupAttrPath
-  , nixEvalE
   , nixBuild
+  , nixEvalE
   )
 import Shelly
 import Utils
@@ -190,10 +191,13 @@ updatePackage log updateEnv = do
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
     resultCheckReport <- sub (checkResult updateEnv result)
+    d <- eitherToError errorExit (getDescription attrPath)
+    let metaDescription =
+          "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
     maintainers <- eitherToError errorExit (getMaintainers attrPath)
     let maintainersCc =
           if not (T.null maintainers)
-            then "\n\ncc " <> maintainers <> " for testing"
+            then "\n\ncc " <> maintainers <> " for testing."
             else ""
     let oV = oldVersion updateEnv
         nV = newVersion updateEnv
@@ -219,7 +223,8 @@ updatePackage log updateEnv = do
           if isBroken == "true"
             then "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
             else ""
-    let prMessage = commitMessage <> brokenWarning <> maintainersCc
+    let prMessage =
+          commitMessage <> brokenWarning <> metaDescription <> maintainersCc
     untilOfBorgFree
     pr prMessage
     cleanAndResetToMaster
