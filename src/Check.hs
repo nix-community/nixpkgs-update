@@ -7,7 +7,7 @@ module Check
   ) where
 
 import Control.Applicative (many)
-import Control.Monad (forM_)
+import Control.Monad (forM)
 import Data.Char (isSpace)
 import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
@@ -21,15 +21,11 @@ import Utils (Options(..), UpdateEnv (..), Version, canFail, succeded)
 
 default (T.Text)
 
--- | Run a program with a provided argument and report whether
--- it exits successfully
--- Failure hints that the argument is not supported.
-checkBinaryHelp :: (Text -> Sh ()) -> FilePath -> Text -> Sh ()
-checkBinaryHelp addToReport program argument =
-  whenM (succeded (cmd "timeout" "-k" "2" "1" program argument)) $
-    addToReport $
-      "- ran ‘" <> toTextIgnore program <> " " <> argument <>
-      "’ got 0 exit code"
+data BinaryCheck = BinaryCheck
+  { filePath :: FilePath
+  , zeroExitCode :: Bool
+  , versionPresent :: Bool
+  }
 
 -- | Construct regex: [^\.]*${version}\.*\s*
 versionRegex :: Text -> RE Char ()
@@ -40,37 +36,62 @@ versionRegex version =
 
 -- | Run a program with provided argument and report whether the output
 -- mentions the expected version
-checkVersionType :: (Text -> Sh ()) -> Version -> FilePath -> Text -> Sh ()
-checkVersionType addToReport expectedVersion program argument =
+checkBinary :: Text -> Version -> FilePath -> Sh BinaryCheck
+checkBinary argument expectedVersion program =
   catchany_sh
   (do
       stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
+      code <- lastExitCode
       stderr <- lastStderr
-      when
-        (isJust $
-         (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
-         versionRegex expectedVersion) $
-        addToReport $
-        "- ran ‘" <> toTextIgnore program <> " " <> argument <>
-        "’ and found version " <>
-        expectedVersion)
-  (\ _ -> return ())
+      let hasVersion =
+            isJust $ (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
+            versionRegex expectedVersion
+      return $ BinaryCheck program (code == 0) hasVersion)
+  (\ _ -> return $ BinaryCheck program False False)
+
+checks :: [Version -> FilePath -> Sh BinaryCheck]
+checks =
+  [ checkBinary ""
+  , checkBinary "-V"
+  , checkBinary "-v"
+  , checkBinary "--version"
+  , checkBinary "version"
+  , checkBinary "-h"
+  , checkBinary "--help"
+  , checkBinary "help"
+  ]
+
+someChecks :: BinaryCheck -> [Sh BinaryCheck] -> Sh BinaryCheck
+someChecks best [] = return best
+someChecks best (c:rest) = do
+  current <- c
+  let nb = newBest current
+  case nb of
+    BinaryCheck _ True True -> return nb
+    _ -> someChecks nb rest
+  where
+    newBest :: BinaryCheck -> BinaryCheck
+    newBest (BinaryCheck _ currentExit currentVersionPresent) =
+      BinaryCheck
+      (filePath best)
+      (zeroExitCode best || currentExit)
+      (versionPresent best || currentVersionPresent)
 
 -- | Run a program with various version or help flags and report
 -- when they succeded
-checkBinary :: (Text -> Sh ()) -> Version -> FilePath -> Sh ()
-checkBinary addToReport expectedVersion program = do
-  checkBinaryHelp addToReport program "-h"
-  checkBinaryHelp addToReport program "--help"
-  checkBinaryHelp addToReport program "help"
-  checkVersionType addToReport expectedVersion program ""
-  checkVersionType addToReport expectedVersion program "-V"
-  checkVersionType addToReport expectedVersion program "-v"
-  checkVersionType addToReport expectedVersion program "--version"
-  checkVersionType addToReport expectedVersion program "version"
-  checkVersionType addToReport expectedVersion program "-h"
-  checkVersionType addToReport expectedVersion program "--help"
-  checkVersionType addToReport expectedVersion program "help"
+runChecks :: Version -> FilePath -> Sh BinaryCheck
+runChecks expectedVersion program =
+  someChecks (BinaryCheck program False False) checks'
+  where
+    checks' = map (\c -> c expectedVersion program) checks
+
+checkReport :: BinaryCheck -> Text
+checkReport (BinaryCheck p False False) = "- Warning: no invocation of " <> toTextIgnore p <> " had a zero exit code or showed the expected version"
+checkReport (BinaryCheck p _ _) = "- " <> toTextIgnore p <> " passed the binary check."
+
+successfullCheck :: BinaryCheck -> Bool
+successfullCheck (BinaryCheck _ False False) = False
+successfullCheck _ = True
 
 checkResult :: UpdateEnv -> FilePath  -> Sh Text
 checkResult updateEnv resultPath = do
@@ -89,11 +110,18 @@ checkResult updateEnv resultPath = do
       if binExists
         then findWhen test_f (resultPath </> "bin")
         else return []
-    forM_ binaries $ \binary ->
-      checkBinary addToReport expectedVersion binary
-    unlessM (succeded $ cmd "test" "-s" logFile) $
-      addToReport
-        "- Warning: no binary found that responded to help or version flags. (This warning appears even if the package isn't expected to have binaries.)"
+    checks <- forM binaries $ \binary -> runChecks expectedVersion binary
+    addToReport (T.intercalate "\n" (map checkReport checks))
+    let passedZeroExitCode = (T.pack . show)
+          (foldl
+           (\sum c -> if zeroExitCode c then sum + 1 else sum) 0 checks :: Int)
+        passedVersionPresent = (T.pack . show)
+          (foldl
+           (\sum c -> if versionPresent c then sum + 1 else sum) 0 checks :: Int)
+        numBinaries = (T.pack . show) (length binaries)
+
+    addToReport ("- " <> passedZeroExitCode <> " of " <> numBinaries <> " passed binary check by having a zero exit code.")
+    addToReport ("- " <> passedVersionPresent <> " of " <> numBinaries <> " passed binary check by having the new version present in output.")
     canFail $ cmd "grep" "-r" expectedVersion resultPath
     whenM ((== 0) <$> lastExitCode) $
       addToReport $
