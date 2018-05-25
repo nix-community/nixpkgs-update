@@ -57,6 +57,7 @@ nameList =
 content :: [(Text, Text)]
 content =
   [ ("DO NOT EDIT", "Derivation file says not to edit it.")
+  , ("Do not edit!", "Derivation file says not to edit it.")
     -- Skip packages that have special builders
   , ("buildGoPackage", "Derivation contains buildGoPackage.")
   , ("buildRustCrate", "Derivation contains buildRustCrate.")
