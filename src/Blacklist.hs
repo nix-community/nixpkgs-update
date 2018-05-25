@@ -5,6 +5,7 @@ module Blacklist
   , content
   , url
   , attrPath
+  , checkResult
   ) where
 
 import Data.Foldable (find)
@@ -64,3 +65,11 @@ content =
   , ("bundlerEnv", "Derivation contains bundlerEnv.")
   , ("buildPerlPackage", "Derivation contains buildPerlPackage.")
   ]
+
+checkResult :: Text -> Maybe Text
+checkResult pn =
+  snd <$> find (\(isBlacklisted, _) -> isBlacklisted pn) checkResultList
+
+checkResultList :: [(Text -> Bool, Text)]
+checkResultList =
+  [ (("busybox" `T.isInfixOf`), "- busybox result is not automatically checked, because some binaries kill the shell") ]

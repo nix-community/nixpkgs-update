@@ -190,7 +190,10 @@ updatePackage log updateEnv = do
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    resultCheckReport <- sub (checkResult updateEnv result)
+    resultCheckReport <-
+      case Blacklist.checkResult (packageName updateEnv) of
+        Nothing -> sub (checkResult updateEnv result)
+        Just msg -> pure msg
     d <- eitherToError errorExit (getDescription attrPath)
     let metaDescription =
           "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
