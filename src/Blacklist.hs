@@ -18,7 +18,9 @@ url =
 
 attrPath :: [(Text -> Bool, Text)]
 attrPath =
-  [(("lua" `T.isPrefixOf`), "Packages for lua are currently blacklisted.")]
+  [ (("lua" `T.isPrefixOf`), "Packages for lua are currently blacklisted.")
+  , (("lxqt" `T.isPrefixOf`), "Packages for lxqt are currently blacklisted.")
+  ]
 
 packageName :: Text -> Maybe Text
 packageName pn =
