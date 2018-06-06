@@ -238,20 +238,18 @@ updatePackage log updateEnv = do
 
                One time setup in nixpkgs Git checkout:
                ```
-                 cachix use r-ryantm
-                 git remote add r-ryantm https://github.com/r-ryantm/nixpkgs.git
+               cachix use r-ryantm
+               git remote add r-ryantm https://github.com/r-ryantm/nixpkgs.git
                ```
 
                Test this build:
                ```
-                 git fetch r-ryantm
-                 git checkout $commitHash
-                 nix-shell --pure -I nixpkgs=. -p $attrPath
+               git fetch r-ryantm && git checkout $commitHash && nix-shell --pure -I nixpkgs=. -p $attrPath
                ```
             |]
 
     let prMessage =
-          commitMessage <> brokenWarning <> metaDescription <> maintainersCc <> cachixNote
+          commitMessage <> brokenWarning <> metaDescription <> maintainersCc <> "\n\n" <> cachixNote
     untilOfBorgFree
     pr prMessage
     cleanAndResetToMaster
