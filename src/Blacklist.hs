@@ -28,7 +28,8 @@ packageName pn =
 
 nameList :: [(Text -> Bool, Text)]
 nameList =
-  [ (("jquery" `T.isInfixOf`), "this isn't a real package")
+  [ (("r-" `T.isPrefixOf`), "we don't know how to find the attrpath for these")
+  , (("jquery" `T.isInfixOf`), "this isn't a real package")
   , (("google-cloud-sdk" `T.isInfixOf`), "complicated package")
   , (("github-release" `T.isInfixOf`), "complicated package")
   , (("fcitx" `T.isInfixOf`), "gets stuck in daemons")
