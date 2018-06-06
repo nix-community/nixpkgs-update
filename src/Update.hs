@@ -33,6 +33,7 @@ import Git
   , fetchIfStale
   , pr
   , push
+  , headHash
   )
 import NeatInterpolation (text)
 import Nix
@@ -48,6 +49,7 @@ import Nix
   , lookupAttrPath
   , nixBuild
   , nixEvalE
+  , cachix
   )
 import Shelly
 import Utils
@@ -190,6 +192,7 @@ updatePackage log updateEnv = do
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
+    cachix result
     resultCheckReport <-
       case Blacklist.checkResult (packageName updateEnv) of
         Nothing -> sub (checkResult updateEnv result)
@@ -219,6 +222,7 @@ updatePackage log updateEnv = do
                 $resultCheckReport
             |]
     commit commitMessage
+    commitHash <- headHash
     -- Try to push it three times
     push updateEnv `orElse` push updateEnv `orElse` push updateEnv
     isBroken <- eitherToError errorExit (getIsBroken attrPath)
@@ -226,8 +230,28 @@ updatePackage log updateEnv = do
           if isBroken == "true"
             then "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
             else ""
+
+    let cachixNote =
+          [text|
+
+               **Experimental:** this build is cached with [Cachix]( https://cachix.org/ ). To use the cache follow these experimental instructions:
+
+               One time setup in nixpkgs Git checkout:
+               ```
+                 cachix use r-ryantm
+                 git remote add r-ryantm https://github.com/r-ryantm/nixpkgs.git
+               ```
+
+               Test this build:
+               ```
+                 git fetch r-ryantm
+                 git checkout $commitHash
+                 nix-shell --pure -I nixpkgs=. -p $attrPath
+               ```
+            |]
+
     let prMessage =
-          commitMessage <> brokenWarning <> metaDescription <> maintainersCc
+          commitMessage <> brokenWarning <> metaDescription <> maintainersCc <> cachixNote
     untilOfBorgFree
     pr prMessage
     cleanAndResetToMaster

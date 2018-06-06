@@ -16,18 +16,20 @@ module Nix
   , nixBuild
   , getDescription
   , Raw(..)
+  , cachix
   ) where
 
-import Control.Category ((>>>))
-import Control.Error (headMay)
-import Data.Bifunctor (second)
-import Data.Function ((&))
-import Data.Semigroup ((<>))
-import Data.Text (Text)
+import           Control.Category ((>>>))
+import           Control.Error (headMay)
+import           Control.Monad (void)
+import           Data.Bifunctor (second)
+import           Data.Function ((&))
+import           Data.Semigroup ((<>))
+import           Data.Text (Text)
 import qualified Data.Text as T
-import Prelude hiding (FilePath)
-import Shelly (FilePath, Sh, cmd, fromText, run)
-import Utils (UpdateEnv(..), rewriteError, shE)
+import           Prelude hiding (FilePath)
+import           Shelly (FilePath, Sh, cmd, fromText, run)
+import           Utils (UpdateEnv(..), rewriteError, shE)
 
 data Raw
   = Raw
@@ -153,3 +155,12 @@ nixBuild attrPath = do
         case buildLogE of
           Left t -> Left "nix log failed trying to get build logs"
           Right buildLog -> Left ("nix build failed.\n" <> buildLog)
+
+cachix :: FilePath -> Sh ()
+cachix resultPath =
+  void $ shE $
+  cmd
+    "cachix"
+    "push"
+    "r-ryantm"
+    resultPath

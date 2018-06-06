@@ -12,6 +12,7 @@ module Git
   , autoUpdateBranchExists
   , commit
   , pr
+  , headHash
   ) where
 
 import Data.Semigroup ((<>))
@@ -81,3 +82,6 @@ commit = cmd "git" "commit" "-am"
 
 pr :: Text -> Sh ()
 pr = cmd "hub" "pull-request" "-m"
+
+headHash :: Sh Text
+headHash = cmd "git" "rev-parse" "HEAD"
