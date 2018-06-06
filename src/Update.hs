@@ -120,14 +120,14 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
 
 updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
 updatePackage log updateEnv = do
-  setupNixpkgs
   let errorExit = errorExit' log (branchName updateEnv)
-  -- Check whether requested version is newer than the current one
-  eitherToError errorExit (compareVersions updateEnv)
-  -- Check whether package name is on blacklist
   case Blacklist.packageName (packageName updateEnv) of
     Nothing -> return ()
     Just msg -> errorExit msg
+  setupNixpkgs
+  -- Check whether requested version is newer than the current one
+  eitherToError errorExit (compareVersions updateEnv)
+  -- Check whether package name is on blacklist
   fetchIfStale
   whenM
     (autoUpdateBranchExists (packageName updateEnv))
