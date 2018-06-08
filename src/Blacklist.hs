@@ -55,6 +55,7 @@ nameList =
   , ((== "tokei"), "got stuck forever building with no CPU usage")
   , ( ("qscintilla" `T.isInfixOf`)
     , "https://github.com/ryantm/nixpkgs-update/issues/51")
+  , ((== "itstool"), "https://github.com/NixOS/nixpkgs/pull/41339")
   ]
 
 content :: [(Text, Text)]
