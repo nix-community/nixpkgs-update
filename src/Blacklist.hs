@@ -20,6 +20,7 @@ attrPath :: [(Text -> Bool, Text)]
 attrPath =
   [ (("lua" `T.isPrefixOf`), "Packages for lua are currently blacklisted.")
   , (("lxqt" `T.isPrefixOf`), "Packages for lxqt are currently blacklisted.")
+  , (("altcoins.bitcoin-xt" `T.isPrefixOf`), "nix-prefetch-url has infinite redirect https://github.com/NixOS/nix/issues/2225 remove after Nix upgrade that includes https://github.com/NixOS/nix/commit/b920b908578d68c7c80f1c1e89c42784693e18d5.")
   ]
 
 packageName :: Text -> Maybe Text
