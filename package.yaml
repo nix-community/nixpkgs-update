@@ -22,6 +22,7 @@ dependencies:
   - time >= 1.8 && < 1.10
   - errors
   - mtl
+  - github
 
 executables:
   nixpkgs-update:

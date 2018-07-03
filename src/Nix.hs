@@ -126,8 +126,21 @@ getDescription attrPath =
      ".meta.description or \"\")") &
   rewriteError ("Could not get meta.description for attrpath " <> attrPath)
 
+getSrcAttr :: Text -> Text -> Sh (Either Text Text)
+getSrcAttr attr attrPath =
+  nixEvalE NoRaw ("pkgs." <> attrPath <> ".src." <> attr)
+
 getSrcUrls :: Text -> Sh (Either Text Text)
-getSrcUrls attrPath = nixEvalE NoRaw ("pkgs." <> attrPath <> ".src.urls")
+getSrcUrls = getSrcAttr "urls"
+
+getSrcRepo :: Text -> Sh (Either Text Text)
+getSrcRepo = getSrcAttr "repo"
+
+getSrcOwner :: Text -> Sh (Either Text Text)
+getSrcOwner = getSrcAttr "owner"
+
+getSrcRev :: Text -> Sh (Either Text Text)
+getSrcRev = getSrcAttr "rev"
 
 nixBuild :: Text -> Sh (Either Text ())
 nixBuild attrPath = do
