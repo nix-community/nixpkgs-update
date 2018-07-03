@@ -58,6 +58,8 @@ nameList =
   , ( ("qscintilla" `T.isInfixOf`)
     , "https://github.com/ryantm/nixpkgs-update/issues/51")
   , ((== "itstool"), "https://github.com/NixOS/nixpkgs/pull/41339")
+  , ( ("wire-desktop" `T.isInfixOf`)
+    , "nixpkgs-update cannot handle this derivation https://github.com/NixOS/nixpkgs/pull/42936#issuecomment-402282692")
   ]
 
 content :: [(Text, Text)]
