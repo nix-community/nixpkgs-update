@@ -133,15 +133,6 @@ getSrcAttr attr attrPath =
 getSrcUrls :: Text -> Sh (Either Text Text)
 getSrcUrls = getSrcAttr "urls"
 
-getSrcRepo :: Text -> Sh (Either Text Text)
-getSrcRepo = getSrcAttr "repo"
-
-getSrcOwner :: Text -> Sh (Either Text Text)
-getSrcOwner = getSrcAttr "owner"
-
-getSrcRev :: Text -> Sh (Either Text Text)
-getSrcRev = getSrcAttr "rev"
-
 nixBuild :: Text -> Sh (Either Text ())
 nixBuild attrPath = do
   buildE <-
