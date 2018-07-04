@@ -234,7 +234,7 @@ updatePackage log updateEnv = do
     let cachixNote =
           [text|
 
-               **Experimental:** this build is cached with [Cachix]( https://cachix.org/ ). To use the cache follow these experimental instructions:
+               This build is cached with [Cachix]( https://cachix.org/ ). To use the cache follow these instructions:
 
                One time setup in nixpkgs Git checkout:
                ```
