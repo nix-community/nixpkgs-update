@@ -193,7 +193,7 @@ updatePackage log updateEnv = do
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    log ("cachix " <> result)
+    log ("cachix " <> (T.pack . show) result)
     cachix result
     resultCheckReport <-
       case Blacklist.checkResult (packageName updateEnv) of
