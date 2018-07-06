@@ -60,6 +60,8 @@ nameList =
   , ((== "itstool"), "https://github.com/NixOS/nixpkgs/pull/41339")
   , ( ("wire-desktop" `T.isInfixOf`)
     , "nixpkgs-update cannot handle this derivation https://github.com/NixOS/nixpkgs/pull/42936#issuecomment-402282692")
+  , ( ("virtualbox" `T.isInfixOf`)
+    , "nixpkgs-update cannot handle updating the guest additions https://github.com/NixOS/nixpkgs/pull/42934")
   ]
 
 content :: [(Text, Text)]
