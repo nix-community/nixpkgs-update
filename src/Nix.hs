@@ -19,17 +19,17 @@ module Nix
   , cachix
   ) where
 
-import           Control.Category ((>>>))
-import           Control.Error (headMay)
-import           Control.Monad (void)
-import           Data.Bifunctor (second)
-import           Data.Function ((&))
-import           Data.Semigroup ((<>))
-import           Data.Text (Text)
+import Control.Category ((>>>))
+import Control.Error (headMay)
+import Control.Monad (void)
+import Data.Bifunctor (second)
+import Data.Function ((&))
+import Data.Semigroup ((<>))
+import Data.Text (Text)
 import qualified Data.Text as T
-import           Prelude hiding (FilePath)
-import           Shelly (FilePath, Sh, cmd, fromText, run)
-import           Utils (UpdateEnv(..), rewriteError, shE)
+import Prelude hiding (FilePath)
+import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, toTextIgnore)
+import Utils (UpdateEnv(..), rewriteError, shE)
 
 data Raw
   = Raw
@@ -161,10 +161,6 @@ nixBuild attrPath = do
           Right buildLog -> Left ("nix build failed.\n" <> buildLog)
 
 cachix :: FilePath -> Sh ()
-cachix resultPath =
-  void $ shE $
-  cmd
-    "cachix"
-    "push"
-    "r-ryantm"
-    resultPath
+cachix resultPath = do
+  setStdin (toTextIgnore resultPath)
+  void $ shE $ cmd "cachix" "push" "r-ryantm"
