@@ -209,17 +209,14 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
   d <- eitherToError errorExit (getDescription attrPath)
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
-  changelogResult <- liftIO $ GitHub.changelog newSrcUrl
-  changelogMessage <-
-    case changelogResult of
+  releaseUrlResult <- liftIO $ GitHub.releaseUrl newSrcUrl
+  releaseUrlMessage <-
+    case releaseUrlResult of
       Left e -> do
         log e
         return "\n"
       Right msg ->
-        return
-          ("\n<details><summary>Release notes from GitHub (click to expand)</summary>\n" <>
-           msg <>
-           "</details>\n<br/>\n")
+        return ("\n(Release on GitHub)["<> msg <> "]\n\n")
   maintainers <- eitherToError errorExit (getMaintainers attrPath)
   let maintainersCc =
         if not (T.null maintainers)
@@ -248,7 +245,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
              $commitMessage
              $brokenWarning
              $metaDescription
-             $changelogMessage
+             $releaseUrlMessage
              <details>
              <summary>
              Checks done (click to expand)
