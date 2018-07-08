@@ -209,7 +209,7 @@ updatePackage log updateEnv = do
           log e
           return "\n"
         Right msg ->
-          return ("\n<details><summary>Version release notes (from GitHub)</summary>\n" <> msg <> "</details>\n\n")
+          return ("\n<details><summary>Version release notes (from GitHub)</summary>\n" <> msg <> "</details>\n<br/>\n")
     maintainers <- eitherToError errorExit (getMaintainers attrPath)
     let maintainersCc =
           if not (T.null maintainers)
