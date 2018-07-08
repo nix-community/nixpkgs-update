@@ -217,7 +217,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
         return "\n"
       Right msg ->
         return
-          ("\n<details><summary>Version release notes (from GitHub)</summary>\n" <>
+          ("\n<details><summary>Release notes from GitHub (click to expand)</summary>\n" <>
            msg <>
            "</details>\n<br/>\n")
   maintainers <- eitherToError errorExit (getMaintainers attrPath)
@@ -243,17 +243,22 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
         if isBroken == "true"
           then "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
           else ""
-  let cachixNote =
+  let prMessage =
         [text|
-              $changelogMessage
-              These checks were done:
-
-              - built on NixOS
-              $resultCheckReport
-
+             $commitMessage
+             $brokenWarning
+             $metaDescription
+             $changelogMessage
              <details>
              <summary>
-             This build is cached with Cachix. To use the cache follow these instructions:
+             Checks done (click to expand)
+             <summary>
+             - built on NixOS
+             $resultCheckReport
+             </details>
+             <details>
+             <summary>
+             Test this build with Cachix (click to expand)
              </summary>
 
              One time setup in nixpkgs Git checkout:
@@ -267,11 +272,8 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
              git fetch r-ryantm && git checkout $commitHash && nix-shell --pure -I nixpkgs=. -p $attrPath
              ```
              </details>
+             $maintainersCc
           |]
-  let prMessage =
-        commitMessage <> brokenWarning <> metaDescription <> maintainersCc <>
-        "\n\n" <>
-        cachixNote
   untilOfBorgFree
   pr prMessage
   cleanAndResetToMaster
