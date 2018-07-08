@@ -253,7 +253,10 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
   let cachixNote =
         [text|
 
+             <details>
+             <summary>
              This build is cached with Cachix. To use the cache follow these instructions:
+             </summary>
 
              One time setup in nixpkgs Git checkout:
              ```
@@ -265,6 +268,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
              ```
              git fetch r-ryantm && git checkout $commitHash && nix-shell --pure -I nixpkgs=. -p $attrPath
              ```
+             </details>
           |]
   let prMessage =
         commitMessage <> brokenWarning <> metaDescription <> maintainersCc <>
