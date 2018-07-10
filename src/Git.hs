@@ -57,7 +57,7 @@ fetchIfStale :: Sh ()
 fetchIfStale =
   whenM
     (liftIO staleFetchHead)
-    (canFail $ cmd "git" "fetch" "--prune" "--multiple" "upstream" "origin")
+    (canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin")
 
 push :: UpdateEnv -> Sh ()
 push updateEnv =
@@ -74,7 +74,8 @@ checkoutAtMergeBase branchName = do
 
 autoUpdateBranchExists :: Text -> Sh Bool
 autoUpdateBranchExists packageName = do
-  remotes <- map T.strip . T.lines <$> cmd "git" "branch" "--remote"
+  remotes <-
+    map T.strip . T.lines <$> (silently $ cmd "git" "branch" "--remote")
   return $ ("origin/auto-update/" <> packageName) `elem` remotes
 
 commit :: Text -> Sh ()
