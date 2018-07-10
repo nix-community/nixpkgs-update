@@ -12,19 +12,32 @@ import Data.Foldable (find)
 import Data.Text (Text)
 import qualified Data.Text as T
 
-srcUrl :: Text -> Maybe Text
-srcUrl url = snd <$> find (\(isBlacklisted, _) -> isBlacklisted url) srcUrlList
+type Blacklist = [(Text -> Bool, Text)]
 
-srcUrlList :: [(Text -> Bool, Text)]
+srcUrl :: Text -> Maybe Text
+srcUrl = blacklister srcUrlList
+
+attrPath :: Text -> Maybe Text
+attrPath = blacklister attrPathList
+
+packageName :: Text -> Maybe Text
+packageName = blacklister nameList
+
+content :: Text -> Maybe Text
+content = blacklister contentList
+
+checkResult :: Text -> Maybe Text
+checkResult = blacklister checkResultList
+
+srcUrlList :: Blacklist
 srcUrlList =
   [(("gnome" `T.isInfixOf`), "Packages from gnome are currently blacklisted.")]
 
-attrPath :: Text -> Maybe Text
-attrPath ap = snd <$> find (\(isBlacklisted, _) -> isBlacklisted ap) attrPathList
-
-attrPathList :: [(Text -> Bool, Text)]
+attrPathList :: Blacklist
 attrPathList =
-  [ prefix "lua" "Packages for lua are currently blacklisted. https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646"
+  [ prefix
+      "lua"
+      "Packages for lua are currently blacklisted. https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646"
   , prefix "lxqt" "Packages for lxqt are currently blacklisted."
   , prefix
       "altcoins.bitcoin-xt"
@@ -34,10 +47,7 @@ attrPathList =
       "@roconnor asked for a blacklist on this until something can be done with GPG signatures https://github.com/NixOS/nixpkgs/commit/77f3ac7b7638b33ab198330eaabbd6e0a2e751a9"
   ]
 
-packageName :: Text -> Maybe Text
-packageName pn = snd <$> find (\(isBlacklisted, _) -> isBlacklisted pn) nameList
-
-nameList :: [(Text -> Bool, Text)]
+nameList :: Blacklist
 nameList =
   [ prefix "r-" "we don't know how to find the attrpath for these"
   , infixOf "jquery" "this isn't a real package"
@@ -71,24 +81,20 @@ nameList =
       "nixpkgs-update cannot handle updating the guest additions https://github.com/NixOS/nixpkgs/pull/42934"
   ]
 
-content :: [(Text, Text)]
-content =
-  [ ("DO NOT EDIT", "Derivation file says not to edit it.")
-  , ("Do not edit!", "Derivation file says not to edit it.")
+contentList :: Blacklist
+contentList =
+  [ infixOf "DO NOT EDIT" "Derivation file says not to edit it."
+  , infixOf "Do not edit!" "Derivation file says not to edit it."
     -- Skip packages that have special builders
-  , ("buildGoPackage", "Derivation contains buildGoPackage.")
-  , ("buildRustCrate", "Derivation contains buildRustCrate.")
-  , ("buildPythonPackage", "Derivation contains buildPythonPackage.")
-  , ("buildRubyGem", "Derivation contains buildRubyGem.")
-  , ("bundlerEnv", "Derivation contains bundlerEnv.")
-  , ("buildPerlPackage", "Derivation contains buildPerlPackage.")
+  , infixOf "buildGoPackage" "Derivation contains buildGoPackage."
+  , infixOf "buildRustCrate" "Derivation contains buildRustCrate."
+  , infixOf "buildPythonPackage" "Derivation contains buildPythonPackage."
+  , infixOf "buildRubyGem" "Derivation contains buildRubyGem."
+  , infixOf "bundlerEnv" "Derivation contains bundlerEnv."
+  , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage."
   ]
 
-checkResult :: Text -> Maybe Text
-checkResult pn =
-  snd <$> find (\(isBlacklisted, _) -> isBlacklisted pn) checkResultList
-
-checkResultList :: [(Text -> Bool, Text)]
+checkResultList :: Blacklist
 checkResultList =
   [ infixOf
       "busybox"
@@ -97,6 +103,10 @@ checkResultList =
       "fcitx"
       "- fcitx result is not automatically checked, because some binaries gets stuck in daemons"
   ]
+
+blacklister :: Blacklist -> Text -> Maybe Text
+blacklister blacklist input =
+  snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
 
 prefix :: Text -> Text -> (Text -> Bool, Text)
 prefix part reason = ((part `T.isPrefixOf`), reason)
