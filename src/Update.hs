@@ -144,7 +144,7 @@ updatePackage log updateEnv = do
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
-    numberOfFetchers <-
+    numberOfFetchers :: Int <-
       tRead <$>
       canFail
         (cmd
@@ -152,7 +152,7 @@ updatePackage log updateEnv = do
            "-Ec"
            "fetchurl {|fetchgit {|fetchFromGitHub {"
            derivationFile)
-    unless ((numberOfFetchers :: Int) <= 1) $
+    unless (numberOfFetchers <= 1) $
       errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
     derivationContents <- readfile derivationFile
     eitherToError errorExit (pure (Blacklist.content derivationContents))
