@@ -123,9 +123,7 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
 updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
 updatePackage log updateEnv = do
   let errorExit = errorExit' log (branchName updateEnv)
-  case Blacklist.packageName (packageName updateEnv) of
-    Nothing -> return ()
-    Just msg -> errorExit msg
+  eitherToError errorExit (pure (Blacklist.packageName (packageName updateEnv)))
   setupNixpkgs
   -- Check whether requested version is newer than the current one
   eitherToError errorExit (compareVersions updateEnv)
@@ -137,12 +135,8 @@ updatePackage log updateEnv = do
   cleanAndResetToMaster
   attrPath <- eitherToError errorExit (lookupAttrPath updateEnv)
   srcUrls <- eitherToError errorExit (getSrcUrls attrPath)
-  case Blacklist.srcUrl srcUrls of
-    Nothing -> return ()
-    Just msg -> errorExit msg
-  case Blacklist.attrPath attrPath of
-    Nothing -> return ()
-    Just msg -> errorExit msg
+  eitherToError errorExit (pure (Blacklist.srcUrl srcUrls))
+  eitherToError errorExit (pure (Blacklist.attrPath attrPath))
   derivationFile <-
     eitherToError errorExit (getDerivationFile updateEnv attrPath)
   flip
@@ -161,9 +155,7 @@ updatePackage log updateEnv = do
     unless ((numberOfFetchers :: Int) <= 1) $
       errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
     derivationContents <- readfile derivationFile
-    case Blacklist.content derivationContents of
-      Nothing -> return ()
-      Just msg -> errorExit msg
+    eitherToError errorExit (pure (Blacklist.content derivationContents))
     unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
@@ -203,8 +195,8 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
   cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
-      Nothing -> sub (checkResult updateEnv result)
-      Just msg -> pure msg
+      Right () -> sub (checkResult updateEnv result)
+      Left msg -> pure msg
   d <- eitherToError errorExit (getDescription attrPath)
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."

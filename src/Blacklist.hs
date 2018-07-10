@@ -14,19 +14,19 @@ import qualified Data.Text as T
 
 type Blacklist = [(Text -> Bool, Text)]
 
-srcUrl :: Text -> Maybe Text
+srcUrl :: Text -> Either Text ()
 srcUrl = blacklister srcUrlList
 
-attrPath :: Text -> Maybe Text
+attrPath :: Text -> Either Text ()
 attrPath = blacklister attrPathList
 
-packageName :: Text -> Maybe Text
+packageName :: Text -> Either Text ()
 packageName = blacklister nameList
 
-content :: Text -> Maybe Text
+content :: Text -> Either Text ()
 content = blacklister contentList
 
-checkResult :: Text -> Maybe Text
+checkResult :: Text -> Either Text ()
 checkResult = blacklister checkResultList
 
 srcUrlList :: Blacklist
@@ -104,9 +104,13 @@ checkResultList =
       "- fcitx result is not automatically checked, because some binaries gets stuck in daemons"
   ]
 
-blacklister :: Blacklist -> Text -> Maybe Text
+blacklister :: Blacklist -> Text -> Either Text ()
 blacklister blacklist input =
-  snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
+  case result of
+    Nothing -> Right ()
+    Just msg -> Left msg
+  where
+    result = snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
 
 prefix :: Text -> Text -> (Text -> Bool, Text)
 prefix part reason = ((part `T.isPrefixOf`), reason)
