@@ -110,12 +110,19 @@ getMaintainers attrPath =
      ".meta.maintainers or []))))") &
   rewriteError ("Could not fetch maintainers for" <> attrPath)
 
-getIsBroken :: Text -> Sh (Either Text Text)
+readNixBool :: Either Text Text -> Either Text Bool
+readNixBool (Right "true") = Right True
+readNixBool (Right "false") = Right False
+readNixBool (Right a) = Left ("Failed to convert expected nix boolean " <> a)
+readNixBool (Left e) = Left e
+
+getIsBroken :: Text -> Sh (Either Text Bool)
 getIsBroken attrPath =
   nixEvalE
-    NoRaw
-    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-     ".meta.broken or false)") &
+  NoRaw
+  ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
+    ".meta.broken or false)") &
+  fmap readNixBool &
   rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
 
 getDescription :: Text -> Sh (Either Text Text)
