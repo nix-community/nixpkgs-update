@@ -136,14 +136,13 @@ updatePackage log updateEnv = do
     (errorExit "Update branch already on origin.")
   cleanAndResetToMaster
   attrPath <- eitherToError errorExit (lookupAttrPath updateEnv)
-  -- Temporarily blacklist gnome sources for lockstep update
-  whenM
-    (("gnome" `T.isInfixOf`) <$> eitherToError errorExit (getSrcUrls attrPath))
-    (errorExit "Packages from gnome are currently blacklisted.")
-    -- Temporarily blacklist lua packages at @teto's request
-    -- https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646
-  when (T.isPrefixOf "lua" attrPath) $
-    errorExit "Packages for lua are currently blacklisted."
+  srcUrls <- eitherToError errorExit (getSrcUrls attrPath)
+  case Blacklist.srcUrl srcUrls of
+    Nothing -> return ()
+    Just msg -> errorExit msg
+  case Blacklist.attrPath attrPath of
+    Nothing -> return ()
+    Just msg -> errorExit msg
   derivationFile <-
     eitherToError errorExit (getDerivationFile updateEnv attrPath)
   flip

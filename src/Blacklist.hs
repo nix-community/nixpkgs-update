@@ -3,7 +3,7 @@
 module Blacklist
   ( packageName
   , content
-  , url
+  , srcUrl
   , attrPath
   , checkResult
   ) where
@@ -12,13 +12,19 @@ import Data.Foldable (find)
 import Data.Text (Text)
 import qualified Data.Text as T
 
-url :: [(Text -> Bool, Text)]
-url =
+srcUrl :: Text -> Maybe Text
+srcUrl url = snd <$> find (\(isBlacklisted, _) -> isBlacklisted url) srcUrlList
+
+srcUrlList :: [(Text -> Bool, Text)]
+srcUrlList =
   [(("gnome" `T.isInfixOf`), "Packages from gnome are currently blacklisted.")]
 
-attrPath :: [(Text -> Bool, Text)]
-attrPath =
-  [ prefix "lua" "Packages for lua are currently blacklisted."
+attrPath :: Text -> Maybe Text
+attrPath ap = snd <$> find (\(isBlacklisted, _) -> isBlacklisted ap) attrPathList
+
+attrPathList :: [(Text -> Bool, Text)]
+attrPathList =
+  [ prefix "lua" "Packages for lua are currently blacklisted. https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646"
   , prefix "lxqt" "Packages for lxqt are currently blacklisted."
   , prefix
       "altcoins.bitcoin-xt"
