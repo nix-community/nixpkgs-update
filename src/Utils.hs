@@ -18,6 +18,7 @@ module Utils
   , rewriteError
   , eitherToError
   , branchName
+  , ourShell
   ) where
 
 import Control.Exception (Exception)
@@ -34,7 +35,7 @@ type Version = Text
 
 data Options = Options
   { dryRun :: Bool
-  , workingDir :: FilePath
+  , workingDir :: Text
   , githubToken :: Text
   }
 
@@ -56,6 +57,18 @@ setupNixpkgs = do
     cmd "git" "fetch" "upstream"
   cd nixpkgsPath
   setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
+
+-- | Set environment variables needed by various programs
+setUpEnvironment :: Options -> Sh ()
+setUpEnvironment options = do
+  setenv "PAGER" ""
+  setenv "GITHUB_TOKEN" (githubToken options)
+
+ourShell :: Options -> Sh a -> IO a
+ourShell o s = shelly $ verbosely $ do
+  setUpEnvironment o
+  setupNixpkgs
+  s
 
 shE :: Sh a -> Sh (Either Text a)
 shE s = do

@@ -34,6 +34,7 @@ import Utils
   , Options(..)
   , UpdateEnv(..)
   , Version
+  , ourShell
   , branchName
   , canFail
   , checkAttrPathVersion
@@ -62,10 +63,10 @@ log' logFile msg
     liftIO getCurrentTime
   appendfile logFile (runDate <> " " <> msg <> "\n")
 
-updateAll :: Options -> Sh ()
-updateAll options = do
-  let logFile = workingDir options </> "ups.log"
-  mkdir_p (workingDir options)
+updateAll :: Options -> IO ()
+updateAll options = ourShell options $ do
+  let logFile = fromText (workingDir options) </> "ups.log"
+  mkdir_p (fromText (workingDir options))
   touchfile logFile
   updates <- readfile "packages-to-update.txt"
   let log = log' logFile

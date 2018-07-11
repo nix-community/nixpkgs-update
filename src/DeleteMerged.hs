@@ -12,14 +12,13 @@ import Data.Maybe (mapMaybe)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Shelly
-import Utils (setupNixpkgs)
+import Utils (ourShell, Options)
 
 default (T.Text)
 
 -- | Delete the already merged branches both from local and remote repository
-deleteMerged :: Sh ()
-deleteMerged = do
-  setupNixpkgs
+deleteMerged :: Options -> IO ()
+deleteMerged o = ourShell o $ do
   cmd "git" "fetch" "--prune" "origin"
   cmd "git" "fetch" "--prune" "upstream"
   cmd "git" "checkout" "master"

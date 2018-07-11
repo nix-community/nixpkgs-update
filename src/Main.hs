@@ -8,9 +8,10 @@ import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
+import qualified Data.Text.IO as T
 import DeleteMerged (deleteMerged)
 import qualified Options.Applicative as Opt
-import Shelly
+import System.Posix.Env (getEnv)
 import Update (updateAll)
 import Utils (Options(..))
 
@@ -37,26 +38,16 @@ programInfo =
     (Opt.fullDesc <> Opt.progDesc "Update packages in nixpkgs repository" <>
      Opt.header "nixpkgs-update")
 
-makeOptions :: Sh Options
+makeOptions :: IO Options
 makeOptions = do
-  dryRun <- isJust <$> get_env "DRY_RUN"
-  workingDir <- (</> ".nixpkgs-update") <$> get_env_text "HOME"
-  githubToken <- T.strip <$> readfile "github_token.txt"
-  return $ Options dryRun workingDir githubToken
-
--- | Set environment variables needed by various programs
-setUpEnvironment :: Options -> Sh ()
-setUpEnvironment options = do
-  setenv "PAGER" ""
-  setenv "GITHUB_TOKEN" (githubToken options)
+  dryRun <- isJust <$> getEnv "DRY_RUN"
+  githubToken <- T.strip <$> T.readFile "github_token.txt"
+  return $ Options dryRun "~/.nixpkgs-update" githubToken
 
 main :: IO ()
-main =
-  shelly $
-  verbosely $ do
-    mode <- liftIO $ Opt.execParser programInfo
-    options <- makeOptions
-    setUpEnvironment options
-    case mode of
-      DeleteMerged -> deleteMerged
-      Update -> updateAll options
+main = do
+  mode <- Opt.execParser programInfo
+  options <- makeOptions
+  case mode of
+    DeleteMerged -> deleteMerged options
+    Update -> updateAll options

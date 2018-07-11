@@ -23,6 +23,7 @@ dependencies:
   - errors
   - mtl
   - github
+  - unix
 
 executables:
   nixpkgs-update:
