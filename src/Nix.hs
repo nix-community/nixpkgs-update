@@ -13,9 +13,8 @@ module Nix
   , getSrcUrl
   , getSrcUrls
   , getIsBroken
-  , nixBuild
+  , build
   , getDescription
-  , Raw(..)
   , cachix
   ) where
 
@@ -140,8 +139,8 @@ getSrcAttr attr attrPath =
 getSrcUrls :: Text -> Sh (Either Text Text)
 getSrcUrls = getSrcAttr "urls"
 
-nixBuild :: Text -> Sh (Either Text ())
-nixBuild attrPath = do
+build :: Text -> Sh (Either Text ())
+build attrPath = do
   buildE <-
     shE $
     cmd

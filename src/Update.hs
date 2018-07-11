@@ -37,21 +37,7 @@ import Git
   )
 import qualified GitHub as GitHub
 import NeatInterpolation (text)
-import Nix
-  ( Raw(..)
-  , cachix
-  , compareVersions
-  , getDerivationFile
-  , getDescription
-  , getIsBroken
-  , getMaintainers
-  , getOldHash
-  , getSrcUrl
-  , getSrcUrls
-  , lookupAttrPath
-  , nixBuild
-  , nixEvalE
-  )
+import qualified Nix
 import Prelude hiding (FilePath)
 import Shelly
 import Utils
@@ -126,19 +112,19 @@ updatePackage log updateEnv = do
   eitherToError errorExit (pure (Blacklist.packageName (packageName updateEnv)))
   setupNixpkgs
   -- Check whether requested version is newer than the current one
-  eitherToError errorExit (compareVersions updateEnv)
+  eitherToError errorExit (Nix.compareVersions updateEnv)
   -- Check whether package name is on blacklist
   fetchIfStale
   whenM
     (autoUpdateBranchExists (packageName updateEnv))
     (errorExit "Update branch already on origin.")
   cleanAndResetToMaster
-  attrPath <- eitherToError errorExit (lookupAttrPath updateEnv)
-  srcUrls <- eitherToError errorExit (getSrcUrls attrPath)
+  attrPath <- eitherToError errorExit (Nix.lookupAttrPath updateEnv)
+  srcUrls <- eitherToError errorExit (Nix.getSrcUrls attrPath)
   eitherToError errorExit (pure (Blacklist.srcUrl srcUrls))
   eitherToError errorExit (pure (Blacklist.attrPath attrPath))
   derivationFile <-
-    eitherToError errorExit (getDerivationFile updateEnv attrPath)
+    eitherToError errorExit (Nix.getDerivationFile updateEnv attrPath)
   flip
     catches_sh
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
@@ -168,10 +154,10 @@ updatePackage log updateEnv = do
     cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in staging derivation file."
     checkoutAtMergeBase (branchName updateEnv)
-    oldHash <- eitherToError errorExit (getOldHash attrPath)
-    oldSrcUrl <- eitherToError errorExit (getSrcUrl attrPath)
+    oldHash <- eitherToError errorExit (Nix.getOldHash attrPath)
+    oldSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
     File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
-    newSrcUrl <- eitherToError errorExit (getSrcUrl attrPath)
+    newSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
     when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
     newHash <-
       canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
@@ -179,7 +165,7 @@ updatePackage log updateEnv = do
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     File.replace oldHash newHash derivationFile
-    eitherToError errorExit (nixBuild attrPath)
+    eitherToError errorExit (Nix.build attrPath)
     result <-
       fromText <$>
       (T.strip <$>
@@ -192,12 +178,12 @@ publishPackage ::
 publishPackage log updateEnv newSrcUrl attrPath result = do
   let errorExit = errorExit' log (branchName updateEnv)
   log ("cachix " <> (T.pack . show) result)
-  cachix result
+  Nix.cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
       Right () -> sub (checkResult updateEnv result)
       Left msg -> pure msg
-  d <- eitherToError errorExit (getDescription attrPath)
+  d <- eitherToError errorExit (Nix.getDescription attrPath)
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
   releaseUrlResult <- liftIO $ GitHub.releaseUrl newSrcUrl
@@ -207,7 +193,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
         log e
         return "\n"
       Right msg -> return ("\n(Release on GitHub)[" <> msg <> "]\n\n")
-  maintainers <- eitherToError errorExit (getMaintainers attrPath)
+  maintainers <- eitherToError errorExit (Nix.getMaintainers attrPath)
   let maintainersCc =
         if not (T.null maintainers)
           then "\n\ncc " <> maintainers <> " for testing."
@@ -217,7 +203,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
   commitHash <- headHash
   -- Try to push it three times
   push updateEnv `orElse` push updateEnv `orElse` push updateEnv
-  isBroken <- eitherToError errorExit (getIsBroken attrPath)
+  isBroken <- eitherToError errorExit (Nix.getIsBroken attrPath)
   untilOfBorgFree
   pr
     (prMessage
