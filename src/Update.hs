@@ -10,7 +10,7 @@ module Update
   ) where
 
 import qualified Blacklist
-import Check (checkResult)
+import qualified Check
 import Clean (fixSrcUrl)
 import Control.Category ((>>>))
 import Control.Exception (SomeException, throw, toException)
@@ -170,7 +170,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
   Nix.cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
-      Right () -> sub (checkResult updateEnv result)
+      Right () -> sub (Check.result updateEnv result)
       Left msg -> pure msg
   d <- eitherToError errorExit (Nix.getDescription attrPath)
   let metaDescription =

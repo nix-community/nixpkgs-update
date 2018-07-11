@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Check
-  ( checkResult
+  ( result
   ) where
 
 import Control.Applicative (many)
@@ -93,8 +93,8 @@ successfullCheck :: BinaryCheck -> Bool
 successfullCheck (BinaryCheck _ False False) = False
 successfullCheck _ = True
 
-checkResult :: UpdateEnv -> FilePath  -> Sh Text
-checkResult updateEnv resultPath = do
+result :: UpdateEnv -> FilePath  -> Sh Text
+result updateEnv resultPath = do
   let expectedVersion = newVersion updateEnv
   home <- get_env_text "HOME"
   let logFile = workingDir (options updateEnv) </> "check-result-log.tmp"
