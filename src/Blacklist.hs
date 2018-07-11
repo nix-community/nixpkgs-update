@@ -102,6 +102,9 @@ checkResultList =
   , infixOf
       "fcitx"
       "- fcitx result is not automatically checked, because some binaries gets stuck in daemons"
+  , infixOf
+      "x2goclient"
+      "- x2goclient result is not automatically checked, because some binaries don't timeout properly"
   ]
 
 blacklister :: Blacklist -> Text -> Either Text ()
