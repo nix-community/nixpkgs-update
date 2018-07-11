@@ -67,7 +67,6 @@ setUpEnvironment options = do
 ourShell :: Options -> Sh a -> IO a
 ourShell o s = shelly $ verbosely $ do
   setUpEnvironment o
-  setupNixpkgs
   s
 
 shE :: Sh a -> Sh (Either Text a)

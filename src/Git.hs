@@ -7,6 +7,7 @@ module Git
   , cleanAndResetToStaging
   , cleanup
   , fetchIfStale
+  , fetch
   , push
   , checkoutAtMergeBase
   , autoUpdateBranchExists
@@ -19,7 +20,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Shelly
-import System.Directory (getModificationTime)
+import System.Directory (getModificationTime, getHomeDirectory)
 import Utils (Options(..), UpdateEnv(..), branchName, canFail)
 
 default (T.Text)
@@ -48,15 +49,20 @@ cleanup branchName = do
 
 staleFetchHead :: IO Bool
 staleFetchHead = do
+  home <- getHomeDirectory
+  let fetchHead = home <> "/.cache/nixpkgs/.git/FETCH_HEAD"
   oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
-  fetchedLast <- getModificationTime ".git/FETCH_HEAD"
+  fetchedLast <- getModificationTime fetchHead
   return (fetchedLast < oneHourAgo)
 
 fetchIfStale :: Sh ()
 fetchIfStale =
   whenM
     (liftIO staleFetchHead)
-    (canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin")
+    fetch
+
+fetch :: Sh ()
+fetch = canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
 
 push :: UpdateEnv -> Sh ()
 push updateEnv =

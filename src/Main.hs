@@ -14,6 +14,7 @@ import qualified Options.Applicative as Opt
 import System.Posix.Env (getEnv)
 import Update (updateAll)
 import Utils (Options(..))
+import System.Directory (getHomeDirectory)
 
 default (T.Text)
 
@@ -41,8 +42,9 @@ programInfo =
 makeOptions :: IO Options
 makeOptions = do
   dryRun <- isJust <$> getEnv "DRY_RUN"
+  homeDir <- T.pack <$> getHomeDirectory
   githubToken <- T.strip <$> T.readFile "github_token.txt"
-  return $ Options dryRun "~/.nixpkgs-update" githubToken
+  return $ Options dryRun (homeDir <> "/.nixpkgs-update") githubToken
 
 main :: IO ()
 main = do
