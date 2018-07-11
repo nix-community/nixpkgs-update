@@ -23,19 +23,8 @@ import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
-import Git
-  ( autoUpdateBranchExists
-  , checkoutAtMergeBase
-  , cleanAndResetToMaster
-  , cleanAndResetToStaging
-  , cleanup
-  , commit
-  , fetchIfStale
-  , headHash
-  , pr
-  , push
-  )
-import qualified GitHub as GitHub
+import qualified Git
+import qualified GitHub
 import NeatInterpolation (text)
 import qualified Nix
 import Prelude hiding (FilePath)
@@ -61,7 +50,7 @@ default (T.Text)
 
 errorExit' :: (Text -> Sh ()) -> Text -> Text -> Sh a
 errorExit' log branchName message = do
-  cleanup branchName
+  Git.cleanup branchName
   log message
   throw (ExitCode 1)
 
@@ -114,11 +103,11 @@ updatePackage log updateEnv = do
   -- Check whether requested version is newer than the current one
   eitherToError errorExit (Nix.compareVersions updateEnv)
   -- Check whether package name is on blacklist
-  fetchIfStale
+  Git.fetchIfStale
   whenM
-    (autoUpdateBranchExists (packageName updateEnv))
+    (Git.autoUpdateBranchExists (packageName updateEnv))
     (errorExit "Update branch already on origin.")
-  cleanAndResetToMaster
+  Git.cleanAndResetToMaster
   attrPath <- eitherToError errorExit (Nix.lookupAttrPath updateEnv)
   srcUrls <- eitherToError errorExit (Nix.getSrcUrls attrPath)
   eitherToError errorExit (pure (Blacklist.srcUrl srcUrls))
@@ -150,10 +139,10 @@ updatePackage log updateEnv = do
     cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in master derivation file."
     -- Make sure it hasn't been updated on staging
-    cleanAndResetToStaging
+    Git.cleanAndResetToStaging
     cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
       errorExit "Old version not present in staging derivation file."
-    checkoutAtMergeBase (branchName updateEnv)
+    Git.checkoutAtMergeBase (branchName updateEnv)
     oldHash <- eitherToError errorExit (Nix.getOldHash attrPath)
     oldSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
     File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
@@ -199,13 +188,13 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
           then "\n\ncc " <> maintainers <> " for testing."
           else ""
   let commitMsg = commitMessage updateEnv attrPath
-  commit commitMsg
-  commitHash <- headHash
+  Git.commit commitMsg
+  commitHash <- Git.headHash
   -- Try to push it three times
-  push updateEnv `orElse` push updateEnv `orElse` push updateEnv
+  Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv
   isBroken <- eitherToError errorExit (Nix.getIsBroken attrPath)
   untilOfBorgFree
-  pr
+  GitHub.pr
     (prMessage
        commitMsg
        isBroken
@@ -215,7 +204,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
        commitHash
        attrPath
        maintainersCc)
-  cleanAndResetToMaster
+  Git.cleanAndResetToMaster
   return True
 
 commitMessage :: UpdateEnv -> Text -> Text

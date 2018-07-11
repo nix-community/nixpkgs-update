@@ -1,7 +1,10 @@
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module GitHub
   ( releaseUrl
+  , pr
   ) where
 
 import Control.Error
@@ -16,10 +19,12 @@ import GitHub.Data.Releases (releaseBody, releaseHtmlUrl)
 import GitHub.Data.Repos (Repo)
 import GitHub.Data.URL (getUrl)
 import GitHub.Endpoints.Repos.Releases (releaseByTagName)
+import Shelly
 
 gReleaseUrl :: Name Owner -> Name Repo -> Text -> IO (Either Text Text)
 gReleaseUrl owner repo tag =
-  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$> releaseByTagName owner repo tag
+  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$>
+  releaseByTagName owner repo tag
 
 releaseUrl :: Text -> IO (Either Text Text)
 releaseUrl url =
@@ -36,3 +41,6 @@ releaseUrl url =
         ("GitHub: rev part missing .tar.gz suffix " <> url)
         (T.stripSuffix ".tar.gz" revPart)
     ExceptT $ gReleaseUrl owner repo rev
+
+pr :: Text -> Sh ()
+pr = cmd "hub" "pull-request" "-m"
