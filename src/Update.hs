@@ -259,6 +259,7 @@ prMessage commitMsg isBroken metaDescription releaseUrlMessage resultCheckReport
        ```
 
        </details>
+       <br/>
        $maintainersCc
     |]
 
