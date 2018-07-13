@@ -182,7 +182,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
       Left e -> do
         log e
         return "\n"
-      Right msg -> return ("\n(Release on GitHub)[" <> msg <> "]\n\n")
+      Right msg -> return ("\n[Release on GitHub](" <> msg <> ")\n\n")
   maintainers <- eitherToError errorExit (Nix.getMaintainers attrPath)
   let maintainersCc =
         if not (T.null maintainers)
