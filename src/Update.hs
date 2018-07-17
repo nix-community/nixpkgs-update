@@ -161,11 +161,11 @@ updatePackage log updateEnv = do
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    publishPackage log updateEnv newSrcUrl attrPath result
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result
 
 publishPackage ::
-     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> FilePath -> Sh Bool
-publishPackage log updateEnv newSrcUrl attrPath result = do
+     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> Text -> FilePath -> Sh Bool
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
   let errorExit = errorExit' log (branchName updateEnv)
   log ("cachix " <> (T.pack . show) result)
   Nix.cachix result
@@ -181,8 +181,15 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
     case releaseUrlResult of
       Left e -> do
         log e
-        return "\n"
+        return ""
       Right msg -> return ("\n[Release on GitHub](" <> msg <> ")\n\n")
+  compareUrlResult <- liftIO $ GitHub.compareUrl oldSrcUrl newSrcUrl
+  compareUrlMessage <-
+    case compareUrlResult of
+      Left e -> do
+        log e
+        return "\n"
+      Right msg -> return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
   maintainers <- eitherToError errorExit (Nix.getMaintainers attrPath)
   let maintainersCc =
         if not (T.null maintainers)
@@ -201,6 +208,7 @@ publishPackage log updateEnv newSrcUrl attrPath result = do
        isBroken
        metaDescription
        releaseUrlMessage
+       compareUrlMessage
        resultCheckReport
        commitHash
        attrPath
@@ -225,14 +233,15 @@ brokenWarning True =
   "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
 
 prMessage ::
-     Text -> Bool -> Text -> Text -> Text -> Text -> Text -> Text -> Text
-prMessage commitMsg isBroken metaDescription releaseUrlMessage resultCheckReport commitHash attrPath maintainersCc =
+     Text -> Bool -> Text -> Text -> Text -> Text -> Text -> Text -> Text -> Text
+prMessage commitMsg isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc =
   let brokenMsg = brokenWarning isBroken
    in [text|
        $commitMsg
        $brokenMsg
        $metaDescription
        $releaseUrlMessage
+       $compareUrlMessage
        <details>
        <summary>
        Checks done (click to expand)
