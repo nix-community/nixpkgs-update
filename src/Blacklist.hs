@@ -21,7 +21,10 @@ attrPath :: Text -> Either Text ()
 attrPath = blacklister attrPathList
 
 packageName :: Text -> Either Text ()
-packageName = blacklister nameList
+packageName name =
+  if (name == "elementary-xfce-icon-theme") -- https://github.com/ryantm/nixpkgs-update/issues/63
+    then Right ()
+    else blacklister nameList name
 
 content :: Text -> Either Text ()
 content = blacklister contentList
