@@ -34,12 +34,12 @@ import Utils
   , Options(..)
   , UpdateEnv(..)
   , Version
-  , ourShell
   , branchName
   , canFail
   , checkAttrPathVersion
   , eitherToError
   , orElse
+  , ourShell
   , parseUpdates
   , rewriteError
   , setupNixpkgs
@@ -64,15 +64,16 @@ log' logFile msg
   appendfile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> IO ()
-updateAll options = ourShell options $ do
-  let logFile = fromText (workingDir options) </> "ups.log"
-  mkdir_p (fromText (workingDir options))
-  touchfile logFile
-  updates <- readfile "packages-to-update.txt"
-  let log = log' logFile
-  appendfile logFile "\n\n"
-  log "New run of ups.sh"
-  updateLoop options log (parseUpdates updates)
+updateAll options =
+  ourShell options $ do
+    let logFile = fromText (workingDir options) </> "ups.log"
+    mkdir_p (fromText (workingDir options))
+    touchfile logFile
+    updates <- readfile "packages-to-update.txt"
+    let log = log' logFile
+    appendfile logFile "\n\n"
+    log "New run of ups.sh"
+    updateLoop options log (parseUpdates updates)
 
 updateLoop ::
      Options
@@ -93,7 +94,15 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
          ExitCode _ -> return False)
   if updated
     then log "SUCCESS"
-    else log "FAIL"
+    else do
+      log "FAIL"
+      if ".0" `T.isSuffixOf` newVersion
+        then let Just newNewVersion = ".0" `T.stripSuffix` newVersion
+              in updateLoop
+                   options
+                   log
+                   (Right (package, oldVersion, newNewVersion) : moreUpdates)
+        else updateLoop options log moreUpdates
   updateLoop options log moreUpdates
 
 updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
@@ -233,7 +242,16 @@ brokenWarning True =
   "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
 
 prMessage ::
-     Text -> Bool -> Text -> Text -> Text -> Text -> Text -> Text -> Text -> Text
+     Text
+  -> Bool
+  -> Text
+  -> Text
+  -> Text
+  -> Text
+  -> Text
+  -> Text
+  -> Text
+  -> Text
 prMessage commitMsg isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc =
   let brokenMsg = brokenWarning isBroken
    in [text|
