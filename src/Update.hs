@@ -93,7 +93,9 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
          ExitCode 0 -> return True
          ExitCode _ -> return False)
   if updated
-    then log "SUCCESS"
+    then do
+      log "SUCCESS"
+      updateLoop options log moreUpdates
     else do
       log "FAIL"
       if ".0" `T.isSuffixOf` newVersion
@@ -103,7 +105,6 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
                    log
                    (Right (package, oldVersion, newNewVersion) : moreUpdates)
         else updateLoop options log moreUpdates
-  updateLoop options log moreUpdates
 
 updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
 updatePackage log updateEnv = do
