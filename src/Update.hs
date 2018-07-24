@@ -132,31 +132,26 @@ updatePackage log updateEnv = do
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
-    derivationContents <- readfile derivationFile
-    unless (Nix.numberOfFetchers derivationContents <= 1) $
-      errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
-    eitherToError errorExit (pure (Blacklist.content derivationContents))
     unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
          newVersion updateEnv)
     -- Make sure it hasn't been updated on master
+    masterDerivationContents <- readfile derivationFile
     eitherToError
       errorExit
-      (pure
-         (assertErr
-            "Old version not present in master derivation file."
-            (oldVersion updateEnv `T.isInfixOf` derivationContents)))
+      (Nix.oldVersionOn updateEnv "master" masterDerivationContents)
     -- Make sure it hasn't been updated on staging
     Git.cleanAndResetToStaging
     stagingDerivationContents <- readfile derivationFile
     eitherToError
       errorExit
-      (pure
-         (assertErr
-            "Old version not present in staging derivation file."
-            (oldVersion updateEnv `T.isInfixOf` stagingDerivationContents)))
+      (Nix.oldVersionOn updateEnv "staging" stagingDerivationContents)
     Git.checkoutAtMergeBase (branchName updateEnv)
+    derivationContents <- readfile derivationFile
+    unless (Nix.numberOfFetchers derivationContents <= 1) $
+      errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
+    eitherToError errorExit (pure (Blacklist.content derivationContents))
     oldHash <- eitherToError errorExit (Nix.getOldHash attrPath)
     oldSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
     File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile

@@ -17,10 +17,11 @@ module Nix
   , getDescription
   , cachix
   , numberOfFetchers
+  , oldVersionOn
   ) where
 
 import Control.Category ((>>>))
-import Control.Error (headMay)
+import Control.Error
 import Control.Monad (void)
 import Data.Bifunctor (second)
 import Data.Function ((&))
@@ -177,3 +178,10 @@ numberOfFetchers derivationContents =
   count "fetchurl {" + count "fetchgit {" + count "fetchFromGitHub {"
   where
     count x = T.count x derivationContents
+
+oldVersionOn :: UpdateEnv -> Text -> Text -> Sh (Either Text ())
+oldVersionOn updateEnv branchName contents =
+  pure
+    (assertErr
+       ("Old version not present in " <> branchName <> " derivation file.")
+       (oldVersion updateEnv `T.isInfixOf` contents))
