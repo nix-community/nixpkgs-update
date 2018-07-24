@@ -20,6 +20,7 @@ import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
@@ -130,17 +131,9 @@ updatePackage log updateEnv = do
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
-    numberOfFetchers :: Int <-
-      tRead <$>
-      canFail
-        (cmd
-           "grep"
-           "-Ec"
-           "fetchurl {|fetchgit {|fetchFromGitHub {"
-           derivationFile)
-    unless (numberOfFetchers <= 1) $
-      errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
     derivationContents <- readfile derivationFile
+    unless (Nix.numberOfFetchers derivationContents <= 1) $
+      errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
     eitherToError errorExit (pure (Blacklist.content derivationContents))
     unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
       errorExit

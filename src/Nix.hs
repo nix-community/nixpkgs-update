@@ -16,6 +16,7 @@ module Nix
   , build
   , getDescription
   , cachix
+  , numberOfFetchers
   ) where
 
 import Control.Category ((>>>))
@@ -118,9 +119,9 @@ readNixBool (Left e) = Left e
 getIsBroken :: Text -> Sh (Either Text Bool)
 getIsBroken attrPath =
   nixEvalE
-  NoRaw
-  ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-    ".meta.broken or false)") &
+    NoRaw
+    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
+     ".meta.broken or false)") &
   fmap readNixBool &
   rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
 
@@ -170,3 +171,9 @@ cachix :: FilePath -> Sh ()
 cachix resultPath = do
   setStdin (toTextIgnore resultPath)
   void $ shE $ cmd "cachix" "push" "r-ryantm"
+
+numberOfFetchers :: Text -> Int
+numberOfFetchers derivationContents =
+  count "fetchurl {" + count "fetchgit {" + count "fetchFromGitHub {"
+  where
+    count x = T.count x derivationContents
