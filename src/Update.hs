@@ -13,6 +13,7 @@ import qualified Blacklist
 import qualified Check
 import Clean (fixSrcUrl)
 import Control.Category ((>>>))
+import Control.Error
 import Control.Exception (SomeException, throw, toException)
 import Control.Monad (forM_)
 import Data.Function ((&))
@@ -140,12 +141,21 @@ updatePackage log updateEnv = do
         ("Version in attr path " <> attrPath <> " not compatible with " <>
          newVersion updateEnv)
     -- Make sure it hasn't been updated on master
-    cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
-      errorExit "Old version not present in master derivation file."
+    eitherToError
+      errorExit
+      (pure
+         (assertErr
+            "Old version not present in master derivation file."
+            (oldVersion updateEnv `T.isInfixOf` derivationContents)))
     -- Make sure it hasn't been updated on staging
     Git.cleanAndResetToStaging
-    cmd "grep" (oldVersion updateEnv) derivationFile `orElse`
-      errorExit "Old version not present in staging derivation file."
+    stagingDerivationContents <- readfile derivationFile
+    eitherToError
+      errorExit
+      (pure
+         (assertErr
+            "Old version not present in staging derivation file."
+            (oldVersion updateEnv `T.isInfixOf` stagingDerivationContents)))
     Git.checkoutAtMergeBase (branchName updateEnv)
     oldHash <- eitherToError errorExit (Nix.getOldHash attrPath)
     oldSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
