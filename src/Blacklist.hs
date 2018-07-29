@@ -82,6 +82,7 @@ nameList =
   , infixOf
       "virtualbox"
       "nixpkgs-update cannot handle updating the guest additions https://github.com/NixOS/nixpkgs/pull/42934"
+  , eq "avrbinutils" "https://github.com/NixOS/nixpkgs/pull/43787#issuecomment-408649537"
   ]
 
 contentList :: Blacklist
