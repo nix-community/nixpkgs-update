@@ -220,7 +220,8 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
        resultCheckReport
        commitHash
        attrPath
-       maintainersCc)
+       maintainersCc
+       result)
   Git.cleanAndResetToMaster
   return True
 
@@ -253,12 +254,14 @@ prMessage ::
   -> Text
   -> Text
   -> Text
+  -> FilePath
   -> Text
-prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc =
+prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath =
   let brokenMsg = brokenWarning isBroken
       oV = oldVersion updateEnv
       nV = newVersion updateEnv
       pN = packageName updateEnv
+      result = toTextIgnore resultPath
    in [text|
        $attrPath: $oV -> $nV
 
@@ -278,18 +281,21 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        </details>
        <details>
        <summary>
-       Test this build with Cachix (click to expand)
+       Instructions to test this update (click to expand)
        </summary>
 
-       One time setup in nixpkgs Git checkout:
-       ```
-       cachix use r-ryantm
-       git remote add r-ryantm https://github.com/r-ryantm/nixpkgs.git
-       ```
+       One-time optional setup to skip building using Cachix:
+       1. Install cachix from https://cachix.org/
+       2. Use r-ryantm's cache:
+          ```
+          cachix use r-ryantm
+          ```
 
-       Test this build:
+       Test this update by entering a nix shell, seeing what is inside the
+       result, and if applicable, running some binaries:
        ```
-       git fetch r-ryantm && git checkout $commitHash && nix-shell --pure -I nixpkgs=. -p $attrPath
+       nix-shell --pure -I nixpkgs=https://github.com/r-ryantm/nixpkgs/archive/$commitHash.tar.gz -p $attrPath
+       ls -la $result
        ```
 
        </details>
