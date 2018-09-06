@@ -4,6 +4,7 @@
 
 module DeleteMerged
   ( deleteMerged
+  , deleteDone
   ) where
 
 import Control.Monad (forM_)
@@ -11,9 +12,12 @@ import Data.Function ((&))
 import Data.Maybe (mapMaybe)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Git
+import qualified GH
 import Shelly
 import Utils (Options, ourShell, setupNixpkgs)
+import qualified Data.Vector as V
 
 default (T.Text)
 
@@ -34,3 +38,15 @@ deleteMerged o =
     let mergedAutoUpdateBranches =
           mergedBranches & filter ("auto-update/" `T.isInfixOf`) & map T.strip
     forM_ mergedAutoUpdateBranches $ \branch -> cmd "git" "branch" "-d" branch
+
+deleteDone :: Options -> IO ()
+deleteDone o =
+  ourShell o $ do
+    setupNixpkgs
+    Git.fetch
+    Git.cleanAndResetToMaster
+    result <- liftIO $ GH.closedAutoUpdateRefs o
+    case result of
+      Left error -> liftIO $ T.putStrLn error
+      Right refs ->
+        V.sequence_ (fmap (\r -> Git.deleteBranch ("auto-update/" <> r)) refs)

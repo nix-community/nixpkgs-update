@@ -9,18 +9,18 @@ import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Text.IO as T
-import DeleteMerged (deleteMerged)
+import DeleteMerged (deleteDone)
 import qualified Options.Applicative as Opt
+import System.Directory (getHomeDirectory)
 import System.Posix.Env (getEnv)
 import Update (updateAll)
 import Utils (Options(..))
-import System.Directory (getHomeDirectory)
 
 default (T.Text)
 
 data Mode
   = Update
-  | DeleteMerged
+  | DeleteDone
 
 modeParser :: Opt.Parser Mode
 modeParser =
@@ -28,9 +28,9 @@ modeParser =
     Update
     (Opt.long "update" <> Opt.help "Update packages (default mode)") <|>
   Opt.flag'
-    DeleteMerged
-    (Opt.long "delete-merged" <>
-     Opt.help "Delete branches that were already merged")
+    DeleteDone
+    (Opt.long "delete-done" <>
+     Opt.help "Delete branches from PRs that were merged or closed")
 
 programInfo :: Opt.ParserInfo Mode
 programInfo =
@@ -51,5 +51,5 @@ main = do
   mode <- Opt.execParser programInfo
   options <- makeOptions
   case mode of
-    DeleteMerged -> deleteMerged options
+    DeleteDone -> deleteDone options
     Update -> updateAll options

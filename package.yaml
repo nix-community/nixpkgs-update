@@ -24,6 +24,7 @@ dependencies:
   - mtl
   - github
   - unix
+  - vector
 
 executables:
   nixpkgs-update:

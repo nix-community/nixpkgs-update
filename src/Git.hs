@@ -13,6 +13,7 @@ module Git
   , autoUpdateBranchExists
   , commit
   , headHash
+  , deleteBranch
   ) where
 
 import Data.Semigroup ((<>))
@@ -88,3 +89,9 @@ commit = cmd "git" "commit" "-am"
 
 headHash :: Sh Text
 headHash = cmd "git" "rev-parse" "HEAD"
+
+deleteBranch :: Text -> Sh ()
+deleteBranch branchName = do
+  canFail $ do
+    cmd "git" "branch" "-D" branchName
+    cmd "git" "push" "origin" (":" <> branchName)

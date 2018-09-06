@@ -26,7 +26,7 @@ import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
 import qualified Git
-import qualified GitHub
+import qualified GH
 import NeatInterpolation (text)
 import qualified Nix
 import Prelude hiding (FilePath)
@@ -184,14 +184,14 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
   d <- eitherToError errorExit (Nix.getDescription attrPath)
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
-  releaseUrlResult <- liftIO $ GitHub.releaseUrl newSrcUrl
+  releaseUrlResult <- liftIO $ GH.releaseUrl newSrcUrl
   releaseUrlMessage <-
     case releaseUrlResult of
       Left e -> do
         log e
         return ""
       Right msg -> return ("\n[Release on GitHub](" <> msg <> ")\n\n")
-  compareUrlResult <- liftIO $ GitHub.compareUrl oldSrcUrl newSrcUrl
+  compareUrlResult <- liftIO $ GH.compareUrl oldSrcUrl newSrcUrl
   compareUrlMessage <-
     case compareUrlResult of
       Left e -> do
@@ -210,7 +210,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
   Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv
   isBroken <- eitherToError errorExit (Nix.getIsBroken attrPath)
   untilOfBorgFree
-  GitHub.pr
+  GH.pr
     (prMessage
        updateEnv
        isBroken
