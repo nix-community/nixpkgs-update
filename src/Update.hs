@@ -25,8 +25,8 @@ import qualified Data.Text.IO as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
-import qualified Git
 import qualified GH
+import qualified Git
 import NeatInterpolation (text)
 import qualified Nix
 import Prelude hiding (FilePath)
@@ -226,7 +226,9 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
   return True
 
 repologyUrl :: UpdateEnv -> Text
-repologyUrl = packageName >>> T.toLower
+repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]
+  where
+    pname = (packageName >>> T.toLower) updateEnv
 
 commitMessage :: UpdateEnv -> Text -> Text
 commitMessage updateEnv attrPath =
