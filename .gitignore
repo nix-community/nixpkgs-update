@@ -1,3 +1,6 @@
 /github_token.txt
 /packages-to-update.txt
 /result
+dist/
+dist-newstyle/
+/nixpkgs-update.cabal
