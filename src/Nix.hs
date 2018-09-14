@@ -73,7 +73,10 @@ lookupAttrPath updateEnv =
     (packageName updateEnv <> "-" <> oldVersion updateEnv)
     "-f"
     "."
-    "--attr-path" &
+    "--attr-path"
+    "--arg"
+    "config"
+    "'{ allowBroken = true; allowUnfree = true; allowAliases = false; }'" &
   (fmap (head . T.words . head . T.lines) >>>
    shE >>>
    rewriteError "nix-env -q failed to find package name with old version")
