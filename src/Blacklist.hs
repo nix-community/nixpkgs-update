@@ -83,6 +83,7 @@ nameList =
       "virtualbox"
       "nixpkgs-update cannot handle updating the guest additions https://github.com/NixOS/nixpkgs/pull/42934"
   , eq "avr-binutils" "https://github.com/NixOS/nixpkgs/pull/43787#issuecomment-408649537"
+  , eq "iasl" "two updates had to be reverted, https://github.com/NixOS/nixpkgs/pull/46272"
   ]
 
 contentList :: Blacklist
