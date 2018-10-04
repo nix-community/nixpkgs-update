@@ -83,10 +83,18 @@ nameList =
   , infixOf
       "virtualbox"
       "nixpkgs-update cannot handle updating the guest additions https://github.com/NixOS/nixpkgs/pull/42934"
-  , eq "avr-binutils" "https://github.com/NixOS/nixpkgs/pull/43787#issuecomment-408649537"
-  , eq "iasl" "two updates had to be reverted, https://github.com/NixOS/nixpkgs/pull/46272"
-  , eq "meson" "https://github.com/NixOS/nixpkgs/pull/47024#issuecomment-423300633"
-  , eq "burp" "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301"
+  , eq
+      "avr-binutils"
+      "https://github.com/NixOS/nixpkgs/pull/43787#issuecomment-408649537"
+  , eq
+      "iasl"
+      "two updates had to be reverted, https://github.com/NixOS/nixpkgs/pull/46272"
+  , eq
+      "meson"
+      "https://github.com/NixOS/nixpkgs/pull/47024#issuecomment-423300633"
+  , eq
+      "burp"
+      "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301"
   ]
 
 contentList :: Blacklist
