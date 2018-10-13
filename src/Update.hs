@@ -290,11 +290,9 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        </summary>
 
        One-time optional setup to skip building using Cachix:
-       1. Install cachix from https://cachix.org/
-       2. Use r-ryantm's cache:
-          ```
-          cachix use r-ryantm
-          ```
+       ```
+       nix-shell -p cachix --run 'cachix use r-ryantm'
+       ```
 
        Test this update by entering a nix shell, seeing what is inside the
        result, and if applicable, running some binaries:
