@@ -1,7 +1,11 @@
 name: nixpkgs-update
 version: 0.2.0
-synopsis: Tool for automatic updating of nixpkgs repository
-homepage: https://github.com/ryantm/nixpkgs-update#readme
+synopsis: Tool for semi-automatic updating of nixpkgs repository
+description: nixpkgs-update provides tools for updating of nixpkgs
+  packages in a semi-automatic way. Mainly, it is used to run the GitHub
+  bot @r-ryantm, but the underlying update mechanisms should be
+  generally useful and in a later version should be exposed as a
+  command-line tool.
 license: PublicDomain
 author: Ryan Mulligan
 maintainer: ryan@ryantm.com
@@ -9,6 +13,8 @@ copyright: 2018 Ryan Mulligan
 category: Web
 extra-source-files:
 - README.md
+
+github: ryantm/nixpkgs-update
 
 dependencies:
   - base >= 4.7 && < 5
