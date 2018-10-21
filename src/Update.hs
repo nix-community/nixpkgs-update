@@ -115,7 +115,6 @@ updatePackage log updateEnv = do
   setupNixpkgs
   -- Check whether requested version is newer than the current one
   eitherToError errorExit (Nix.compareVersions updateEnv)
-  -- Check whether package name is on blacklist
   Git.fetchIfStale
   whenM
     (Git.autoUpdateBranchExists (packageName updateEnv))
