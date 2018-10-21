@@ -37,7 +37,7 @@ data Options = Options
   { dryRun :: Bool
   , workingDir :: Text
   , githubToken :: Text
-  }
+  } deriving (Show)
 
 data UpdateEnv = UpdateEnv
   { packageName :: Text
@@ -65,9 +65,11 @@ setUpEnvironment options = do
   setenv "GITHUB_TOKEN" (githubToken options)
 
 ourShell :: Options -> Sh a -> IO a
-ourShell o s = shelly $ verbosely $ do
-  setUpEnvironment o
-  s
+ourShell o s =
+  shelly $
+  verbosely $ do
+    setUpEnvironment o
+    s
 
 shE :: Sh a -> Sh (Either Text a)
 shE s = do
