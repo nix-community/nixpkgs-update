@@ -8,6 +8,8 @@ module GH
   , compareUrl
   , pr
   , closedAutoUpdateRefs
+  , openPullRequests
+  , openAutoUpdatePR
   ) where
 
 import Control.Category ((>>>))
@@ -88,8 +90,8 @@ autoUpdateRefs o =
   where
     prefix = "refs/heads/auto-update/"
 
-openPRWithAutoUpdateRef :: Options -> Text -> IO (Either Text Bool)
-openPRWithAutoUpdateRef o ref =
+openPRWithAutoUpdateRefFromRRyanTM :: Options -> Text -> IO (Either Text Bool)
+openPRWithAutoUpdateRefFromRRyanTM o ref =
   (executeRequest (OAuth (T.encodeUtf8 (githubToken o))) $
    pullRequestsForR
      "nixos"
@@ -100,10 +102,25 @@ openPRWithAutoUpdateRef o ref =
 
 refShouldBeDeleted :: Options -> Text -> IO Bool
 refShouldBeDeleted o ref =
-  not <$> either (const True) id <$> openPRWithAutoUpdateRef o ref
+  not <$> either (const True) id <$> openPRWithAutoUpdateRefFromRRyanTM o ref
 
 closedAutoUpdateRefs :: Options -> IO (Either Text (Vector Text))
 closedAutoUpdateRefs o =
   runExceptT $ do
     aur :: Vector Text <- ExceptT $ autoUpdateRefs o
     ExceptT (Right <$> V.filterM (refShouldBeDeleted o) aur)
+
+openPullRequests :: Options -> IO (Either Text (Vector SimplePullRequest))
+openPullRequests o =
+  (executeRequest (OAuth (T.encodeUtf8 (githubToken o))) $
+   pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll) &
+  fmap (first (T.pack . show))
+
+openAutoUpdatePR :: UpdateEnv -> Vector SimplePullRequest -> Bool
+openAutoUpdatePR updateEnv openPRs = openPRs & (V.find isThisPkg >>> isJust)
+  where
+    isThisPkg simplePullRequest =
+      let title = simplePullRequestTitle simplePullRequest
+          titleHasName = (packageName updateEnv <> ":") `T.isPrefixOf` title
+          titleHasNewVersion = (newVersion updateEnv) `T.isSuffixOf` title
+       in titleHasName && titleHasNewVersion
