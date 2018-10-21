@@ -289,17 +289,28 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        Instructions to test this update (click to expand)
        </summary>
 
-       One-time optional setup to skip building using Cachix:
+       Either download from Cachix:
        ```
-       nix-shell -p cachix --run 'cachix use r-ryantm'
+       nix-store -r $result \
+         --option binary-caches 'https://cache.nixos.org/ https://r-ryantm.cachix.org/' \
+         --option trusted-public-keys '
+         r-ryantm.cachix.org-1:gkUbLkouDAyvBdpBX0JOdIiD2/DP1ldF3Z3Y6Gqcc4c=
+         cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+         '
+       ```
+       (r-ryantm's Cachix cache is only trusted for this store-path realization.)
+
+       Or, build yourself:
+       ```
+       nix-build -A $attrPath https://github.com/r-ryantm/nixpkgs/archive/$commitHash.tar.gz
        ```
 
-       Test this update by entering a nix shell, seeing what is inside the
-       result, and if applicable, running some binaries:
+       After you've downloaded or built it, look at the files and if there are any, run the binaries:
        ```
-       nix-shell --pure -I nixpkgs=https://github.com/r-ryantm/nixpkgs/archive/$commitHash.tar.gz -p $attrPath
        ls -la $result
+       ls -la $result/bin
        ```
+
 
        </details>
        <br/>
