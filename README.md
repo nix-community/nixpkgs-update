@@ -9,7 +9,7 @@ Scripts to try to update nixpkgs packages. Uses `hub` to automatically make PRs.
 1. Clone this repo and build the tool:
     ```
     git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
-    nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix
+    nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --shell . > shell.nix && nix-build shell.nix
     ```
 2. Get a list of oudated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
     ```
