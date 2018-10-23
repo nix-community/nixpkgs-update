@@ -19,6 +19,7 @@ module Utils
   , eitherToError
   , branchName
   , ourShell
+  , ourSilentShell
   ) where
 
 import Control.Exception (Exception)
@@ -63,6 +64,12 @@ setUpEnvironment :: Options -> Sh ()
 setUpEnvironment options = do
   setenv "PAGER" ""
   setenv "GITHUB_TOKEN" (githubToken options)
+
+ourSilentShell :: Options -> Sh a -> IO a
+ourSilentShell o s =
+  shelly $ silently $ do
+    setUpEnvironment o
+    s
 
 ourShell :: Options -> Sh a -> IO a
 ourShell o s =

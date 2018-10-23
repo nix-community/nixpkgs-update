@@ -29,6 +29,7 @@ import qualified GH
 import qualified Git
 import NeatInterpolation (text)
 import qualified Nix
+import Outpaths
 import Prelude hiding (FilePath)
 import Shelly
 import Utils
@@ -147,6 +148,9 @@ updatePackage log updateEnv = do
       errorExit
       (Nix.oldVersionOn updateEnv "staging" stagingDerivationContents)
     Git.checkoutAtMergeBase (branchName updateEnv)
+
+    mergeBaseOutpathSet <- eitherToError errorExit currentOutpathSet
+
     derivationContents <- readfile derivationFile
     unless (Nix.numberOfFetchers derivationContents <= 1) $
       errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
@@ -162,17 +166,22 @@ updatePackage log updateEnv = do
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     File.replace oldHash newHash derivationFile
+
+    editedOutpathSet <- eitherToError errorExit currentOutpathSet
+
+    let opReport = outpathReport mergeBaseOutpathSet editedOutpathSet
+
     eitherToError errorExit (Nix.build attrPath)
     result <-
       fromText <$>
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport
 
 publishPackage ::
-     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> Text -> FilePath -> Sh Bool
-publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
+     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> Text -> FilePath -> Text -> Sh Bool
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport = do
   let errorExit = errorExit' log (branchName updateEnv)
   log ("cachix " <> (T.pack . show) result)
   Nix.cachix result
@@ -220,7 +229,8 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result = do
        commitHash
        attrPath
        maintainersCc
-       result)
+       result
+       opReport)
   Git.cleanAndResetToMaster
   return True
 
@@ -260,7 +270,8 @@ prMessage ::
   -> Text
   -> FilePath
   -> Text
-prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath =
+  -> Text
+prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport =
   let brokenMsg = brokenWarning isBroken
       oV = oldVersion updateEnv
       nV = newVersion updateEnv
@@ -283,6 +294,15 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        $resultCheckReport
 
        </details>
+       <details>
+       <summary>
+       Outpath report (click to expand)
+       </summary>
+
+       $opReport
+
+       </details>
+
        <details>
        <summary>
        Instructions to test this update (click to expand)

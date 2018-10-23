@@ -4,25 +4,30 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Outpaths
-where
+module Outpaths where
 
-import           Data.Semigroup ((<>))
-import           Data.Set
-import           Data.Text (Text)
+import Control.Category ((>>>))
+import Data.Bifunctor (first)
+import Data.Function ((&))
+import Data.List (sort)
+import Data.Semigroup ((<>))
+import Data.Set (Set)
+import qualified Data.Set as S
+import Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Vector (Vector)
+import Data.Vector (Vector)
 import qualified Data.Vector as V
 import qualified NeatInterpolation (text)
-import           Shelly
-import qualified Text.Parsec (parse)
-import           Text.Parser.Char
-import           Text.Parser.Combinators
-import           Utils
+import Shelly
+import Text.Parsec (parse)
+import Text.Parser.Char
+import Text.Parser.Combinators
+import Utils
 
 default (Text)
 
-outPathsExpr = [NeatInterpolation.text|
+outPathsExpr =
+  [NeatInterpolation.text|
 
 (let
   lib = import ./lib;
@@ -77,13 +82,26 @@ in
 |]
 
 --downloadOutPath :: Sh ()
-
 outPath :: Sh Text
-outPath = sub $ do
-  Utils.setupNixpkgs
-  cmd "curl" "-o" "outpaths.nix" "https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix"
-  setenv "GC_INITIAL_HEAP_SIZE" "10g"
-  cmd "nix-env" "-f" "./outpaths.nix" "-qaP" "--no-name" "--out-path" "--arg" "checkMeta" "true"
+outPath =
+  sub $ do
+    Utils.setupNixpkgs
+    cmd
+      "curl"
+      "-o"
+      "outpaths.nix"
+      "https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix"
+    setenv "GC_INITIAL_HEAP_SIZE" "10g"
+    cmd
+      "nix-env"
+      "-f"
+      "./outpaths.nix"
+      "-qaP"
+      "--no-name"
+      "--out-path"
+      "--arg"
+      "checkMeta"
+      "true"
 
 data Outpath = Outpath
   { mayName :: Maybe Text
@@ -96,29 +114,30 @@ data ResultLine = ResultLine
   , outpaths :: Vector Outpath
   } deriving (Eq, Ord, Show)
 
-
 -- Example query result line:
--- haskellPackages.agum.x86_64-darwin                                            doc=/nix/store/n526rc0pa5h0krdzsdni5agcpvcd3cb9-agum-2.7-doc;/nix/store/s59r75svbjm724q5iaprq4mln5k6wcr9-agum-2.7
-parse :: CharParsing m => m (Set ResultLine)
-parse = undefined
+testInput =
+  "haskellPackages.amazonka-dynamodb-streams.x86_64-linux                        doc=/nix/store/m4rpsc9nx0qcflh9ni6qdlg6hbkwpicc-amazonka-dynamodb-streams-1.6.0-doc;/nix/store/rvd4zydr22a7j5kgnmg5x6695c7bgqbk-amazonka-dynamodb-streams-1.6.0\nhaskellPackages.agum.x86_64-darwin                                            doc=/nix/store/n526rc0pa5h0krdzsdni5agcpvcd3cb9-agum-2.7-doc;/nix/store/s59r75svbjm724q5iaprq4mln5k6wcr9-agum-2.7"
 
-parseResultLine :: CharParsing m =>  m ResultLine
+currentOutpathSet :: Sh (Either Text (Set ResultLine))
+currentOutpathSet =
+  first (show >>> T.pack) <$> parse parseResults "outpath" <$>
+  (silently $ outPath)
+
+parseResults :: CharParsing m => m (Set ResultLine)
+parseResults = S.fromList <$> parseResultLine `sepEndBy` newline
+
+parseResultLine :: CharParsing m => m ResultLine
 parseResultLine =
-  ResultLine <$>
-  parseAttrpath <*>
+  ResultLine <$> (T.dropWhileEnd (== '.') <$> parseAttrpath) <*>
   parseArchitecture <*
   spaces <*>
   parseOutpaths
 
 parseAttrpath :: CharParsing m => m Text
-parseAttrpath =
-  T.concat <$> many (try parseAttrpathPart)
+parseAttrpath = T.concat <$> many (try parseAttrpathPart)
 
 parseAttrpathPart :: CharParsing m => m Text
-parseAttrpathPart =
-  T.append <$>
-  (T.pack <$> many (noneOf ". ")) <*>
-  text "."
+parseAttrpathPart = T.append <$> (T.pack <$> many (noneOf ". ")) <*> text "."
 
 parseArchitecture :: CharParsing m => m Text
 parseArchitecture = T.pack <$> many (noneOf " ")
@@ -128,6 +147,47 @@ parseOutpaths = V.fromList <$> (parseOutpath `sepBy1` text ";")
 
 parseOutpath :: CharParsing m => m Outpath
 parseOutpath =
-  Outpath <$>
-  optional (try (T.pack <$> (many (noneOf "=") <* text "="))) <*>
-  (T.pack <$> many (noneOf ";"))
+  Outpath <$> optional (try (T.pack <$> (many (noneOf "=\n") <* text "="))) <*>
+  (T.pack <$> many (noneOf ";\n"))
+
+packageRebuilds :: Set ResultLine -> Vector Text
+packageRebuilds = S.toList >>> fmap package >>> sort >>> V.fromList >>> V.uniq
+
+archRebuilds :: Text -> Set ResultLine -> Int
+archRebuilds arch =
+  S.toList >>> fmap architecture >>> filter (== arch) >>> length
+
+darwinRebuilds :: Set ResultLine -> Int
+darwinRebuilds = archRebuilds "x86_64-darwin"
+
+linuxRebuilds :: Set ResultLine -> Int
+linuxRebuilds = archRebuilds "x86_64-linux"
+
+armRebuilds :: Set ResultLine -> Int
+armRebuilds = archRebuilds "aarch64-linux"
+
+outpathReport :: Set ResultLine -> Set ResultLine -> Text
+outpathReport before after =
+  let tshow = show >>> T.pack
+      diff = S.difference before after
+      pkg = tshow $ V.length $ packageRebuilds diff
+      firstTen = V.foldl (<>) T.empty $ V.take 10 $ packageRebuilds diff
+      darwin = tshow $ darwinRebuilds diff
+      linux = tshow $ linuxRebuilds diff
+      arm = tshow $ armRebuilds diff
+      numPaths = tshow $ S.size $ S.difference before after
+   in [NeatInterpolation.text|
+        Outpath difference report
+        $numPaths total rebuild paths
+
+        $pkg package rebuilds
+
+        $darwin x86_64-darwin rebuilds
+        $linux x86_64-linux rebuilds
+        $arm aarch64-linux rebuilds
+
+
+
+        First ten rebuilds by attrpath
+        $firstTen
+      |]
