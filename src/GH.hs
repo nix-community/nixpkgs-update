@@ -41,8 +41,8 @@ releaseUrl url =
     urlParts <- ExceptT $ parseURL url
     ExceptT $ gReleaseUrl urlParts
 
-pr :: Text -> Sh ()
-pr = cmd "hub" "pull-request" "-m"
+pr :: Text -> Text -> Sh ()
+pr base msg = cmd "hub" "pull-request" "-b" base "-m" msg
 
 data URLParts = URLParts
   { owner :: Name Owner

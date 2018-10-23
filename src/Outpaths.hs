@@ -153,6 +153,9 @@ parseOutpath =
 packageRebuilds :: Set ResultLine -> Vector Text
 packageRebuilds = S.toList >>> fmap package >>> sort >>> V.fromList >>> V.uniq
 
+numPackageRebuilds :: Set ResultLine -> Int
+numPackageRebuilds diff = V.length $ packageRebuilds diff
+
 archRebuilds :: Text -> Set ResultLine -> Int
 archRebuilds arch =
   S.toList >>> fmap architecture >>> filter (== arch) >>> length
@@ -163,29 +166,32 @@ darwinRebuilds = archRebuilds "x86_64-darwin"
 linuxRebuilds :: Set ResultLine -> Int
 linuxRebuilds = archRebuilds "x86_64-linux"
 
+linux32bRebuilds :: Set ResultLine -> Int
+linux32bRebuilds = archRebuilds "i686-linux"
+
 armRebuilds :: Set ResultLine -> Int
 armRebuilds = archRebuilds "aarch64-linux"
 
-outpathReport :: Set ResultLine -> Set ResultLine -> Text
-outpathReport before after =
+outpathReport :: Set ResultLine -> Text
+outpathReport diff =
   let tshow = show >>> T.pack
-      diff = S.difference before after
       pkg = tshow $ V.length $ packageRebuilds diff
       firstTen = V.foldl (<>) T.empty $ V.take 10 $ packageRebuilds diff
       darwin = tshow $ darwinRebuilds diff
       linux = tshow $ linuxRebuilds diff
+      linux32b = tshow $ linux32bRebuilds diff
       arm = tshow $ armRebuilds diff
-      numPaths = tshow $ S.size $ S.difference before after
+      numPaths = tshow $ S.size $ diff
    in [NeatInterpolation.text|
         Outpath difference report
         $numPaths total rebuild paths
 
         $pkg package rebuilds
 
-        $darwin x86_64-darwin rebuilds
         $linux x86_64-linux rebuilds
+        $linux32b i686-linux rebuidls
+        $darwin x86_64-darwin rebuilds
         $arm aarch64-linux rebuilds
-
 
 
         First ten rebuilds by attrpath

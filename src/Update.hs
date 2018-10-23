@@ -17,8 +17,12 @@ import Control.Error
 import Control.Exception (SomeException, throw, toException)
 import Control.Monad (forM_)
 import Data.Function ((&))
+import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
+import Data.Set (Set)
+import qualified Data.Set as S
+import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -52,6 +56,11 @@ import Utils
 
 default (T.Text)
 
+data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
+  { lastUpdated :: UTCTime
+  , mergeBaseOutpaths :: Set ResultLine
+  }
+
 errorExit' :: (Text -> Sh ()) -> Text -> Text -> Sh a
 errorExit' log branchName message = do
   Git.cleanup branchName
@@ -76,29 +85,32 @@ updateAll options =
     let log = log' logFile
     appendfile logFile "\n\n"
     log "New run of ups.sh"
-    updateLoop options log (parseUpdates updates)
+    twoHoursAgo <- liftIO $ addUTCTime (fromInteger $ -60 * 60 * 2) <$> getCurrentTime
+    mergeBaseOutpathSet <- liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
+    updateLoop options log (parseUpdates updates) mergeBaseOutpathSet
 
 updateLoop ::
      Options
   -> (Text -> Sh ())
   -> [Either Text (Text, Version, Version)]
+  -> IORef MergeBaseOutpathsInfo
   -> Sh ()
-updateLoop _ log [] = log "ups.sh finished"
-updateLoop options log (Left e:moreUpdates) = do
+updateLoop _ log [] _ = log "ups.sh finished"
+updateLoop options log (Left e:moreUpdates) mergeBaseOutpathsContext = do
   log e
-  updateLoop options log moreUpdates
-updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = do
+  updateLoop options log moreUpdates mergeBaseOutpathsContext
+updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mergeBaseOutpathsContext = do
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
   updated <-
     catch_sh
-      (updatePackage log (UpdateEnv package oldVersion newVersion options))
+      (updatePackage log (UpdateEnv package oldVersion newVersion options) mergeBaseOutpathsContext)
       (\case
          ExitCode 0 -> return True
          ExitCode _ -> return False)
   if updated
     then do
       log "SUCCESS"
-      updateLoop options log moreUpdates
+      updateLoop options log moreUpdates mergeBaseOutpathsContext
     else do
       log "FAIL"
       if ".0" `T.isSuffixOf` newVersion
@@ -107,10 +119,11 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) = d
                    options
                    log
                    (Right (package, oldVersion, newNewVersion) : moreUpdates)
-        else updateLoop options log moreUpdates
+                   mergeBaseOutpathsContext
+        else updateLoop options log moreUpdates mergeBaseOutpathsContext
 
-updatePackage :: (Text -> Sh ()) -> UpdateEnv -> Sh Bool
-updatePackage log updateEnv = do
+updatePackage :: (Text -> Sh ()) -> UpdateEnv -> IORef MergeBaseOutpathsInfo -> Sh Bool
+updatePackage log updateEnv mergeBaseOutpathsContext = do
   let errorExit = errorExit' log (branchName updateEnv)
   eitherToError errorExit (pure (Blacklist.packageName (packageName updateEnv)))
   setupNixpkgs
@@ -149,7 +162,18 @@ updatePackage log updateEnv = do
       (Nix.oldVersionOn updateEnv "staging" stagingDerivationContents)
     Git.checkoutAtMergeBase (branchName updateEnv)
 
-    mergeBaseOutpathSet <- eitherToError errorExit currentOutpathSet
+    oneHourAgo <- liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
+
+    mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
+
+    mergeBaseOutpathSet <-
+      if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
+      then do
+        mbos <- eitherToError errorExit currentOutpathSet
+        now <- liftIO $ getCurrentTime
+        liftIO $ writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
+        return $ mbos
+      else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
 
     derivationContents <- readfile derivationFile
     unless (Nix.numberOfFetchers derivationContents <= 1) $
@@ -169,19 +193,18 @@ updatePackage log updateEnv = do
 
     editedOutpathSet <- eitherToError errorExit currentOutpathSet
 
-    let opReport = outpathReport mergeBaseOutpathSet editedOutpathSet
-
     eitherToError errorExit (Nix.build attrPath)
     result <-
       fromText <$>
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport
+    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
-     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> Text -> FilePath -> Text -> Sh Bool
-publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport = do
+     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> Text -> FilePath -> Set ResultLine -> Sh Bool
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   let errorExit = errorExit' log (branchName updateEnv)
   log ("cachix " <> (T.pack . show) result)
   Nix.cachix result
@@ -218,7 +241,10 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport = do
   Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv
   isBroken <- eitherToError errorExit (Nix.getIsBroken attrPath)
   untilOfBorgFree
-  GH.pr
+  let base = if numPackageRebuilds opDiff < 100
+             then "master"
+             else "staging"
+  GH.pr base
     (prMessage
        updateEnv
        isBroken
@@ -230,7 +256,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport = do
        attrPath
        maintainersCc
        result
-       opReport)
+       (outpathReport opDiff))
   Git.cleanAndResetToMaster
   return True
 
