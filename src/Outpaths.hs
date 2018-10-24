@@ -176,7 +176,7 @@ outpathReport :: Set ResultLine -> Text
 outpathReport diff =
   let tshow = show >>> T.pack
       pkg = tshow $ V.length $ packageRebuilds diff
-      firstTen = V.foldl (<>) T.empty $ V.take 10 $ packageRebuilds diff
+      firstTen = T.unlines $ V.toList $ V.take 10 $ packageRebuilds diff
       darwin = tshow $ darwinRebuilds diff
       linux = tshow $ linuxRebuilds diff
       linux32b = tshow $ linux32bRebuilds diff
