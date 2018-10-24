@@ -189,7 +189,7 @@ outpathReport diff =
         $pkg package rebuilds
 
         $linux x86_64-linux rebuilds
-        $linux32b i686-linux rebuidls
+        $linux32b i686-linux rebuilds
         $darwin x86_64-darwin rebuilds
         $arm aarch64-linux rebuilds
 
