@@ -195,8 +195,10 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
 
     let numPRebuilds = numPackageRebuilds opDiff
+    log $ "num package rebuilds: " <> (T.pack . show) numPRebuilds <> "  > 10"
+
     if numPRebuilds > 10 && "buildPythonPackage" `T.isInfixOf` derivationContents
-      then errorExit "Package contained buildPythonPackage and too many package rebuilds " <> numPRebuilds <> "  > 10"
+      then errorExit "Package contained buildPythonPackage and too many package rebuilds"
       else return ()
 
     eitherToError errorExit (Nix.build attrPath)
