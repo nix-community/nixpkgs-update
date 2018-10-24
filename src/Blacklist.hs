@@ -8,9 +8,9 @@ module Blacklist
   , checkResult
   ) where
 
-import Data.Foldable (find)
-import Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Foldable (find)
+import           Data.Text     (Text)
+import qualified Data.Text     as T
 
 type Blacklist = [(Text -> Bool, Text)]
 
@@ -109,6 +109,7 @@ contentList =
   , infixOf "buildRubyGem" "Derivation contains buildRubyGem."
   , infixOf "bundlerEnv" "Derivation contains bundlerEnv."
   , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage."
+  , infixOf "nixpkgs-update: no auto update" "Derivation file asks not to auto update it"
   ]
 
 checkResultList :: Blacklist
@@ -127,7 +128,7 @@ checkResultList =
 blacklister :: Blacklist -> Text -> Either Text ()
 blacklister blacklist input =
   case result of
-    Nothing -> Right ()
+    Nothing  -> Right ()
     Just msg -> Left msg
   where
     result = snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
