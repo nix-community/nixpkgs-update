@@ -192,6 +192,12 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
     File.replace oldHash newHash derivationFile
 
     editedOutpathSet <- eitherToError errorExit currentOutpathSet
+    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
+
+    let numPRebuilds = numPackageRebuilds opDiff
+    if numPRebuilds > 10 && "buildPythonPackage" `T.isInfixOf` derivationContents
+      then errorExit "Package contained buildPythonPackage and too many package rebuilds " <> numPRebuilds <> "  > 10"
+      else return ()
 
     eitherToError errorExit (Nix.build attrPath)
     result <-
@@ -199,7 +205,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
+
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::

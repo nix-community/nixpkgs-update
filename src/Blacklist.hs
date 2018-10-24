@@ -62,7 +62,7 @@ nameList =
       "libxc"
       "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821"
   , infixOf "perl" "currently don't know how to update perl"
-  , infixOf "python" "currently don't know how to update python"
+  --, infixOf "python" "currently don't know how to update python" -- FRidh says lets' try python
   , infixOf "cdrtools" "We keep downgrading this by accident."
   , infixOf "gst" "gstreamer plugins are kept in lockstep."
   , infixOf "electron" "multi-platform srcs in file."
@@ -105,7 +105,7 @@ contentList =
     -- Skip packages that have special builders
   , infixOf "buildGoPackage" "Derivation contains buildGoPackage."
   , infixOf "buildRustCrate" "Derivation contains buildRustCrate."
-  , infixOf "buildPythonPackage" "Derivation contains buildPythonPackage."
+  --, infixOf "buildPythonPackage" "Derivation contains buildPythonPackage." -- FRidh says lets' try python
   , infixOf "buildRubyGem" "Derivation contains buildRubyGem."
   , infixOf "bundlerEnv" "Derivation contains bundlerEnv."
   , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage."
