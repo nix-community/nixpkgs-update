@@ -330,7 +330,7 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        </details>
        <details>
        <summary>
-       Outpath report (click to expand)
+       Rebuild report (click to expand)
        </summary>
 
        $opReport

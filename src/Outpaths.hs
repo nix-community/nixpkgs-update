@@ -176,24 +176,23 @@ outpathReport :: Set ResultLine -> Text
 outpathReport diff =
   let tshow = show >>> T.pack
       pkg = tshow $ V.length $ packageRebuilds diff
-      firstTen = T.unlines $ V.toList $ V.take 10 $ packageRebuilds diff
+      firstFifty = T.unlines $ V.toList $ V.take 50 $ packageRebuilds diff
       darwin = tshow $ darwinRebuilds diff
       linux = tshow $ linuxRebuilds diff
       linux32b = tshow $ linux32bRebuilds diff
       arm = tshow $ armRebuilds diff
       numPaths = tshow $ S.size $ diff
    in [NeatInterpolation.text|
-        Outpath difference report
-        $numPaths total rebuild paths
+        $numPaths total rebuild path(s)
 
-        $pkg package rebuilds
+        $pkg package rebuild(s)
 
-        $linux x86_64-linux rebuilds
-        $linux32b i686-linux rebuilds
-        $darwin x86_64-darwin rebuilds
-        $arm aarch64-linux rebuilds
+        $linux x86_64-linux rebuild(s)
+        $linux32b i686-linux rebuild(s)
+        $darwin x86_64-darwin rebuild(s)
+        $arm aarch64-linux rebuild(s)
 
 
-        First ten rebuilds by attrpath
-        $firstTen
+        First fifty rebuilds by attrpath
+        $firstFifty
       |]
