@@ -88,15 +88,18 @@ getDerivationFile updateEnv attrPath =
    fmap fromText >>> shE >>> rewriteError "Couldn't find derivation file.")
 
 getHash :: Text -> Sh (Either Text Text)
-getHash attrPath =
-  nixEvalE Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")
+getHash attrPath = do
+  e1 <- nixEvalE Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")
+  case e1 of
+    Right _ -> return e1
+    Left _ -> nixEvalE Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
 
 getOldHash :: Text -> Sh (Either Text Text)
 getOldHash attrPath =
   getHash attrPath &
   rewriteError
     ("Could not find old output hash at " <> attrPath <>
-     ".src.drvAttrs.outputHash.")
+     ".src.drvAttrs.outputHash or .drvAttrs.outputHash.")
 
 getMaintainers :: Text -> Sh (Either Text Text)
 getMaintainers attrPath =

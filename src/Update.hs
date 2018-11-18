@@ -188,6 +188,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
     when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
     newHash <-
       canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
+      canFail (T.strip <$> cmd "nix-prefetch-url" "-A" attrPath) `orElse`
       fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl `orElse`
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
