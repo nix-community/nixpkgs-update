@@ -98,13 +98,6 @@ getOldHash attrPath =
     ("Could not find old output hash at " <> attrPath <>
      ".src.drvAttrs.outputHash.")
 
-getSrcUrl :: Text -> Sh (Either Text Text)
-getSrcUrl attrPath =
-  nixEvalE
-    Raw
-    ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-     ".src.drvAttrs.urls 0)")
-
 getMaintainers :: Text -> Sh (Either Text Text)
 getMaintainers attrPath =
   nixEvalE
@@ -137,9 +130,25 @@ getDescription attrPath =
      ".meta.description or \"\")") &
   rewriteError ("Could not get meta.description for attrpath " <> attrPath)
 
+getSrcUrl :: Text -> Sh (Either Text Text)
+getSrcUrl attrPath = do
+  e1 <- nixEvalE
+        Raw
+        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+         ".src.drvAttrs.urls 0)")
+  case e1 of
+    Right _ -> return e1
+    Left _ -> nixEvalE
+              Raw
+              ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+               ".drvAttrs.urls 0)")
+
 getSrcAttr :: Text -> Text -> Sh (Either Text Text)
-getSrcAttr attr attrPath =
-  nixEvalE NoRaw ("pkgs." <> attrPath <> ".src." <> attr)
+getSrcAttr attr attrPath = do
+  e1 <- nixEvalE NoRaw ("pkgs." <> attrPath <> ".src." <> attr)
+  case e1 of
+    Right _ -> return e1
+    Left _ -> nixEvalE NoRaw ("pkgs." <> attrPath <> "." <> attr)
 
 getSrcUrls :: Text -> Sh (Either Text Text)
 getSrcUrls = getSrcAttr "urls"
