@@ -22,10 +22,10 @@ import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Set (Set)
 import qualified Data.Set as S
-import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
@@ -43,8 +43,6 @@ import Utils
   , Version
   , branchName
   , canFail
-  , versionCompatibleWithPathPin
-  , versionIncompatibleWithPathPin
   , eitherToError
   , orElse
   , ourShell
@@ -53,6 +51,8 @@ import Utils
   , setupNixpkgs
   , shE
   , tRead
+  , versionCompatibleWithPathPin
+  , versionIncompatibleWithPathPin
   )
 
 default (T.Text)
@@ -86,8 +86,10 @@ updateAll options =
     let log = log' logFile
     appendfile logFile "\n\n"
     log "New run of ups.sh"
-    twoHoursAgo <- liftIO $ addUTCTime (fromInteger $ -60 * 60 * 2) <$> getCurrentTime
-    mergeBaseOutpathSet <- liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
+    twoHoursAgo <-
+      liftIO $ addUTCTime (fromInteger $ -60 * 60 * 2) <$> getCurrentTime
+    mergeBaseOutpathSet <-
+      liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
     updateLoop options log (parseUpdates updates) mergeBaseOutpathSet
 
 updateLoop ::
@@ -104,7 +106,10 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
   updated <-
     catch_sh
-      (updatePackage log (UpdateEnv package oldVersion newVersion options) mergeBaseOutpathsContext)
+      (updatePackage
+         log
+         (UpdateEnv package oldVersion newVersion options)
+         mergeBaseOutpathsContext)
       (\case
          ExitCode 0 -> return True
          ExitCode _ -> return False)
@@ -123,7 +128,8 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
                    mergeBaseOutpathsContext
         else updateLoop options log moreUpdates mergeBaseOutpathsContext
 
-updatePackage :: (Text -> Sh ()) -> UpdateEnv -> IORef MergeBaseOutpathsInfo -> Sh Bool
+updatePackage ::
+     (Text -> Sh ()) -> UpdateEnv -> IORef MergeBaseOutpathsInfo -> Sh Bool
 updatePackage log updateEnv mergeBaseOutpathsContext = do
   let errorExit = errorExit' log (branchName updateEnv)
   eitherToError errorExit (pure (Blacklist.packageName (packageName updateEnv)))
@@ -146,8 +152,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
-    when (versionCompatibleWithPathPin attrPath (oldVersion updateEnv) &&
-          versionIncompatibleWithPathPin attrPath (newVersion updateEnv)) $
+    when
+      (versionCompatibleWithPathPin attrPath (oldVersion updateEnv) &&
+       versionIncompatibleWithPathPin attrPath (newVersion updateEnv)) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
          newVersion updateEnv)
@@ -163,20 +170,18 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
       errorExit
       (Nix.oldVersionOn updateEnv "staging" stagingDerivationContents)
     Git.checkoutAtMergeBase (branchName updateEnv)
-
-    oneHourAgo <- liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
-
+    oneHourAgo <-
+      liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
-
     mergeBaseOutpathSet <-
       if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
-      then do
-        mbos <- eitherToError errorExit currentOutpathSet
-        now <- liftIO $ getCurrentTime
-        liftIO $ writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
-        return $ mbos
-      else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
-
+        then do
+          mbos <- eitherToError errorExit currentOutpathSet
+          now <- liftIO $ getCurrentTime
+          liftIO $
+            writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
+          return $ mbos
+        else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
     derivationContents <- readfile derivationFile
     unless (Nix.numberOfFetchers derivationContents <= 1) $
       errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
@@ -193,28 +198,33 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
       errorExit "Could not prefetch new version URL."
     when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
     File.replace oldHash newHash derivationFile
-
     editedOutpathSet <- eitherToError errorExit currentOutpathSet
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
-
     let numPRebuilds = numPackageRebuilds opDiff
-    log $ "num package rebuilds: " <> (T.pack . show) numPRebuilds <> "  > 10"
-
-    if numPRebuilds > 10 && "buildPythonPackage" `T.isInfixOf` derivationContents
-      then errorExit "Package contained buildPythonPackage and too many package rebuilds"
+    if numPRebuilds > 10 &&
+       "buildPythonPackage" `T.isInfixOf` derivationContents
+      then errorExit $
+           "Python package with too many package rebuilds " <>
+           (T.pack . show) numPRebuilds <>
+           "  > 10"
       else return ()
-
     eitherToError errorExit (Nix.build attrPath)
     result <-
       fromText <$>
       (T.strip <$>
        (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
       errorExit "Could not find result link."
-
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
-     (Text -> Sh ()) -> UpdateEnv -> Text -> Text -> Text -> FilePath -> Set ResultLine -> Sh Bool
+     (Text -> Sh ())
+  -> UpdateEnv
+  -> Text
+  -> Text
+  -> Text
+  -> FilePath
+  -> Set ResultLine
+  -> Sh Bool
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   let errorExit = errorExit' log (branchName updateEnv)
   log ("cachix " <> (T.pack . show) result)
@@ -252,10 +262,12 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv
   isBroken <- eitherToError errorExit (Nix.getIsBroken attrPath)
   untilOfBorgFree
-  let base = if numPackageRebuilds opDiff < 100
-             then "master"
-             else "staging"
-  GH.pr base
+  let base =
+        if numPackageRebuilds opDiff < 100
+          then "master"
+          else "staging"
+  GH.pr
+    base
     (prMessage
        updateEnv
        isBroken
