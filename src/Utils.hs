@@ -7,7 +7,8 @@ module Utils
   , Version
   , UpdateEnv(..)
   , canFail
-  , checkAttrPathVersion
+  , versionCompatibleWithPathPin
+  , versionIncompatibleWithPathPin
   , orElse
   , setupNixpkgs
   , tRead
@@ -149,19 +150,19 @@ clearBreakOn boundary string =
 --
 -- Examples:
 --
--- >>> checkAttrPathVersion "libgit2_0_25" "0.25.3"
+-- >>> versionCompatibleWithPathPin "libgit2_0_25" "0.25.3"
 -- True
 --
--- >>> checkAttrPathVersion "owncloud90" "9.0.3"
+-- >>> versionCompatibleWithPathPin "owncloud90" "9.0.3"
 -- True
 --
--- >>> checkAttrPathVersion "owncloud-client" "2.4.1"
+-- >>> versionCompatibleWithPathPin "owncloud-client" "2.4.1"
 -- True
 --
--- >>> checkAttrPathVersion "owncloud90" "9.1.3"
+-- >>> versionCompatibleWithPathPin "owncloud90" "9.1.3"
 -- False
-checkAttrPathVersion :: Text -> Version -> Bool
-checkAttrPathVersion attrPath newVersion =
+versionCompatibleWithPathPin :: Text -> Version -> Bool
+versionCompatibleWithPathPin attrPath newVersion =
   if "_" `T.isInfixOf` attrPath
     then let attrVersionPart =
                let (name, version) = clearBreakOn "_" attrPath
@@ -183,6 +184,9 @@ checkAttrPathVersion attrPath newVersion =
              noPeriodNewVersion = T.replace "." "" newVersion
             -- If we don't find version numbers in the attr path, exit success.
           in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
+
+versionIncompatibleWithPathPin :: Text -> Version -> Bool
+versionIncompatibleWithPathPin path version = not (versionCompatibleWithPathPin path version)
 
 newtype ExitCode =
   ExitCode Int

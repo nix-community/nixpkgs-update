@@ -43,7 +43,8 @@ import Utils
   , Version
   , branchName
   , canFail
-  , checkAttrPathVersion
+  , versionCompatibleWithPathPin
+  , versionIncompatibleWithPathPin
   , eitherToError
   , orElse
   , ourShell
@@ -145,7 +146,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext = do
     [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
     , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
     ] $ do
-    unless (checkAttrPathVersion attrPath (newVersion updateEnv)) $
+    when (versionCompatibleWithPathPin attrPath (oldVersion updateEnv) &&
+          versionIncompatibleWithPathPin attrPath (newVersion updateEnv)) $
       errorExit
         ("Version in attr path " <> attrPath <> " not compatible with " <>
          newVersion updateEnv)
