@@ -162,7 +162,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
           else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
       derivationContents <- lift $ readfile derivationFile
       when
-        (Nix.numberOfFetchers derivationContents <= 1)
+        (Nix.numberOfFetchers derivationContents > 1)
         (throwE $ "More than one fetcher in " <> toTextIgnore derivationFile)
       ExceptT $ (pure (Blacklist.content derivationContents))
       oldHash <- ExceptT $ Nix.getOldHash attrPath
