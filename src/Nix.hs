@@ -17,7 +17,9 @@ module Nix
   , getDescription
   , cachix
   , numberOfFetchers
+  , prefetchUrl
   , oldVersionOn
+  , resultLink
   ) where
 
 import Control.Category ((>>>))
@@ -200,3 +202,17 @@ oldVersionOn updateEnv branchName contents =
     (assertErr
        ("Old version not present in " <> branchName <> " derivation file.")
        (oldVersion updateEnv `T.isInfixOf` contents))
+
+prefetchUrl :: Text -> Sh (Either Text Text)
+prefetchUrl attrPath =
+  cmd "nix-prefetch-url" "-A" attrPath &
+    (fmap T.strip >>> shE >>> rewriteError ("nix-prefetch-url failed for " <> attrPath))
+
+resultLink :: Sh (Either Text FilePath)
+resultLink = fmap fromText <$> do
+  e1 <- cmd "readlink" "./result" & (fmap T.strip >>> shE)
+  case e1 of
+    Right _ -> return e1
+    Left _ ->
+      cmd "readlink" "./result-bin" &
+      (fmap T.strip >>> shE >>> rewriteError "Could not find result link.")

@@ -12,10 +12,13 @@ module Update
 import qualified Blacklist
 import qualified Check
 import Clean (fixSrcUrl)
+import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Error
 import Control.Exception (SomeException, throw, toException)
-import Control.Monad (forM_)
+import Control.Exception.Lifted
+import Control.Monad (forM_, mplus)
+import Control.Monad.Trans.Class
 import Data.Function ((&))
 import Data.IORef
 import Data.Maybe (fromMaybe)
@@ -37,13 +40,13 @@ import Outpaths
 import Prelude hiding (FilePath)
 import Shelly
 import Utils
-  ( ExitCode(..)
-  , Options(..)
+  ( Options(..)
   , UpdateEnv(..)
   , Version
   , branchName
   , canFail
   , eitherToError
+  , ensureVersionCompatibleWithPathPin
   , orElse
   , ourShell
   , parseUpdates
@@ -51,8 +54,6 @@ import Utils
   , setupNixpkgs
   , shE
   , tRead
-  , versionCompatibleWithPathPin
-  , versionIncompatibleWithPathPin
   )
 
 default (T.Text)
@@ -61,12 +62,6 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
   { lastUpdated :: UTCTime
   , mergeBaseOutpaths :: Set ResultLine
   }
-
-errorExit' :: (Text -> Sh ()) -> Text -> Text -> Sh a
-errorExit' log branchName message = do
-  Git.cleanup branchName
-  log message
-  throw (ExitCode 1)
 
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
@@ -104,21 +99,12 @@ updateLoop options log (Left e:moreUpdates) mergeBaseOutpathsContext = do
   updateLoop options log moreUpdates mergeBaseOutpathsContext
 updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mergeBaseOutpathsContext = do
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
-  updated <-
-    catch_sh
-      (updatePackage
-         log
-         (UpdateEnv package oldVersion newVersion options)
-         mergeBaseOutpathsContext)
-      (\case
-         ExitCode 0 -> return True
-         ExitCode _ -> return False)
-  if updated
-    then do
-      log "SUCCESS"
-      updateLoop options log moreUpdates mergeBaseOutpathsContext
-    else do
-      log "FAIL"
+  let updateEnv = UpdateEnv package oldVersion newVersion options
+  updated <- updatePackage log updateEnv mergeBaseOutpathsContext
+  case updated of
+    Left failure -> do
+      Git.cleanup (branchName updateEnv)
+      log $ "FAIL " <> failure
       if ".0" `T.isSuffixOf` newVersion
         then let Just newNewVersion = ".0" `T.stripSuffix` newVersion
               in updateLoop
@@ -127,94 +113,87 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
                    (Right (package, oldVersion, newNewVersion) : moreUpdates)
                    mergeBaseOutpathsContext
         else updateLoop options log moreUpdates mergeBaseOutpathsContext
+    Right _ -> do
+      log "SUCCESS"
+      updateLoop options log moreUpdates mergeBaseOutpathsContext
 
 updatePackage ::
-     (Text -> Sh ()) -> UpdateEnv -> IORef MergeBaseOutpathsInfo -> Sh Bool
-updatePackage log updateEnv mergeBaseOutpathsContext = do
-  let errorExit = errorExit' log (branchName updateEnv)
-  eitherToError errorExit (pure (Blacklist.packageName (packageName updateEnv)))
-  setupNixpkgs
+     (Text -> Sh ())
+  -> UpdateEnv
+  -> IORef MergeBaseOutpathsInfo
+  -> Sh (Either Text ())
+updatePackage log updateEnv mergeBaseOutpathsContext =
+  runExceptT $ do
+    hoistEither (Blacklist.packageName (packageName updateEnv))
+    lift setupNixpkgs
   -- Check whether requested version is newer than the current one
-  eitherToError errorExit (Nix.compareVersions updateEnv)
-  Git.fetchIfStale
-  whenM
-    (Git.autoUpdateBranchExists (packageName updateEnv))
-    (errorExit "Update branch already on origin.")
-  Git.cleanAndResetToMaster
-  attrPath <- eitherToError errorExit (Nix.lookupAttrPath updateEnv)
-  srcUrls <- eitherToError errorExit (Nix.getSrcUrls attrPath)
-  eitherToError errorExit (pure (Blacklist.srcUrl srcUrls))
-  eitherToError errorExit (pure (Blacklist.attrPath attrPath))
-  derivationFile <-
-    eitherToError errorExit (Nix.getDerivationFile updateEnv attrPath)
-  flip
-    catches_sh
-    [ ShellyHandler (\(ex :: ExitCode) -> throw ex)
-    , ShellyHandler (\(ex :: SomeException) -> errorExit (T.pack (show ex)))
-    ] $ do
-    when
-      (versionCompatibleWithPathPin attrPath (oldVersion updateEnv) &&
-       versionIncompatibleWithPathPin attrPath (newVersion updateEnv)) $
-      errorExit
-        ("Version in attr path " <> attrPath <> " not compatible with " <>
-         newVersion updateEnv)
+    lift $ Nix.compareVersions updateEnv
+    lift Git.fetchIfStale
+    Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
+    lift Git.cleanAndResetToMaster
+    attrPath :: Text <- ExceptT $ Nix.lookupAttrPath updateEnv
+    srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
+    hoistEither $ Blacklist.srcUrl srcUrls
+    hoistEither $ Blacklist.attrPath attrPath
+    derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
+    flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
+      ensureVersionCompatibleWithPathPin updateEnv attrPath
     -- Make sure it hasn't been updated on master
-    masterDerivationContents <- readfile derivationFile
-    eitherToError
-      errorExit
-      (Nix.oldVersionOn updateEnv "master" masterDerivationContents)
+      masterDerivationContents <- lift $ readfile derivationFile
+      ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
     -- Make sure it hasn't been updated on staging
-    Git.cleanAndResetToStaging
-    stagingDerivationContents <- readfile derivationFile
-    eitherToError
-      errorExit
-      (Nix.oldVersionOn updateEnv "staging" stagingDerivationContents)
-    Git.checkoutAtMergeBase (branchName updateEnv)
-    oneHourAgo <-
-      liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
-    mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
-    mergeBaseOutpathSet <-
-      if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
-        then do
-          mbos <- eitherToError errorExit currentOutpathSet
-          now <- liftIO $ getCurrentTime
-          liftIO $
-            writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
-          return $ mbos
-        else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
-    derivationContents <- readfile derivationFile
-    unless (Nix.numberOfFetchers derivationContents <= 1) $
-      errorExit $ "More than one fetcher in " <> toTextIgnore derivationFile
-    eitherToError errorExit (pure (Blacklist.content derivationContents))
-    oldHash <- eitherToError errorExit (Nix.getOldHash attrPath)
-    oldSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
-    File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
-    newSrcUrl <- eitherToError errorExit (Nix.getSrcUrl attrPath)
-    when (oldSrcUrl == newSrcUrl) $ errorExit "Source url did not change."
-    newHash <-
-      canFail (T.strip <$> cmd "nix-prefetch-url" "-A" (attrPath <> ".src")) `orElse`
-      canFail (T.strip <$> cmd "nix-prefetch-url" "-A" attrPath) `orElse`
-      fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl `orElse`
-      errorExit "Could not prefetch new version URL."
-    when (oldHash == newHash) $ errorExit "Hashes equal; no update necessary"
-    File.replace oldHash newHash derivationFile
-    editedOutpathSet <- eitherToError errorExit currentOutpathSet
-    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
-    let numPRebuilds = numPackageRebuilds opDiff
-    if numPRebuilds > 10 &&
-       "buildPythonPackage" `T.isInfixOf` derivationContents
-      then errorExit $
-           "Python package with too many package rebuilds " <>
-           (T.pack . show) numPRebuilds <>
-           "  > 10"
-      else return ()
-    eitherToError errorExit (Nix.build attrPath)
-    result <-
-      fromText <$>
-      (T.strip <$>
-       (cmd "readlink" "./result" `orElse` cmd "readlink" "./result-bin")) `orElse`
-      errorExit "Could not find result link."
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
+      lift $ Git.cleanAndResetToStaging
+      stagingDerivationContents <- lift $ readfile derivationFile
+      lift $ Nix.oldVersionOn updateEnv "staging" stagingDerivationContents
+      lift $ Git.checkoutAtMergeBase (branchName updateEnv)
+      oneHourAgo <-
+        liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
+      mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
+      mergeBaseOutpathSet <-
+        if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
+          then do
+            mbos <- ExceptT $ currentOutpathSet
+            now <- liftIO $ getCurrentTime
+            liftIO $
+              writeIORef
+                mergeBaseOutpathsContext
+                (MergeBaseOutpathsInfo now mbos)
+            return $ mbos
+          else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
+      derivationContents <- lift $ readfile derivationFile
+      when
+        (Nix.numberOfFetchers derivationContents <= 1)
+        (throwE $ "More than one fetcher in " <> toTextIgnore derivationFile)
+      ExceptT $ (pure (Blacklist.content derivationContents))
+      oldHash <- ExceptT $ Nix.getOldHash attrPath
+      oldSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
+      lift $
+        File.replace
+          (oldVersion updateEnv)
+          (newVersion updateEnv)
+          derivationFile
+      newSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
+      when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
+      newHash <-
+        ExceptT (Nix.prefetchUrl (attrPath <> ".src")) <|>
+        ExceptT (Nix.prefetchUrl attrPath) <|>
+        lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
+        throwE "Could not prefetch new version URL."
+      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+      lift $ File.replace oldHash newHash derivationFile
+      editedOutpathSet <- ExceptT $ currentOutpathSet
+      let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
+      let numPRebuilds = numPackageRebuilds opDiff
+      when
+        (numPRebuilds > 10 &&
+         "buildPythonPackage" `T.isInfixOf` derivationContents)
+        (throwE $
+         "Python package with too many package rebuilds " <>
+         (T.pack . show) numPRebuilds <>
+         "  > 10")
+      ExceptT $ (Nix.build attrPath)
+      result <- ExceptT Nix.resultLink
+      publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
      (Text -> Sh ())
@@ -224,49 +203,48 @@ publishPackage ::
   -> Text
   -> FilePath
   -> Set ResultLine
-  -> Sh Bool
+  -> ExceptT Text Sh ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
-  let errorExit = errorExit' log (branchName updateEnv)
-  log ("cachix " <> (T.pack . show) result)
-  Nix.cachix result
+  lift $ log ("cachix " <> (T.pack . show) result)
+  lift $ Nix.cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
-      Right () -> sub (Check.result updateEnv result)
+      Right () -> lift $ sub (Check.result updateEnv result)
       Left msg -> pure msg
-  d <- eitherToError errorExit (Nix.getDescription attrPath)
+  d <- ExceptT $ (Nix.getDescription attrPath)
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
   releaseUrlResult <- liftIO $ GH.releaseUrl newSrcUrl
   releaseUrlMessage <-
     case releaseUrlResult of
       Left e -> do
-        log e
+        lift $ log e
         return ""
       Right msg -> return ("\n[Release on GitHub](" <> msg <> ")\n\n")
   compareUrlResult <- liftIO $ GH.compareUrl oldSrcUrl newSrcUrl
   compareUrlMessage <-
     case compareUrlResult of
       Left e -> do
-        log e
+        lift $ log e
         return "\n"
       Right msg -> return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
-  maintainers <- eitherToError errorExit (Nix.getMaintainers attrPath)
+  maintainers <- ExceptT $ (Nix.getMaintainers attrPath)
   let maintainersCc =
         if not (T.null maintainers)
           then "\n\ncc " <> maintainers <> " for testing."
           else ""
   let commitMsg = commitMessage updateEnv attrPath
-  Git.commit commitMsg
-  commitHash <- Git.headHash
+  lift $ Git.commit commitMsg
+  commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv
-  isBroken <- eitherToError errorExit (Nix.getIsBroken attrPath)
-  untilOfBorgFree
+  lift $ (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
+  isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
+  lift $ untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
           else "staging"
-  GH.pr
+  lift $ GH.pr
     base
     (prMessage
        updateEnv
@@ -280,8 +258,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
        maintainersCc
        result
        (outpathReport opDiff))
-  Git.cleanAndResetToMaster
-  return True
+  lift $ Git.cleanAndResetToMaster
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]

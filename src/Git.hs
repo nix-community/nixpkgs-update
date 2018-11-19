@@ -10,18 +10,20 @@ module Git
   , fetch
   , push
   , checkoutAtMergeBase
-  , autoUpdateBranchExists
+  , checkAutoUpdateBranchDoesn'tExist
   , commit
   , headHash
   , deleteBranch
   ) where
 
+import Control.Error
+import Control.Monad.Trans.Class
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Shelly
-import System.Directory (getModificationTime, getHomeDirectory)
+import System.Directory (getHomeDirectory, getModificationTime)
 import Utils (Options(..), UpdateEnv(..), branchName, canFail)
 
 default (T.Text)
@@ -57,13 +59,11 @@ staleFetchHead = do
   return (fetchedLast < oneHourAgo)
 
 fetchIfStale :: Sh ()
-fetchIfStale =
-  whenM
-    (liftIO staleFetchHead)
-    fetch
+fetchIfStale = whenM (liftIO staleFetchHead) fetch
 
 fetch :: Sh ()
-fetch = canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
+fetch =
+  canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
 
 push :: UpdateEnv -> Sh ()
 push updateEnv =
@@ -78,11 +78,13 @@ checkoutAtMergeBase branchName = do
     T.strip <$> cmd "git" "merge-base" "upstream/master" "upstream/staging"
   cmd "git" "checkout" "-B" branchName base
 
-autoUpdateBranchExists :: Text -> Sh Bool
-autoUpdateBranchExists packageName = do
-  remotes <-
-    map T.strip . T.lines <$> (silently $ cmd "git" "branch" "--remote")
-  return $ ("origin/auto-update/" <> packageName) `elem` remotes
+checkAutoUpdateBranchDoesn'tExist :: Text -> ExceptT Text Sh ()
+checkAutoUpdateBranchDoesn'tExist packageName = do
+  remoteBranches <-
+    lift $ map T.strip . T.lines <$> (silently $ cmd "git" "branch" "--remote")
+  when
+    (("origin/auto-update/" <> packageName) `elem` remoteBranches)
+    (throwE "Update branch already on origin.")
 
 commit :: Text -> Sh ()
 commit = cmd "git" "commit" "-am"

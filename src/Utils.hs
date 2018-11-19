@@ -7,14 +7,12 @@ module Utils
   , Version
   , UpdateEnv(..)
   , canFail
-  , versionCompatibleWithPathPin
-  , versionIncompatibleWithPathPin
+  , ensureVersionCompatibleWithPathPin
   , orElse
   , setupNixpkgs
   , tRead
   , parseUpdates
   , succeded
-  , ExitCode(..)
   , shE
   , rewriteError
   , eitherToError
@@ -23,6 +21,7 @@ module Utils
   , ourSilentShell
   ) where
 
+import Control.Error
 import Control.Exception (Exception)
 import Data.Bifunctor (first)
 import Data.Semigroup ((<>))
@@ -68,7 +67,8 @@ setUpEnvironment options = do
 
 ourSilentShell :: Options -> Sh a -> IO a
 ourSilentShell o s =
-  shelly $ silently $ do
+  shelly $
+  silently $ do
     setUpEnvironment o
     s
 
@@ -186,10 +186,15 @@ versionCompatibleWithPathPin attrPath newVersion =
           in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 
 versionIncompatibleWithPathPin :: Text -> Version -> Bool
-versionIncompatibleWithPathPin path version = not (versionCompatibleWithPathPin path version)
+versionIncompatibleWithPathPin path version =
+  not (versionCompatibleWithPathPin path version)
 
-newtype ExitCode =
-  ExitCode Int
-  deriving (Show)
-
-instance Exception ExitCode
+ensureVersionCompatibleWithPathPin ::
+     Monad m => UpdateEnv -> Text -> ExceptT Text m ()
+ensureVersionCompatibleWithPathPin ue attrPath =
+  when
+    (versionCompatibleWithPathPin attrPath (oldVersion ue) &&
+     versionIncompatibleWithPathPin attrPath (newVersion ue))
+    (throwE $
+     "Version in attr path " <> attrPath <> " not compatible with " <>
+     newVersion ue)
