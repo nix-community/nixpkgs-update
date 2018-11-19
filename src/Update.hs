@@ -192,7 +192,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
          (T.pack . show) numPRebuilds <>
          "  > 10")
       ExceptT $ (Nix.build attrPath)
-      result <- ExceptT Nix.resultLink
+      result <- Nix.resultLink
       publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::

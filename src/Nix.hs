@@ -22,6 +22,7 @@ module Nix
   , resultLink
   ) where
 
+import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Error
 import Control.Monad (void)
@@ -208,11 +209,8 @@ prefetchUrl attrPath =
   cmd "nix-prefetch-url" "-A" attrPath &
     (fmap T.strip >>> shE >>> rewriteError ("nix-prefetch-url failed for " <> attrPath))
 
-resultLink :: Sh (Either Text FilePath)
-resultLink = fmap fromText <$> do
-  e1 <- cmd "readlink" "./result" & (fmap T.strip >>> shE)
-  case e1 of
-    Right _ -> return e1
-    Left _ ->
-      cmd "readlink" "./result-bin" &
-      (fmap T.strip >>> shE >>> rewriteError "Could not find result link.")
+resultLink :: ExceptT Text Sh FilePath
+resultLink =  (T.strip >>> fromText) <$> do
+  (ExceptT $ shE $ cmd "readlink" "./result") <|>
+    (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
+    throwE "Could not find result link."
