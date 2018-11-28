@@ -50,6 +50,7 @@ attrPathList =
       "@roconnor asked for a blacklist on this until something can be done with GPG signatures https://github.com/NixOS/nixpkgs/commit/77f3ac7b7638b33ab198330eaabbd6e0a2e751a9"
   , eq "sqlite-interactive" "it is an override"
   , eq "harfbuzzFull" "it is an override"
+  , prefix "mate" "mate packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/50695#issuecomment-441338593"
   ]
 
 nameList :: Blacklist
