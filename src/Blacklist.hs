@@ -111,6 +111,8 @@ contentList =
   , infixOf "bundlerEnv" "Derivation contains bundlerEnv."
   , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage."
   , infixOf "nixpkgs-update: no auto update" "Derivation file asks not to auto update it"
+  , infixOf "postFetch" "nix-prefetch-url does not know how to handle postFetch https://github.com/NixOS/nix/issues/1514"
+  , infixOf "executable = true" "nix-prefetch-url does not know how to handle `executable = true` https://github.com/NixOS/nix/issues/1514"
   ]
 
 checkResultList :: Blacklist
