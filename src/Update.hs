@@ -322,7 +322,7 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        </details>
        <details>
        <summary>
-       Rebuild report (click to expand)
+       Rebuild report (if merged into master) (click to expand)
        </summary>
 
        $opReport
