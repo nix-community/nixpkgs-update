@@ -97,6 +97,9 @@ nameList =
   , eq
       "burp"
       "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301"
+  , eq
+      "chromedriver"
+      "complicated package"
   ]
 
 contentList :: Blacklist
