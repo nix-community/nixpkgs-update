@@ -14,6 +14,7 @@ module Git
   , commit
   , headHash
   , deleteBranch
+  , showRef
   ) where
 
 import Control.Error
@@ -49,6 +50,9 @@ cleanup :: Text -> Sh ()
 cleanup branchName = do
   cleanAndResetToMaster
   canFail $ cmd "git" "branch" "-D" branchName
+
+showRef :: Text -> Sh Text
+showRef ref = cmd "git" "show-ref" ref
 
 staleFetchHead :: IO Bool
 staleFetchHead = do

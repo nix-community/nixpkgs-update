@@ -140,11 +140,15 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       -- Make sure it hasn't been updated on master
       masterDerivationContents <- lift $ readfile derivationFile
+      masterShowRef <- lift $ Git.showRef "master"
+      lift $ log masterShowRef
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
-      lift $ Git.cleanAndResetToStaging
+      lift Git.cleanAndResetToStaging
+      masterShowRef <- lift $ Git.showRef "staging"
+      lift $ log masterShowRef
       stagingDerivationContents <- lift $ readfile derivationFile
-      lift $ Nix.oldVersionOn updateEnv "staging" stagingDerivationContents
+      ExceptT $ Nix.oldVersionOn updateEnv "staging" stagingDerivationContents
       lift $ Git.checkoutAtMergeBase (branchName updateEnv)
       oneHourAgo <-
         liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
