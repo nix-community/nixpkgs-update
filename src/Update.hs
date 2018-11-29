@@ -126,7 +126,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     hoistEither (Blacklist.packageName (packageName updateEnv))
     lift setupNixpkgs
-  -- Check whether requested version is newer than the current one
+    -- Check whether requested version is newer than the current one
     lift $ Nix.compareVersions updateEnv
     lift Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
@@ -138,10 +138,10 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       ensureVersionCompatibleWithPathPin updateEnv attrPath
-    -- Make sure it hasn't been updated on master
+      -- Make sure it hasn't been updated on master
       masterDerivationContents <- lift $ readfile derivationFile
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
-    -- Make sure it hasn't been updated on staging
+      -- Make sure it hasn't been updated on staging
       lift $ Git.cleanAndResetToStaging
       stagingDerivationContents <- lift $ readfile derivationFile
       lift $ Nix.oldVersionOn updateEnv "staging" stagingDerivationContents
