@@ -131,13 +131,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     lift Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
     lift Git.cleanAndResetToMaster
-    attrPath :: Text <- ExceptT $ Nix.lookupAttrPath updateEnv
+    attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
+    ensureVersionCompatibleWithPathPin updateEnv attrPath
     srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
     hoistEither $ Blacklist.srcUrl srcUrls
     hoistEither $ Blacklist.attrPath attrPath
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
-      ensureVersionCompatibleWithPathPin updateEnv attrPath
       -- Make sure it hasn't been updated on master
       masterDerivationContents <- lift $ readfile derivationFile
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
