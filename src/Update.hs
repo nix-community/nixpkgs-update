@@ -3,10 +3,13 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
   ( updateAll
+  , evalPart1
   ) where
 
 import qualified Blacklist
@@ -18,6 +21,7 @@ import Control.Error
 import Control.Exception (SomeException, throw, toException)
 import Control.Exception.Lifted
 import Control.Monad (forM_, mplus)
+import Control.Monad.Except
 import Control.Monad.Trans.Class
 import Data.Function ((&))
 import Data.IORef
@@ -38,7 +42,7 @@ import NeatInterpolation (text)
 import qualified Nix
 import Outpaths
 import Prelude hiding (FilePath)
-import Shelly
+import Shelly.Lifted
 import Utils
   ( Options(..)
   , UpdateEnv(..)
@@ -117,6 +121,28 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
       log "SUCCESS"
       updateLoop options log moreUpdates mergeBaseOutpathsContext
 
+
+instance (MonadError e m, MonadSh m) => MonadSh (ExceptT e m) where
+  liftSh m = ExceptT $ do
+    a <- liftSh m
+    return (Right a)
+
+-- instance MonadError 
+
+-- type UM a = Sh (Either Text a)
+
+-- newtype Comp a = Comp { unComp :: UM a }
+--   deriving (Monad, MonadError Text, MonadSh)
+
+
+--evalPart1 ::  MonadSh m => UpdateEnv -> ExceptT Text m ()
+evalPart1 ue = shelly $ runExceptT $ part1 ue
+
+part1 :: (MonadSh m, MonadError Text m) => UpdateEnv -> m ()
+part1 updateEnv = do
+  Blacklist.packageName (packageName updateEnv)
+  setupNixpkgs
+
 updatePackage ::
      (Text -> Sh ())
   -> UpdateEnv
@@ -125,7 +151,7 @@ updatePackage ::
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
-    lift setupNixpkgs
+    lift $ setupNixpkgs
     -- Check whether requested version is newer than the current one
     lift $ Nix.compareVersions updateEnv
     lift Git.fetchIfStale
@@ -136,12 +162,14 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
+    masterShowRef <- lift $ Git.showRef "master"
+    lift $ log masterShowRef
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       -- Make sure it hasn't been updated on master
       masterDerivationContents <- lift $ readfile derivationFile
-      masterShowRef <- lift $ Git.showRef "master"
-      lift $ log masterShowRef
+
+      
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
       lift Git.cleanAndResetToStaging

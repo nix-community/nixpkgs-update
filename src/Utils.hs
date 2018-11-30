@@ -28,7 +28,7 @@ import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
-import Shelly
+import Shelly.Lifted
 
 default (T.Text)
 
@@ -47,7 +47,7 @@ data UpdateEnv = UpdateEnv
   , options :: Options
   }
 
-setupNixpkgs :: Sh ()
+setupNixpkgs :: MonadSh m => m ()
 setupNixpkgs = do
   home <- get_env_text "HOME"
   let nixpkgsPath = home </> ".cache" </> "nixpkgs"
