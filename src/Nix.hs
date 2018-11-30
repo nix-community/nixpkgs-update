@@ -49,7 +49,7 @@ nixEvalE raw expr =
   (fmap T.strip >>> shE >>> rewriteError ("nix eval failed for " <> expr))
 
 -- Error if the "new version" is actually newer according to nix
-compareVersions :: UpdateEnv -> Sh (Either Text ())
+compareVersions :: UpdateEnv -> IO (Either Text ())
 compareVersions updateEnv = do
   versionComparison <-
     nixEvalE

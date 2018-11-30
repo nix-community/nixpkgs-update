@@ -3,6 +3,8 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
@@ -18,6 +20,7 @@ import Control.Error
 import Control.Exception (SomeException, throw, toException)
 import Control.Exception.Lifted
 import Control.Monad (forM_, mplus)
+import Control.Monad.Except
 import Control.Monad.Trans.Class
 import Data.Function ((&))
 import Data.IORef
@@ -38,7 +41,7 @@ import NeatInterpolation (text)
 import qualified Nix
 import Outpaths
 import Prelude hiding (FilePath)
-import Shelly
+import Shelly.Lifted
 import Utils
   ( Options(..)
   , UpdateEnv(..)
@@ -125,7 +128,7 @@ updatePackage ::
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
-    lift setupNixpkgs
+    liftIO $ setupNixpkgs
     -- Check whether requested version is newer than the current one
     lift $ Nix.compareVersions updateEnv
     lift Git.fetchIfStale
@@ -136,12 +139,14 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
+    masterShowRef <- lift $ Git.showRef "master"
+    lift $ log masterShowRef
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       -- Make sure it hasn't been updated on master
       masterDerivationContents <- lift $ readfile derivationFile
-      masterShowRef <- lift $ Git.showRef "master"
-      lift $ log masterShowRef
+
+      
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
       lift Git.cleanAndResetToStaging

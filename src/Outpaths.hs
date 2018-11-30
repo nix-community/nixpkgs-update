@@ -85,7 +85,7 @@ in
 outPath :: Sh Text
 outPath =
   sub $ do
-    Utils.setupNixpkgs
+    liftIO $ Utils.setupNixpkgs
     cmd
       "curl"
       "-o"

@@ -28,7 +28,10 @@ import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
-import Shelly
+import Shelly.Lifted
+import System.Directory
+import System.Environment
+import System.Environment.XDG.BaseDir
 
 default (T.Text)
 
@@ -47,17 +50,18 @@ data UpdateEnv = UpdateEnv
   , options :: Options
   }
 
-setupNixpkgs :: Sh ()
+setupNixpkgs :: IO ()
 setupNixpkgs = do
-  home <- get_env_text "HOME"
-  let nixpkgsPath = home </> ".cache" </> "nixpkgs"
-  unlessM (test_e nixpkgsPath) $ do
-    cmd "hub" "clone" "nixpkgs" nixpkgsPath -- requires that user has forked nixpkgs
-    cd nixpkgsPath
-    cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
-    cmd "git" "fetch" "upstream"
-  cd nixpkgsPath
-  setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
+  fp <- getUserCacheDir "nixpkgs"
+  exists <- doesDirectoryExist fp
+  unless exists $ do
+    shelly $ run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
+    setCurrentDirectory fp
+    shelly $
+      cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
+    shelly $ cmd "git" "fetch" "upstream"
+  setCurrentDirectory fp
+  setEnv "NIX_PATH" ("nixpkgs=" <> fp)
 
 -- | Set environment variables needed by various programs
 setUpEnvironment :: Options -> Sh ()
@@ -170,28 +174,28 @@ clearBreakOn boundary string =
 versionCompatibleWithPathPin :: Text -> Version -> Bool
 versionCompatibleWithPathPin attrPath newVersion
   | "_x" `T.isSuffixOf` (T.toLower attrPath) =
-      versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVersion
+    versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVersion
   | "_" `T.isInfixOf` attrPath =
     let attrVersionPart =
           let (name, version) = clearBreakOn "_" attrPath
-          in if T.any (notElemOf ('_' : ['0' .. '9'])) version
-             then Nothing
-             else Just version
+           in if T.any (notElemOf ('_' : ['0' .. '9'])) version
+                then Nothing
+                else Just version
         -- Check assuming version part has underscore separators
         attrVersionPeriods = T.replace "_" "." <$> attrVersionPart
         -- If we don't find version numbers in the attr path, exit success.
-       in maybe True (`T.isPrefixOf` newVersion) attrVersionPeriods
+     in maybe True (`T.isPrefixOf` newVersion) attrVersionPeriods
   | otherwise =
-      let attrVersionPart =
-               let version = T.dropWhile (notElemOf ['0' .. '9']) attrPath
-                in if T.any (notElemOf ['0' .. '9']) version
-                     then Nothing
-                     else Just version
+    let attrVersionPart =
+          let version = T.dropWhile (notElemOf ['0' .. '9']) attrPath
+           in if T.any (notElemOf ['0' .. '9']) version
+                then Nothing
+                else Just version
           -- Check assuming version part is the prefix of the version with dots
           -- removed. For example, 91 => "9.1"
-          noPeriodNewVersion = T.replace "." "" newVersion
+        noPeriodNewVersion = T.replace "." "" newVersion
           -- If we don't find version numbers in the attr path, exit success.
-          in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
+     in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 
 versionIncompatibleWithPathPin :: Text -> Version -> Bool
 versionIncompatibleWithPathPin path version =

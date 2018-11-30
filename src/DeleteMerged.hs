@@ -23,9 +23,9 @@ default (T.Text)
 
 -- | Delete the already merged branches both from local and remote repository
 deleteMerged :: Options -> IO ()
-deleteMerged o =
+deleteMerged o = do
+  setupNixpkgs
   ourShell o $ do
-    setupNixpkgs
     Git.fetch
     Git.cleanAndResetToMaster
     mergedRemoteBranches <- T.lines <$> cmd "git" "branch" "-ra" "--merged"
@@ -40,9 +40,9 @@ deleteMerged o =
     forM_ mergedAutoUpdateBranches $ \branch -> cmd "git" "branch" "-d" branch
 
 deleteDone :: Options -> IO ()
-deleteDone o =
+deleteDone o = do
+  setupNixpkgs
   ourShell o $ do
-    setupNixpkgs
     Git.fetch
     Git.cleanAndResetToMaster
     result <- liftIO $ GH.closedAutoUpdateRefs o

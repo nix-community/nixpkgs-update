@@ -33,7 +33,6 @@ archiveRegex version =
 
 fixSrcUrl :: UpdateEnv -> FilePath -> Text -> Text -> Sh Text
 fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
-  setupNixpkgs
   oldDerivationName <-
     T.strip <$>
     cmd "nix" "eval" "-f" "." "--raw" ("pkgs." <> attrPath <> ".name")
