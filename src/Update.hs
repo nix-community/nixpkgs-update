@@ -124,7 +124,7 @@ updatePackage ::
   -> Sh (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
-    hoistEither (Blacklist.packageName (packageName updateEnv))
+    Blacklist.packageName (packageName updateEnv)
     lift setupNixpkgs
     -- Check whether requested version is newer than the current one
     lift $ Nix.compareVersions updateEnv
@@ -134,8 +134,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
     ensureVersionCompatibleWithPathPin updateEnv attrPath
     srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
-    hoistEither $ Blacklist.srcUrl srcUrls
-    hoistEither $ Blacklist.attrPath attrPath
+    Blacklist.srcUrl srcUrls
+    Blacklist.attrPath attrPath
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       -- Make sure it hasn't been updated on master
@@ -168,7 +168,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       when
         (Nix.numberOfFetchers derivationContents > 1)
         (throwE $ "More than one fetcher in " <> toTextIgnore derivationFile)
-      ExceptT $ (pure (Blacklist.content derivationContents))
+      Blacklist.content derivationContents
       oldHash <- ExceptT $ Nix.getOldHash attrPath
       oldSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
       lift $

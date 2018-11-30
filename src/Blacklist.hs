@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Blacklist
   ( packageName
@@ -8,28 +10,33 @@ module Blacklist
   , checkResult
   ) where
 
-import           Data.Foldable (find)
-import           Data.Text     (Text)
-import qualified Data.Text     as T
+import Control.Monad.Except
+import Data.Foldable (find)
+import Data.Text (Text)
+import qualified Data.Text as T
 
 type Blacklist = [(Text -> Bool, Text)]
 
-srcUrl :: Text -> Either Text ()
+type TextBlacklister m
+   = (MonadError Text m) =>
+       Text -> m ()
+
+srcUrl :: TextBlacklister m
 srcUrl = blacklister srcUrlList
 
-attrPath :: Text -> Either Text ()
+attrPath :: TextBlacklister m
 attrPath = blacklister attrPathList
 
-packageName :: Text -> Either Text ()
+packageName :: TextBlacklister m
 packageName name =
   if (name == "elementary-xfce-icon-theme") -- https://github.com/ryantm/nixpkgs-update/issues/63
-    then Right ()
+    then return ()
     else blacklister nameList name
 
-content :: Text -> Either Text ()
+content :: TextBlacklister m
 content = blacklister contentList
 
-checkResult :: Text -> Either Text ()
+checkResult :: TextBlacklister m
 checkResult = blacklister checkResultList
 
 srcUrlList :: Blacklist
@@ -50,7 +57,9 @@ attrPathList =
       "@roconnor asked for a blacklist on this until something can be done with GPG signatures https://github.com/NixOS/nixpkgs/commit/77f3ac7b7638b33ab198330eaabbd6e0a2e751a9"
   , eq "sqlite-interactive" "it is an override"
   , eq "harfbuzzFull" "it is an override"
-  , prefix "mate" "mate packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/50695#issuecomment-441338593"
+  , prefix
+      "mate"
+      "mate packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/50695#issuecomment-441338593"
   ]
 
 nameList :: Blacklist
@@ -97,9 +106,7 @@ nameList =
   , eq
       "burp"
       "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301"
-  , eq
-      "chromedriver"
-      "complicated package"
+  , eq "chromedriver" "complicated package"
   ]
 
 contentList :: Blacklist
@@ -113,9 +120,15 @@ contentList =
   , infixOf "buildRubyGem" "Derivation contains buildRubyGem."
   , infixOf "bundlerEnv" "Derivation contains bundlerEnv."
   , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage."
-  , infixOf "nixpkgs-update: no auto update" "Derivation file asks not to auto update it"
-  , infixOf "postFetch" "nix-prefetch-url does not know how to handle postFetch https://github.com/NixOS/nix/issues/1514"
-  , infixOf "executable = true" "nix-prefetch-url does not know how to handle `executable = true` https://github.com/NixOS/nix/issues/1514"
+  , infixOf
+      "nixpkgs-update: no auto update"
+      "Derivation file asks not to auto update it"
+  , infixOf
+      "postFetch"
+      "nix-prefetch-url does not know how to handle postFetch https://github.com/NixOS/nix/issues/1514"
+  , infixOf
+      "executable = true"
+      "nix-prefetch-url does not know how to handle `executable = true` https://github.com/NixOS/nix/issues/1514"
   ]
 
 checkResultList :: Blacklist
@@ -131,11 +144,11 @@ checkResultList =
       "- x2goclient result is not automatically checked, because some binaries don't timeout properly"
   ]
 
-blacklister :: Blacklist -> Text -> Either Text ()
+blacklister :: Blacklist -> TextBlacklister m
 blacklister blacklist input =
   case result of
-    Nothing  -> Right ()
-    Just msg -> Left msg
+    Nothing -> return ()
+    Just msg -> throwError msg
   where
     result = snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
 
