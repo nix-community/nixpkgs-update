@@ -9,7 +9,6 @@
 
 module Update
   ( updateAll
-  , evalPart1
   ) where
 
 import qualified Blacklist
@@ -118,28 +117,6 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
     Right _ -> do
       log "SUCCESS"
       updateLoop options log moreUpdates mergeBaseOutpathsContext
-
-
-instance (MonadError e m, MonadSh m) => MonadSh (ExceptT e m) where
-  liftSh m = ExceptT $ do
-    a <- liftSh m
-    return (Right a)
-
--- instance MonadError 
-
--- type UM a = Sh (Either Text a)
-
--- newtype Comp a = Comp { unComp :: UM a }
---   deriving (Monad, MonadError Text, MonadSh)
-
-
---evalPart1 ::  MonadSh m => UpdateEnv -> ExceptT Text m ()
-evalPart1 ue = shelly $ runExceptT $ part1 ue
-
-part1 :: (MonadSh m, MonadError Text m) => UpdateEnv -> m ()
-part1 updateEnv = do
-  Blacklist.packageName (packageName updateEnv)
-  setupNixpkgs
 
 updatePackage ::
      (Text -> Sh ())
