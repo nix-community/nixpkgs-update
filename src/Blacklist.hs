@@ -40,8 +40,7 @@ checkResult :: TextBlacklister m
 checkResult = blacklister checkResultList
 
 srcUrlList :: Blacklist
-srcUrlList =
-  []
+srcUrlList = []
 
 attrPathList :: Blacklist
 attrPathList =

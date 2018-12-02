@@ -2,11 +2,11 @@ module File
   ( replace
   ) where
 
-import           Data.Text (Text)
+import Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Text.IO as T
+import Data.Text.IO as T
 import qualified Shelly
-import           Shelly (liftIO, toTextIgnore, Sh)
+import Shelly (Sh, liftIO, toTextIgnore)
 
 replaceIO :: Text -> Text -> FilePath -> IO ()
 replaceIO find r file = do

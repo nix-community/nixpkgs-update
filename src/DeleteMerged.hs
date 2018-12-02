@@ -13,11 +13,11 @@ import Data.Maybe (mapMaybe)
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Git
+import qualified Data.Vector as V
 import qualified GH
+import qualified Git
 import Shelly
 import Utils (Options, ourShell, setupNixpkgs)
-import qualified Data.Vector as V
 
 default (T.Text)
 

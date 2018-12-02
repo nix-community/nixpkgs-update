@@ -17,7 +17,7 @@ import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (Options(..), UpdateEnv (..), Version, canFail, succeded)
+import Utils (Options(..), UpdateEnv(..), Version, canFail, succeded)
 
 default (T.Text)
 
@@ -39,15 +39,15 @@ versionRegex version =
 checkBinary :: Text -> Version -> FilePath -> Sh BinaryCheck
 checkBinary argument expectedVersion program =
   catchany_sh
-  (do
-      stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
-      code <- lastExitCode
-      stderr <- lastStderr
-      let hasVersion =
-            isJust $ (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
-            versionRegex expectedVersion
-      return $ BinaryCheck program (code == 0) hasVersion)
-  (\ _ -> return $ BinaryCheck program False False)
+    (do stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
+        code <- lastExitCode
+        stderr <- lastStderr
+        let hasVersion =
+              isJust $
+              (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
+              versionRegex expectedVersion
+        return $ BinaryCheck program (code == 0) hasVersion)
+    (\_ -> return $ BinaryCheck program False False)
 
 checks :: [Version -> FilePath -> Sh BinaryCheck]
 checks =
@@ -73,9 +73,9 @@ someChecks best (c:rest) = do
     newBest :: BinaryCheck -> BinaryCheck
     newBest (BinaryCheck _ currentExit currentVersionPresent) =
       BinaryCheck
-      (filePath best)
-      (zeroExitCode best || currentExit)
-      (versionPresent best || currentVersionPresent)
+        (filePath best)
+        (zeroExitCode best || currentExit)
+        (versionPresent best || currentVersionPresent)
 
 -- | Run a program with various version or help flags and report
 -- when they succeded
@@ -86,14 +86,17 @@ runChecks expectedVersion program =
     checks' = map (\c -> c expectedVersion program) checks
 
 checkReport :: BinaryCheck -> Text
-checkReport (BinaryCheck p False False) = "- Warning: no invocation of " <> toTextIgnore p <> " had a zero exit code or showed the expected version"
-checkReport (BinaryCheck p _ _) = "- " <> toTextIgnore p <> " passed the binary check."
+checkReport (BinaryCheck p False False) =
+  "- Warning: no invocation of " <> toTextIgnore p <>
+  " had a zero exit code or showed the expected version"
+checkReport (BinaryCheck p _ _) =
+  "- " <> toTextIgnore p <> " passed the binary check."
 
 successfullCheck :: BinaryCheck -> Bool
 successfullCheck (BinaryCheck _ False False) = False
 successfullCheck _ = True
 
-result :: UpdateEnv -> FilePath  -> Sh Text
+result :: UpdateEnv -> FilePath -> Sh Text
 result updateEnv resultPath = do
   let expectedVersion = newVersion updateEnv
   home <- get_env_text "HOME"
@@ -112,21 +115,36 @@ result updateEnv resultPath = do
         else return []
     checks <- forM binaries $ \binary -> runChecks expectedVersion binary
     addToReport (T.intercalate "\n" (map checkReport checks))
-    let passedZeroExitCode = (T.pack . show)
-          (foldl
-           (\sum c -> if zeroExitCode c then sum + 1 else sum) 0 checks :: Int)
-        passedVersionPresent = (T.pack . show)
-          (foldl
-           (\sum c -> if versionPresent c then sum + 1 else sum) 0 checks :: Int)
+    let passedZeroExitCode =
+          (T.pack . show)
+            (foldl
+               (\sum c ->
+                  if zeroExitCode c
+                    then sum + 1
+                    else sum)
+               0
+               checks :: Int)
+        passedVersionPresent =
+          (T.pack . show)
+            (foldl
+               (\sum c ->
+                  if versionPresent c
+                    then sum + 1
+                    else sum)
+               0
+               checks :: Int)
         numBinaries = (T.pack . show) (length binaries)
-
-    addToReport ("- " <> passedZeroExitCode <> " of " <> numBinaries <> " passed binary check by having a zero exit code.")
-    addToReport ("- " <> passedVersionPresent <> " of " <> numBinaries <> " passed binary check by having the new version present in output.")
+    addToReport
+      ("- " <> passedZeroExitCode <> " of " <> numBinaries <>
+       " passed binary check by having a zero exit code.")
+    addToReport
+      ("- " <> passedVersionPresent <> " of " <> numBinaries <>
+       " passed binary check by having the new version present in output.")
     canFail $ cmd "grep" "-r" expectedVersion resultPath
     whenM ((== 0) <$> lastExitCode) $
       addToReport $
-        "- found " <> expectedVersion <> " with grep in " <>
-        toTextIgnore resultPath
+      "- found " <> expectedVersion <> " with grep in " <>
+      toTextIgnore resultPath
     whenM
       (null <$>
        findWhen
@@ -135,11 +153,12 @@ result updateEnv resultPath = do
             test_f path)
          resultPath) $
       addToReport $
-        "- found " <> expectedVersion <> " in filename of file in " <>
-        toTextIgnore resultPath
+      "- found " <> expectedVersion <> " in filename of file in " <>
+      toTextIgnore resultPath
     setenv "HOME" home
     gist1 <- cmd "tree" resultPath -|- cmd "gist"
-    unless (T.null gist1) $ addToReport $ "- directory tree listing: " <> T.strip gist1
+    unless (T.null gist1) $
+      addToReport $ "- directory tree listing: " <> T.strip gist1
     gist2 <- cmd "du" "-h" resultPath -|- cmd "gist"
     unless (T.null gist2) $ addToReport $ "- du listing: " <> T.strip gist2
   canFail $ readfile logFile

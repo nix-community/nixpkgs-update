@@ -137,8 +137,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
-    flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
+    flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
       -- Make sure it hasn't been updated on master
+     do
       masterDerivationContents <- lift $ readfile derivationFile
       masterShowRef <- lift $ Git.showRef "master"
       lift $ log masterShowRef
@@ -241,27 +242,29 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $ Git.commit commitMsg
   commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  lift $ (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
+  lift $
+    (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
   isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
   lift $ untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
           else "staging"
-  lift $ GH.pr
-    base
-    (prMessage
-       updateEnv
-       isBroken
-       metaDescription
-       releaseUrlMessage
-       compareUrlMessage
-       resultCheckReport
-       commitHash
-       attrPath
-       maintainersCc
-       result
-       (outpathReport opDiff))
+  lift $
+    GH.pr
+      base
+      (prMessage
+         updateEnv
+         isBroken
+         metaDescription
+         releaseUrlMessage
+         compareUrlMessage
+         resultCheckReport
+         commitHash
+         attrPath
+         maintainersCc
+         result
+         (outpathReport opDiff))
   lift $ Git.cleanAndResetToMaster
 
 repologyUrl :: UpdateEnv -> Text

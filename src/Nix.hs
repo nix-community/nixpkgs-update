@@ -138,16 +138,18 @@ getDescription attrPath =
 
 getSrcUrl :: Text -> Sh (Either Text Text)
 getSrcUrl attrPath = do
-  e1 <- nixEvalE
-        Raw
-        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-         ".src.drvAttrs.urls 0)")
+  e1 <-
+    nixEvalE
+      Raw
+      ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+       ".src.drvAttrs.urls 0)")
   case e1 of
     Right _ -> return e1
-    Left _ -> nixEvalE
-              Raw
-              ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-               ".drvAttrs.urls 0)")
+    Left _ ->
+      nixEvalE
+        Raw
+        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+         ".drvAttrs.urls 0)")
 
 getSrcAttr :: Text -> Text -> Sh (Either Text Text)
 getSrcAttr attr attrPath = do
@@ -207,10 +209,12 @@ oldVersionOn updateEnv branchName contents =
 prefetchUrl :: Text -> Sh (Either Text Text)
 prefetchUrl attrPath =
   cmd "nix-prefetch-url" "-A" attrPath &
-    (fmap T.strip >>> shE >>> rewriteError ("nix-prefetch-url failed for " <> attrPath))
+  (fmap T.strip >>>
+   shE >>> rewriteError ("nix-prefetch-url failed for " <> attrPath))
 
 resultLink :: ExceptT Text Sh FilePath
-resultLink =  (T.strip >>> fromText) <$> do
-  (ExceptT $ shE $ cmd "readlink" "./result") <|>
-    (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
-    throwE "Could not find result link."
+resultLink =
+  (T.strip >>> fromText) <$> do
+    (ExceptT $ shE $ cmd "readlink" "./result") <|>
+      (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
+      throwE "Could not find result link."
