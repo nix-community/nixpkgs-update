@@ -45,11 +45,11 @@ rawOpt NoRaw = []
 
 nixEvalE :: Raw -> Text -> Sh (Either Text Text)
 nixEvalE raw expr =
-  run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) &
-  (fmap T.strip >>> shE >>> rewriteError ("nix eval failed for " <> expr))
+  run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) & fmap T.strip & shE &
+  rewriteError ("nix eval failed for " <> expr)
 
 -- Error if the "new version" is actually newer according to nix
-compareVersions :: UpdateEnv -> IO (Either Text ())
+compareVersions :: UpdateEnv -> Sh (Either Text ())
 compareVersions updateEnv = do
   versionComparison <-
     nixEvalE
@@ -70,25 +70,26 @@ compareVersions updateEnv = do
 
 lookupAttrPath :: UpdateEnv -> Sh (Either Text Text)
 lookupAttrPath updateEnv =
-  cmd
-    "nix-env"
-    "-qa"
-    (packageName updateEnv <> "-" <> oldVersion updateEnv)
-    "-f"
-    "."
-    "--attr-path"
-    "--arg"
-    "config"
-    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }" &
-  (fmap (head . T.words . head . T.lines) >>>
-   shE >>>
-   rewriteError "nix-env -q failed to find package name with old version")
+  (cmd
+     "nix-env"
+     "-qa"
+     (packageName updateEnv <> "-" <> oldVersion updateEnv)
+     "-f"
+     "."
+     "--attr-path"
+     "--arg"
+     "config"
+     "{ allowBroken = true; allowUnfree = true; allowAliases = false; }") &
+  (fmap (T.lines >>> head >>> T.words >>> head)) &
+  shE &
+  rewriteError "nix-env -q failed to find package name with old version"
 
 getDerivationFile :: UpdateEnv -> Text -> Sh (Either Text FilePath)
 getDerivationFile updateEnv attrPath =
-  cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." &
-  (fmap T.strip >>>
-   fmap fromText >>> shE >>> rewriteError "Couldn't find derivation file.")
+  cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
+  fmap fromText &
+  shE &
+  rewriteError "Couldn't find derivation file."
 
 getHash :: Text -> Sh (Either Text Text)
 getHash attrPath = do
@@ -138,16 +139,18 @@ getDescription attrPath =
 
 getSrcUrl :: Text -> Sh (Either Text Text)
 getSrcUrl attrPath = do
-  e1 <- nixEvalE
-        Raw
-        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-         ".src.drvAttrs.urls 0)")
+  e1 <-
+    nixEvalE
+      Raw
+      ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+       ".src.drvAttrs.urls 0)")
   case e1 of
     Right _ -> return e1
-    Left _ -> nixEvalE
-              Raw
-              ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-               ".drvAttrs.urls 0)")
+    Left _ ->
+      nixEvalE
+        Raw
+        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+         ".drvAttrs.urls 0)")
 
 getSrcAttr :: Text -> Text -> Sh (Either Text Text)
 getSrcAttr attr attrPath = do
@@ -177,10 +180,9 @@ build attrPath = do
     Right _ -> return $ Right ()
     Left _ -> do
       buildLogE <-
-        cmd "nix" "log" "-f" "." attrPath &
-        (shE >>>
-         (fmap . fmap)
-           (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines))
+        cmd "nix" "log" "-f" "." attrPath & shE &
+        (fmap . fmap)
+          (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       return $
         case buildLogE of
           Left t -> Left "nix log failed trying to get build logs"
@@ -206,11 +208,12 @@ oldVersionOn updateEnv branchName contents =
 
 prefetchUrl :: Text -> Sh (Either Text Text)
 prefetchUrl attrPath =
-  cmd "nix-prefetch-url" "-A" attrPath &
-    (fmap T.strip >>> shE >>> rewriteError ("nix-prefetch-url failed for " <> attrPath))
+  cmd "nix-prefetch-url" "-A" attrPath & fmap T.strip & shE &
+  rewriteError ("nix-prefetch-url failed for " <> attrPath)
 
 resultLink :: ExceptT Text Sh FilePath
-resultLink =  (T.strip >>> fromText) <$> do
-  (ExceptT $ shE $ cmd "readlink" "./result") <|>
-    (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
-    throwE "Could not find result link."
+resultLink =
+  (T.strip >>> fromText) <$> do
+    (ExceptT $ shE $ cmd "readlink" "./result") <|>
+      (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
+      throwE "Could not find result link."

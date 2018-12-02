@@ -16,7 +16,7 @@ import qualified Data.Text.IO as T
 import qualified Git
 import qualified GH
 import Shelly
-import Utils (Options, ourShell, setupNixpkgs)
+import Utils (Options, ourShell)
 import qualified Data.Vector as V
 
 default (T.Text)
@@ -24,7 +24,6 @@ default (T.Text)
 -- | Delete the already merged branches both from local and remote repository
 deleteMerged :: Options -> IO ()
 deleteMerged o = do
-  setupNixpkgs
   ourShell o $ do
     Git.fetch
     Git.cleanAndResetToMaster
@@ -41,7 +40,6 @@ deleteMerged o = do
 
 deleteDone :: Options -> IO ()
 deleteDone o = do
-  setupNixpkgs
   ourShell o $ do
     Git.fetch
     Git.cleanAndResetToMaster

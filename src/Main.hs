@@ -14,7 +14,7 @@ import qualified Options.Applicative as Opt
 import System.Directory (getHomeDirectory)
 import System.Posix.Env (getEnv)
 import Update (updateAll)
-import Utils (Options(..))
+import Utils (Options(..), setupNixpkgs)
 
 default (T.Text)
 
@@ -50,6 +50,7 @@ main :: IO ()
 main = do
   mode <- Opt.execParser programInfo
   options <- makeOptions
+  setupNixpkgs
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options

@@ -20,7 +20,7 @@ import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (UpdateEnv(..), Version, canFail, setupNixpkgs, succeded)
+import Utils (UpdateEnv(..), Version, canFail, succeded)
 
 default (T.Text)
 

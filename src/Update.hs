@@ -15,7 +15,6 @@ import qualified Blacklist
 import qualified Check
 import Clean (fixSrcUrl)
 import Control.Applicative ((<|>))
-import Control.Category ((>>>))
 import Control.Error
 import Control.Exception (SomeException, throw, toException)
 import Control.Exception.Lifted
@@ -54,7 +53,6 @@ import Utils
   , ourShell
   , parseUpdates
   , rewriteError
-  , setupNixpkgs
   , shE
   , tRead
   )
@@ -128,7 +126,6 @@ updatePackage ::
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
-    liftIO $ setupNixpkgs
     -- Check whether requested version is newer than the current one
     lift $ Nix.compareVersions updateEnv
     lift Git.fetchIfStale
@@ -272,8 +269,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]
   where
-    pname = (packageName >>> T.toLower) updateEnv
-
+    pname = updateEnv & packageName & T.toLower
 commitMessage :: UpdateEnv -> Text -> Text
 commitMessage updateEnv attrPath =
   let oV = oldVersion updateEnv
