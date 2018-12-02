@@ -41,7 +41,7 @@ checkResult = blacklister checkResultList
 
 srcUrlList :: Blacklist
 srcUrlList =
-  [(("gnome" `T.isInfixOf`), "Packages from gnome are currently blacklisted.")]
+  []
 
 attrPathList :: Blacklist
 attrPathList =
