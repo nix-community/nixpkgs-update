@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -19,8 +20,17 @@ import Control.Exception (SomeException, throw, toException)
 import Control.Exception.Lifted
 import Control.Monad (forM_, mplus)
 import Control.Monad.Trans.Class
+import Data.Aeson
+  ( FromJSON(..)
+  , ToJSON(..)
+  , decodeStrict
+  , defaultOptions
+  , encodeFile
+  , genericToEncoding
+  )
 import Data.Function ((&))
 import Data.IORef
+import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Set (Set)
@@ -32,7 +42,9 @@ import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
+import qualified Filesystem.Path.CurrentOS as FP
 import qualified GH
+import GHC.Generics (Generic(..))
 import qualified Git
 import NeatInterpolation (text)
 import qualified Nix
@@ -63,6 +75,64 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
   , mergeBaseOutpaths :: Set ResultLine
   }
 
+data Update = Update
+  { updatePname :: Text
+  , updateOldVersion :: Text
+  , updateNewVersion :: Text
+  , updateStatus :: UpdateStatus
+  , updateOutput :: Text
+  } deriving (Generic, Show)
+
+instance ToJSON Update where
+  toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON Update
+
+data Updates = Updates
+  { lastUpdate :: Update
+  , updatesLogs :: [Text]
+  } deriving (Generic, Show)
+
+instance ToJSON Updates where
+  toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON Updates
+
+data UpdateStatus
+  = Success
+  | Failure
+  deriving (Show, Generic)
+
+instance ToJSON UpdateStatus where
+  toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON UpdateStatus
+
+logUpdate' :: Text -> Update -> Sh ()
+logUpdate' workingDir update@(Update pname oldVersion newVersion status out) = do
+  let logPath = fromText workingDir </> "logs" </> fromText pname
+  mkdir_p logPath
+  runDate <-
+    T.pack . formatTime defaultTimeLocale (iso8601DateFormat (Just "%H:%M:%S")) <$>
+    liftIO getCurrentTime
+  let updateFile = logPath </> fromText runDate <.> "json"
+  liftIO (encodeFile (FP.encodeString $ updateFile) update)
+  let overviewFile = fromText workingDir </> "updates.json"
+  unlessM (test_f overviewFile) (writefile overviewFile "{}")
+  updates <- readBinary overviewFile
+  let newUpdates =
+        case decodeStrict updates of
+          Just updatesMap -> do
+            Map.alter
+              (\mv ->
+                 case mv of
+                   Just v -> Just (Updates update (runDate : updatesLogs v))
+                   Nothing -> Just (Updates update [runDate]))
+              pname
+              updatesMap
+          Nothing -> error "Cannot decode updates.json"
+  liftIO (encodeFile (FP.encodeString $ overviewFile) newUpdates)
+
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
  = do
@@ -79,25 +149,27 @@ updateAll options =
     touchfile logFile
     updates <- readfile "packages-to-update.txt"
     let log = log' logFile
+    let logUpdate = logUpdate' (workingDir options)
     appendfile logFile "\n\n"
     log "New run of ups.sh"
     twoHoursAgo <-
       liftIO $ addUTCTime (fromInteger $ -60 * 60 * 2) <$> getCurrentTime
     mergeBaseOutpathSet <-
       liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
-    updateLoop options log (parseUpdates updates) mergeBaseOutpathSet
+    updateLoop options log logUpdate (parseUpdates updates) mergeBaseOutpathSet
 
 updateLoop ::
      Options
   -> (Text -> Sh ())
+  -> (Update -> Sh ())
   -> [Either Text (Text, Version, Version)]
   -> IORef MergeBaseOutpathsInfo
   -> Sh ()
-updateLoop _ log [] _ = log "ups.sh finished"
-updateLoop options log (Left e:moreUpdates) mergeBaseOutpathsContext = do
+updateLoop _ log logUpdate [] _ = log "ups.sh finished"
+updateLoop options log logUpdate (Left e:moreUpdates) mergeBaseOutpathsContext = do
   log e
-  updateLoop options log moreUpdates mergeBaseOutpathsContext
-updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mergeBaseOutpathsContext = do
+  updateLoop options log logUpdate moreUpdates mergeBaseOutpathsContext
+updateLoop options log logUpdate (Right (package, oldVersion, newVersion):moreUpdates) mergeBaseOutpathsContext = do
   log (package <> " " <> oldVersion <> " -> " <> newVersion)
   let updateEnv = UpdateEnv package oldVersion newVersion options
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
@@ -105,17 +177,25 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
     Left failure -> do
       Git.cleanup (branchName updateEnv)
       log $ "FAIL " <> failure
+      logUpdate (Update package oldVersion newVersion Failure failure)
       if ".0" `T.isSuffixOf` newVersion
         then let Just newNewVersion = ".0" `T.stripSuffix` newVersion
               in updateLoop
                    options
                    log
+                   logUpdate
                    (Right (package, oldVersion, newNewVersion) : moreUpdates)
                    mergeBaseOutpathsContext
-        else updateLoop options log moreUpdates mergeBaseOutpathsContext
+        else updateLoop
+               options
+               log
+               logUpdate
+               moreUpdates
+               mergeBaseOutpathsContext
     Right _ -> do
       log "SUCCESS"
-      updateLoop options log moreUpdates mergeBaseOutpathsContext
+      logUpdate (Update package oldVersion newVersion Success "")
+      updateLoop options log logUpdate moreUpdates mergeBaseOutpathsContext
 
 updatePackage ::
      (Text -> Sh ())
