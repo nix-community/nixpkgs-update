@@ -29,30 +29,30 @@ import Utils (Options(..), UpdateEnv(..), branchName, canFail)
 
 default (T.Text)
 
-clean :: Sh ()
-clean = cmd "git" "clean" "-fdx"
+clean :: IO ()
+clean = shelly $ cmd "git" "clean" "-fdx"
 
-cleanAndResetTo :: Text -> Text -> Sh ()
+cleanAndResetTo :: Text -> Text -> IO ()
 cleanAndResetTo branch target = do
-  cmd "git" "reset" "--hard"
+  shelly $ cmd "git" "reset" "--hard"
   clean
-  cmd "git" "checkout" "-B" branch target
-  cmd "git" "reset" "--hard" target
+  shelly $ cmd "git" "checkout" "-B" branch target
+  shelly $ cmd "git" "reset" "--hard" target
   clean
 
-cleanAndResetToMaster :: Sh ()
+cleanAndResetToMaster :: IO ()
 cleanAndResetToMaster = cleanAndResetTo "master" "upstream/master"
 
-cleanAndResetToStaging :: Sh ()
+cleanAndResetToStaging :: IO ()
 cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
 
-cleanup :: Text -> Sh ()
+cleanup :: Text -> IO ()
 cleanup branchName = do
   cleanAndResetToMaster
-  canFail $ cmd "git" "branch" "-D" branchName
+  shelly $ canFail $ cmd "git" "branch" "-D" branchName
 
-showRef :: Text -> Sh Text
-showRef ref = cmd "git" "show-ref" ref
+showRef :: Text -> IO Text
+showRef ref = shelly $ cmd "git" "show-ref" ref
 
 staleFetchHead :: IO Bool
 staleFetchHead = do
@@ -62,42 +62,42 @@ staleFetchHead = do
   fetchedLast <- getModificationTime fetchHead
   return (fetchedLast < oneHourAgo)
 
-fetchIfStale :: Sh ()
-fetchIfStale = whenM (liftIO staleFetchHead) fetch
+fetchIfStale :: IO ()
+fetchIfStale = whenM staleFetchHead fetch
 
-fetch :: Sh ()
+fetch :: IO ()
 fetch =
-  canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
+  shelly $ canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
 
-push :: UpdateEnv -> Sh ()
+push :: UpdateEnv -> IO ()
 push updateEnv =
-  run_
+  shelly $ run_
     "git"
     (["push", "--force", "--set-upstream", "origin", branchName updateEnv] ++
      ["--dry-run" | dryRun (options updateEnv)])
 
-checkoutAtMergeBase :: Text -> Sh ()
+checkoutAtMergeBase :: Text -> IO ()
 checkoutAtMergeBase branchName = do
   base <-
-    T.strip <$> cmd "git" "merge-base" "upstream/master" "upstream/staging"
-  cmd "git" "checkout" "-B" branchName base
+    T.strip <$> (shelly $ cmd "git" "merge-base" "upstream/master" "upstream/staging")
+  shelly $ cmd "git" "checkout" "-B" branchName base
 
-checkAutoUpdateBranchDoesn'tExist :: Text -> ExceptT Text Sh ()
+checkAutoUpdateBranchDoesn'tExist :: Text -> ExceptT Text IO ()
 checkAutoUpdateBranchDoesn'tExist packageName = do
   remoteBranches <-
-    lift $ map T.strip . T.lines <$> (silently $ cmd "git" "branch" "--remote")
+    lift $ map T.strip . T.lines <$> (shelly $ silently $ cmd "git" "branch" "--remote")
   when
     (("origin/auto-update/" <> packageName) `elem` remoteBranches)
     (throwE "Update branch already on origin.")
 
-commit :: Text -> Sh ()
-commit = cmd "git" "commit" "-am"
+commit :: Text -> IO ()
+commit ref = shelly $ cmd "git" "commit" "-am" ref
 
-headHash :: Sh Text
-headHash = cmd "git" "rev-parse" "HEAD"
+headHash :: IO Text
+headHash = shelly $ cmd "git" "rev-parse" "HEAD"
 
-deleteBranch :: Text -> Sh ()
-deleteBranch branchName = do
+deleteBranch :: Text -> IO ()
+deleteBranch branchName = shelly $ do
   canFail $ do
     cmd "git" "branch" "-D" branchName
     cmd "git" "push" "origin" (":" <> branchName)

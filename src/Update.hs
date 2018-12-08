@@ -104,7 +104,7 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
-      Git.cleanup (branchName updateEnv)
+      liftIO $ Git.cleanup (branchName updateEnv)
       log $ "FAIL " <> failure
       if ".0" `T.isSuffixOf` newVersion
         then let Just newNewVersion = ".0" `T.stripSuffix` newVersion
@@ -130,7 +130,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     lift $ Nix.compareVersions updateEnv
     lift Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
-    lift Git.cleanAndResetToMaster
+    liftIO Git.cleanAndResetToMaster
     attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
     ensureVersionCompatibleWithPathPin updateEnv attrPath
     srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
@@ -146,7 +146,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
-      lift Git.cleanAndResetToStaging
+      liftIO Git.cleanAndResetToStaging
       masterShowRef <- lift $ Git.showRef "staging"
       lift $ log masterShowRef
       stagingDerivationContents <- lift $ readfile derivationFile
@@ -243,7 +243,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $ Git.commit commitMsg
   commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  lift $ (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
+  liftIO $ (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
   isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
   lift $ untilOfBorgFree
   let base =
@@ -264,7 +264,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
        maintainersCc
        result
        (outpathReport opDiff))
-  lift $ Git.cleanAndResetToMaster
+  liftIO $ Git.cleanAndResetToMaster
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]
