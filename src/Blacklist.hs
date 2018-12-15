@@ -141,6 +141,9 @@ checkResultList =
   , infixOf
       "x2goclient"
       "- x2goclient result is not automatically checked, because some binaries don't timeout properly"
+  , infixOf
+    "kicad"
+    "- kicad result is not automatically checekd, because some binaries don't timeout properly"
   ]
 
 blacklister :: Blacklist -> TextBlacklister m
