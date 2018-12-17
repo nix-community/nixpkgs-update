@@ -62,7 +62,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
       "sed"
       "-i"
       ("s|^\\([ ]*\\)\\(name = \"" <> name <>
-       "-${version}\";\\)|\\1\\2\n\\1version = \"" <>
+       "-${version}\";\\)|\\1\\2\\n\\1version = \"" <>
        newVersion updateEnv <>
        "\";|")
       derivationFile
