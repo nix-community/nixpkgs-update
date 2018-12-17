@@ -59,6 +59,9 @@ attrPathList =
   , prefix
       "mate"
       "mate packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/50695#issuecomment-441338593"
+  , prefix
+      "deepin"
+      "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
   ]
 
 nameList :: Blacklist
@@ -106,6 +109,8 @@ nameList =
       "burp"
       "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301"
   , eq "chromedriver" "complicated package"
+  , eq "gitlab-shell" "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52294#issuecomment-447653417"
+  , eq "gitlab-workhorse" "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52286#issuecomment-447653409"
   ]
 
 contentList :: Blacklist
