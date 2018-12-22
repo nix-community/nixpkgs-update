@@ -128,7 +128,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.packageName (packageName updateEnv)
     -- Check whether requested version is newer than the current one
     lift $ Nix.compareVersions updateEnv
-    lift Git.fetchIfStale
+    liftIO $ Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
     liftIO Git.cleanAndResetToMaster
     attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
@@ -243,7 +243,9 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $ Git.commit commitMsg
   commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  liftIO $ (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
+  Git.push updateEnv
+  Git.push updateEnv
+  Git.push updateEnv
   isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
   lift $ untilOfBorgFree
   let base =
