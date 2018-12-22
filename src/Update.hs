@@ -128,9 +128,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.packageName (packageName updateEnv)
     -- Check whether requested version is newer than the current one
     Nix.compareVersions updateEnv
-    liftIO $ Git.fetchIfStale
+    Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
-    liftIO Git.cleanAndResetToMaster
+    Git.cleanAndResetToMaster
     attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
     ensureVersionCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
@@ -143,13 +143,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       -- Make sure it hasn't been updated on master
      do
       masterDerivationContents <- lift $ readfile derivationFile
-      ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
+      Nix.assertOldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
-      liftIO Git.cleanAndResetToStaging
+      Git.cleanAndResetToStaging
       masterShowRef <- lift $ Git.showRef "staging"
       lift $ log masterShowRef
       stagingDerivationContents <- lift $ readfile derivationFile
-      ExceptT $ Nix.oldVersionOn updateEnv "staging" stagingDerivationContents
+      Nix.assertOldVersionOn updateEnv "staging" stagingDerivationContents
       lift $ Git.checkoutAtMergeBase (branchName updateEnv)
       oneHourAgo <-
         liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime

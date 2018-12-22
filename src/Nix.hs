@@ -18,7 +18,7 @@ module Nix
   , cachix
   , numberOfFetchers
   , getHashFromBuild
-  , oldVersionOn
+  , assertOldVersionOn
   , resultLink
   , sha256Zero
   ) where
@@ -197,12 +197,11 @@ numberOfFetchers derivationContents =
   where
     count x = T.count x derivationContents
 
-oldVersionOn :: MonadIO m => UpdateEnv -> Text -> Text -> m (Either Text ())
-oldVersionOn updateEnv branchName contents =
-  pure
-    (assertErr
-       ("Old version not present in " <> branchName <> " derivation file.")
-       (oldVersion updateEnv `T.isInfixOf` contents))
+assertOldVersionOn :: MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
+assertOldVersionOn updateEnv branchName contents =
+  tryAssert
+    ("Old version not present in " <> branchName <> " derivation file.")
+    (oldVersion updateEnv `T.isInfixOf` contents)
 
 resultLink :: MonadIO m => ExceptT Text m FilePath
 resultLink =
