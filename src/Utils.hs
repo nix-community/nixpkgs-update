@@ -14,6 +14,8 @@ module Utils
   , parseUpdates
   , succeded
   , shE
+  , shellyET
+  , overwriteErrorT
   , rewriteError
   , eitherToError
   , branchName
@@ -21,8 +23,10 @@ module Utils
   , ourSilentShell
   ) where
 
+import Control.Category ((>>>))
 import Control.Error
 import Control.Exception (Exception)
+import Control.Monad.IO.Class
 import Data.Bifunctor (first)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
@@ -90,6 +94,12 @@ shE s = do
   case status of
     0 -> return $ Right r
     c -> return $ Left ("Exit code: " <> T.pack (show c))
+
+shellyET :: MonadIO m => Sh a -> ExceptT Text m a
+shellyET = shE >>> shelly >>> ExceptT
+
+overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
+overwriteErrorT t = fmapLT (const t)
 
 rewriteError :: Text -> Sh (Either Text a) -> Sh (Either Text a)
 rewriteError t = fmap (first (const t))

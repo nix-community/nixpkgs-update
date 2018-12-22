@@ -53,7 +53,6 @@ import Utils
   , ourShell
   , parseUpdates
   , rewriteError
-  , shE
   , tRead
   )
 
@@ -127,13 +126,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
     -- Check whether requested version is newer than the current one
-    lift $ Nix.compareVersions updateEnv
+    Nix.compareVersions updateEnv
     liftIO $ Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
     liftIO Git.cleanAndResetToMaster
     attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
     ensureVersionCompatibleWithPathPin updateEnv attrPath
-    srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
+    srcUrls <- Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
     masterShowRef <- lift $ Git.showRef "master"
@@ -142,8 +141,6 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       -- Make sure it hasn't been updated on master
       masterDerivationContents <- lift $ readfile derivationFile
-
-      
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
       liftIO Git.cleanAndResetToStaging
@@ -171,14 +168,14 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
         (Nix.numberOfFetchers derivationContents > 1)
         (throwE $ "More than one fetcher in " <> toTextIgnore derivationFile)
       Blacklist.content derivationContents
-      oldHash <- ExceptT $ Nix.getOldHash attrPath
-      oldSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
+      oldHash <- Nix.getOldHash attrPath
+      oldSrcUrl <- Nix.getSrcUrl attrPath
       lift $
         File.replace
           (oldVersion updateEnv)
           (newVersion updateEnv)
           derivationFile
-      newSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
+      newSrcUrl <- Nix.getSrcUrl attrPath
       when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
       newHash <-
         ExceptT (Nix.prefetchUrl (attrPath <> ".src")) <|>
@@ -217,7 +214,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
     case Blacklist.checkResult (packageName updateEnv) of
       Right () -> lift $ sub (Check.result updateEnv result)
       Left msg -> pure msg
-  d <- ExceptT $ (Nix.getDescription attrPath)
+  d <- Nix.getDescription attrPath
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
   releaseUrlResult <- liftIO $ GH.releaseUrl newSrcUrl
@@ -234,7 +231,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
         lift $ log e
         return "\n"
       Right msg -> return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
-  maintainers <- ExceptT $ (Nix.getMaintainers attrPath)
+  maintainers <- Nix.getMaintainers attrPath
   let maintainersCc =
         if not (T.null maintainers)
           then "\n\ncc " <> maintainers <> " for testing."
@@ -246,7 +243,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   Git.push updateEnv
   Git.push updateEnv
   Git.push updateEnv
-  isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
+  isBroken <- Nix.getIsBroken attrPath
   lift $ untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100

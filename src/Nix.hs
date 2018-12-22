@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Nix
-  ( nixEvalE
+  ( nixEvalET
   , compareVersions
   , lookupAttrPath
   , getDerivationFile
@@ -26,14 +26,15 @@ import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Error
 import Control.Monad (void)
+import Control.Monad.IO.Class
 import Data.Bifunctor (second)
 import Data.Function ((&))
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
-import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, toTextIgnore)
-import Utils (UpdateEnv(..), rewriteError, shE)
+import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, shelly, toTextIgnore)
+import Utils (UpdateEnv(..), rewriteError, overwriteErrorT, shE, shellyET)
 
 data Raw
   = Raw
@@ -43,127 +44,121 @@ rawOpt :: Raw -> [Text]
 rawOpt Raw = ["--raw"]
 rawOpt NoRaw = []
 
-nixEvalE :: Raw -> Text -> Sh (Either Text Text)
-nixEvalE raw expr =
-  run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) & fmap T.strip & shE &
-  rewriteError ("nix eval failed for " <> expr)
+nixEvalET :: MonadIO m => Raw -> Text -> ExceptT Text m Text
+nixEvalET raw expr =
+  run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) & fmap T.strip &
+  shellyET &
+  overwriteErrorT ("nix eval failed for " <> expr)
 
 -- Error if the "new version" is actually newer according to nix
-compareVersions :: UpdateEnv -> Sh (Either Text ())
+compareVersions :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 compareVersions updateEnv = do
   versionComparison <-
-    nixEvalE
+    nixEvalET
       NoRaw
       ("(builtins.compareVersions \"" <> newVersion updateEnv <> "\" \"" <>
        oldVersion updateEnv <>
        "\")")
-  return $
-    case versionComparison of
-      Right "1" -> Right ()
-      Right a ->
-        Left $
-        newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
-        " according to Nix; versionComparison: " <>
-        a
-      Left a -> Left a
- -- This is extremely slow but gives us the best results we know of
+  case versionComparison of
+    "1" -> return ()
+    a -> throwE (
+      newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
+      " according to Nix; versionComparison: " <>
+      a)
 
-lookupAttrPath :: UpdateEnv -> Sh (Either Text Text)
+-- This is extremely slow but gives us the best results we know of
+lookupAttrPath :: MonadIO m => UpdateEnv -> m (Either Text Text)
 lookupAttrPath updateEnv =
-  (cmd
-     "nix-env"
-     "-qa"
-     (packageName updateEnv <> "-" <> oldVersion updateEnv)
-     "-f"
-     "."
-     "--attr-path"
-     "--arg"
-     "config"
-     "{ allowBroken = true; allowUnfree = true; allowAliases = false; }") &
+  cmd
+    "nix-env"
+    "-qa"
+    (packageName updateEnv <> "-" <> oldVersion updateEnv)
+    "-f"
+    "."
+    "--attr-path"
+    "--arg"
+    "config"
+    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }" &
   (fmap (T.lines >>> head >>> T.words >>> head)) &
   shE &
-  rewriteError "nix-env -q failed to find package name with old version"
+  rewriteError "nix-env -q failed to find package name with old version" &
+  shelly
 
-getDerivationFile :: UpdateEnv -> Text -> Sh (Either Text FilePath)
+getDerivationFile :: MonadIO m => UpdateEnv -> Text -> m (Either Text FilePath)
 getDerivationFile updateEnv attrPath =
   cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
   fmap fromText &
   shE &
-  rewriteError "Couldn't find derivation file."
+  rewriteError "Couldn't find derivation file." &
+  shelly
 
-getHash :: Text -> Sh (Either Text Text)
-getHash attrPath = do
-  e1 <- nixEvalE Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")
-  case e1 of
-    Right _ -> return e1
-    Left _ -> nixEvalE Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
+getHash :: MonadIO m => Text -> ExceptT Text m Text
+getHash attrPath =
+  (nixEvalET Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")) <|>
+    nixEvalET Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
 
-getOldHash :: Text -> Sh (Either Text Text)
+getOldHash :: MonadIO m => Text -> ExceptT Text m Text
 getOldHash attrPath =
   getHash attrPath &
-  rewriteError
+  overwriteErrorT
     ("Could not find old output hash at " <> attrPath <>
      ".src.drvAttrs.outputHash or .drvAttrs.outputHash.")
 
-getMaintainers :: Text -> Sh (Either Text Text)
+getMaintainers :: MonadIO m => Text -> ExceptT Text m Text
 getMaintainers attrPath =
-  nixEvalE
+  nixEvalET
     Raw
     ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <>
      attrPath <>
      ".meta.maintainers or []))))") &
-  rewriteError ("Could not fetch maintainers for" <> attrPath)
+  overwriteErrorT ("Could not fetch maintainers for" <> attrPath)
 
-readNixBool :: Either Text Text -> Either Text Bool
-readNixBool (Right "true") = Right True
-readNixBool (Right "false") = Right False
-readNixBool (Right a) = Left ("Failed to convert expected nix boolean " <> a)
-readNixBool (Left e) = Left e
+readNixBool :: MonadIO m => ExceptT Text m Text -> ExceptT Text m Bool
+readNixBool t = do
+  text <- t
+  case text of
+    "true" -> return True
+    "false" -> return False
+    a -> throwE ("Failed to read expected nix boolean " <> a)
 
-getIsBroken :: Text -> Sh (Either Text Bool)
+getIsBroken :: MonadIO m => Text -> ExceptT Text m Bool
 getIsBroken attrPath =
-  nixEvalE
+  nixEvalET
     NoRaw
     ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
      ".meta.broken or false)") &
-  fmap readNixBool &
-  rewriteError ("Could not get meta.broken for attrpath " <> attrPath)
+  readNixBool &
+  overwriteErrorT ("Could not get meta.broken for attrpath " <> attrPath)
 
-getDescription :: Text -> Sh (Either Text Text)
+getDescription :: MonadIO m => Text -> ExceptT Text m Text
 getDescription attrPath =
-  nixEvalE
+  nixEvalET
     NoRaw
     ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
      ".meta.description or \"\")") &
-  rewriteError ("Could not get meta.description for attrpath " <> attrPath)
+  overwriteErrorT ("Could not get meta.description for attrpath " <> attrPath)
 
-getSrcUrl :: Text -> Sh (Either Text Text)
-getSrcUrl attrPath = do
-  e1 <-
-    nixEvalE
+getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
+getSrcUrl attrPath =
+  nixEvalET
+    Raw
+    ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+     ".src.drvAttrs.urls 0)") <|>
+    nixEvalET
       Raw
       ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-       ".src.drvAttrs.urls 0)")
-  case e1 of
-    Right _ -> return e1
-    Left _ ->
-      nixEvalE
-        Raw
-        ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-         ".drvAttrs.urls 0)")
+       ".drvAttrs.urls 0)")
 
-getSrcAttr :: Text -> Text -> Sh (Either Text Text)
+getSrcAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getSrcAttr attr attrPath = do
-  e1 <- nixEvalE NoRaw ("pkgs." <> attrPath <> ".src." <> attr)
-  case e1 of
-    Right _ -> return e1
-    Left _ -> nixEvalE NoRaw ("pkgs." <> attrPath <> "." <> attr)
+  nixEvalET NoRaw ("pkgs." <> attrPath <> ".src." <> attr) <|>
+    nixEvalET NoRaw ("pkgs." <> attrPath <> "." <> attr)
 
-getSrcUrls :: Text -> Sh (Either Text Text)
+getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrls = getSrcAttr "urls"
 
-build :: Text -> Sh (Either Text ())
-build attrPath = do
+build :: MonadIO m => Text -> m (Either Text ())
+build attrPath = shelly $ do
   buildE <-
     shE $
     cmd
@@ -188,8 +183,8 @@ build attrPath = do
           Left t -> Left "nix log failed trying to get build logs"
           Right buildLog -> Left ("nix build failed.\n" <> buildLog)
 
-cachix :: FilePath -> Sh ()
-cachix resultPath = do
+cachix :: MonadIO m => FilePath -> m ()
+cachix resultPath = shelly $ do
   setStdin (toTextIgnore resultPath)
   void $ shE $ cmd "cachix" "push" "r-ryantm"
 
@@ -199,21 +194,22 @@ numberOfFetchers derivationContents =
   where
     count x = T.count x derivationContents
 
-oldVersionOn :: UpdateEnv -> Text -> Text -> Sh (Either Text ())
+oldVersionOn :: MonadIO m => UpdateEnv -> Text -> Text -> m (Either Text ())
 oldVersionOn updateEnv branchName contents =
   pure
     (assertErr
        ("Old version not present in " <> branchName <> " derivation file.")
        (oldVersion updateEnv `T.isInfixOf` contents))
 
-prefetchUrl :: Text -> Sh (Either Text Text)
+prefetchUrl :: MonadIO m => Text -> m (Either Text Text)
 prefetchUrl attrPath =
   cmd "nix-prefetch-url" "-A" attrPath & fmap T.strip & shE &
-  rewriteError ("nix-prefetch-url failed for " <> attrPath)
+  rewriteError ("nix-prefetch-url failed for " <> attrPath) &
+  shelly
 
-resultLink :: ExceptT Text Sh FilePath
+resultLink :: MonadIO m => ExceptT Text m FilePath
 resultLink =
   (T.strip >>> fromText) <$> do
-    (ExceptT $ shE $ cmd "readlink" "./result") <|>
-      (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
+    (shellyET $ cmd "readlink" "./result") <|>
+      (shellyET $ cmd "readlink" "./result-bin") <|>
       throwE "Could not find result link."
