@@ -15,6 +15,8 @@ module Utils
   , succeded
   , shE
   , shRE
+  , shellyET
+  , overwriteErrorT
   , rewriteError
   , eitherToError
   , branchName
@@ -22,14 +24,19 @@ module Utils
   , ourSilentShell
   ) where
 
+import Control.Category ((>>>))
 import Control.Error
 import Control.Exception (Exception)
+import Control.Monad.IO.Class
 import Data.Bifunctor (first)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
-import Shelly
+import Shelly.Lifted
+import System.Directory
+import System.Environment
+import System.Environment.XDG.BaseDir
 
 default (T.Text)
 
@@ -48,17 +55,18 @@ data UpdateEnv = UpdateEnv
   , options :: Options
   }
 
-setupNixpkgs :: Sh ()
+setupNixpkgs :: IO ()
 setupNixpkgs = do
-  home <- get_env_text "HOME"
-  let nixpkgsPath = home </> ".cache" </> "nixpkgs"
-  unlessM (test_e nixpkgsPath) $ do
-    cmd "hub" "clone" "nixpkgs" nixpkgsPath -- requires that user has forked nixpkgs
-    cd nixpkgsPath
-    cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
-    cmd "git" "fetch" "upstream"
-  cd nixpkgsPath
-  setenv "NIX_PATH" ("nixpkgs=" <> toTextIgnore nixpkgsPath)
+  fp <- getUserCacheDir "nixpkgs"
+  exists <- doesDirectoryExist fp
+  unless exists $ do
+    shelly $ run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
+    setCurrentDirectory fp
+    shelly $
+      cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
+    shelly $ cmd "git" "fetch" "upstream"
+  setCurrentDirectory fp
+  setEnv "NIX_PATH" ("nixpkgs=" <> fp)
 
 -- | Set environment variables needed by various programs
 setUpEnvironment :: Options -> Sh ()
@@ -98,6 +106,12 @@ shRE s = do
   case status of
     0 -> return $ Left ""
     c -> return $ Right stderr
+
+shellyET :: MonadIO m => Sh a -> ExceptT Text m a
+shellyET = shE >>> shelly >>> ExceptT
+
+overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
+overwriteErrorT t = fmapLT (const t)
 
 rewriteError :: Text -> Sh (Either Text a) -> Sh (Either Text a)
 rewriteError t = fmap (first (const t))

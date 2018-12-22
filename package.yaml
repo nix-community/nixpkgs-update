@@ -36,6 +36,7 @@ dependencies:
   - parsers
   - transformers
   - lifted-base
+  - xdg-basedir
 
 executables:
   nixpkgs-update:

@@ -19,85 +19,86 @@ module Git
 
 import Control.Error
 import Control.Monad.Trans.Class
+import Control.Monad.IO.Class
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Shelly
 import System.Directory (getHomeDirectory, getModificationTime)
-import Utils (Options(..), UpdateEnv(..), branchName, canFail)
+import Utils (Options(..), UpdateEnv(..), branchName, canFail, shellyET)
 
 default (T.Text)
 
-clean :: Sh ()
-clean = cmd "git" "clean" "-fdx"
+clean :: MonadIO m => m ()
+clean = shelly $ cmd "git" "clean" "-fdx"
 
-cleanAndResetTo :: Text -> Text -> Sh ()
+cleanAndResetTo :: MonadIO m => Text -> Text -> m ()
 cleanAndResetTo branch target = do
-  cmd "git" "reset" "--hard"
+  shelly $ cmd "git" "reset" "--hard"
   clean
-  cmd "git" "checkout" "-B" branch target
-  cmd "git" "reset" "--hard" target
+  shelly $ cmd "git" "checkout" "-B" branch target
+  shelly $ cmd "git" "reset" "--hard" target
   clean
 
-cleanAndResetToMaster :: Sh ()
+cleanAndResetToMaster :: MonadIO m => m ()
 cleanAndResetToMaster = cleanAndResetTo "master" "upstream/master"
 
-cleanAndResetToStaging :: Sh ()
+cleanAndResetToStaging :: MonadIO m => m ()
 cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
 
-cleanup :: Text -> Sh ()
+cleanup :: MonadIO m => Text -> m ()
 cleanup branchName = do
   cleanAndResetToMaster
-  canFail $ cmd "git" "branch" "-D" branchName
+  shelly $ canFail $ cmd "git" "branch" "-D" branchName
 
-showRef :: Text -> Sh Text
-showRef ref = cmd "git" "show-ref" ref
+showRef :: MonadIO m => Text -> m Text
+showRef ref = shelly $ cmd "git" "show-ref" ref
 
-staleFetchHead :: IO Bool
-staleFetchHead = do
+staleFetchHead :: MonadIO m => m Bool
+staleFetchHead = liftIO $ do
   home <- getHomeDirectory
   let fetchHead = home <> "/.cache/nixpkgs/.git/FETCH_HEAD"
   oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
   fetchedLast <- getModificationTime fetchHead
   return (fetchedLast < oneHourAgo)
 
-fetchIfStale :: Sh ()
-fetchIfStale = whenM (liftIO staleFetchHead) fetch
+fetchIfStale :: MonadIO m => m ()
+fetchIfStale = whenM staleFetchHead fetch
 
-fetch :: Sh ()
+fetch :: MonadIO m => m ()
 fetch =
-  canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
+  shelly $ canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
 
-push :: UpdateEnv -> Sh ()
+push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
-  run_
+  shellyET $ run_
     "git"
     (["push", "--force", "--set-upstream", "origin", branchName updateEnv] ++
      ["--dry-run" | dryRun (options updateEnv)])
 
-checkoutAtMergeBase :: Text -> Sh ()
+checkoutAtMergeBase :: MonadIO m => Text -> m ()
 checkoutAtMergeBase branchName = do
   base <-
-    T.strip <$> cmd "git" "merge-base" "upstream/master" "upstream/staging"
-  cmd "git" "checkout" "-B" branchName base
+    T.strip <$> (shelly $ cmd "git" "merge-base" "upstream/master" "upstream/staging")
+  shelly $ cmd "git" "checkout" "-B" branchName base
 
-checkAutoUpdateBranchDoesn'tExist :: Text -> ExceptT Text Sh ()
+checkAutoUpdateBranchDoesn'tExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesn'tExist packageName = do
   remoteBranches <-
-    lift $ map T.strip . T.lines <$> (silently $ cmd "git" "branch" "--remote")
+    lift $ map T.strip . T.lines <$> (shelly $ silently $ cmd "git" "branch" "--remote")
   when
     (("origin/auto-update/" <> packageName) `elem` remoteBranches)
     (throwE "Update branch already on origin.")
 
-commit :: Text -> Sh ()
-commit = cmd "git" "commit" "-am"
+commit :: MonadIO m => Text -> m ()
+commit ref = shelly $ cmd "git" "commit" "-am" ref
 
-headHash :: Sh Text
-headHash = cmd "git" "rev-parse" "HEAD"
+headHash :: MonadIO m => m Text
+headHash = shelly $ cmd "git" "rev-parse" "HEAD"
 
-deleteBranch :: Text -> Sh ()
-deleteBranch branchName = do
+deleteBranch :: MonadIO m => Text -> m ()
+deleteBranch branchName = shelly $ do
   canFail $ do
     cmd "git" "branch" "-D" branchName
     cmd "git" "push" "origin" (":" <> branchName)

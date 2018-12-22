@@ -3,6 +3,8 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
@@ -13,11 +15,11 @@ import qualified Blacklist
 import qualified Check
 import Clean (fixSrcUrl)
 import Control.Applicative ((<|>))
-import Control.Category ((>>>))
 import Control.Error
 import Control.Exception (SomeException, throw, toException)
 import Control.Exception.Lifted
 import Control.Monad (forM_, mplus)
+import Control.Monad.Except
 import Control.Monad.Trans.Class
 import Data.Function ((&))
 import Data.IORef
@@ -38,7 +40,7 @@ import NeatInterpolation (text)
 import qualified Nix
 import Outpaths
 import Prelude hiding (FilePath)
-import Shelly
+import Shelly.Lifted
 import Utils
   ( Options(..)
   , UpdateEnv(..)
@@ -51,9 +53,8 @@ import Utils
   , ourShell
   , parseUpdates
   , rewriteError
-  , setupNixpkgs
-  , shE
   , tRead
+  , shE
   )
 
 default (T.Text)
@@ -103,7 +104,7 @@ updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mer
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
-      Git.cleanup (branchName updateEnv)
+      liftIO $ Git.cleanup (branchName updateEnv)
       log $ "FAIL " <> failure
       if ".0" `T.isSuffixOf` newVersion
         then let Just newNewVersion = ".0" `T.stripSuffix` newVersion
@@ -125,27 +126,26 @@ updatePackage ::
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
-    lift setupNixpkgs
     -- Check whether requested version is newer than the current one
-    ExceptT $ Nix.compareVersions updateEnv
-    lift Git.fetchIfStale
+    Nix.compareVersions updateEnv
+    liftIO $ Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
-    lift Git.cleanAndResetToMaster
+    liftIO Git.cleanAndResetToMaster
     attrPath <- ExceptT $ Nix.lookupAttrPath updateEnv
     ensureVersionCompatibleWithPathPin updateEnv attrPath
-    srcUrls <- ExceptT $ Nix.getSrcUrls attrPath
+    srcUrls <- Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
+    masterShowRef <- lift $ Git.showRef "master"
+    lift $ log masterShowRef
     derivationFile <- ExceptT $ Nix.getDerivationFile updateEnv attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
       -- Make sure it hasn't been updated on master
      do
       masterDerivationContents <- lift $ readfile derivationFile
-      masterShowRef <- lift $ Git.showRef "master"
-      lift $ log masterShowRef
       ExceptT $ Nix.oldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
-      lift Git.cleanAndResetToStaging
+      liftIO Git.cleanAndResetToStaging
       masterShowRef <- lift $ Git.showRef "staging"
       lift $ log masterShowRef
       stagingDerivationContents <- lift $ readfile derivationFile
@@ -170,14 +170,14 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
         (Nix.numberOfFetchers derivationContents > 1)
         (throwE $ "More than one fetcher in " <> toTextIgnore derivationFile)
       Blacklist.content derivationContents
-      oldHash <- ExceptT $ Nix.getOldHash attrPath
-      oldSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
+      oldHash <- Nix.getOldHash attrPath
+      oldSrcUrl <- Nix.getSrcUrl attrPath
       lift $
         File.replace
           (oldVersion updateEnv)
           (newVersion updateEnv)
           derivationFile
-      newSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
+      newSrcUrl <- Nix.getSrcUrl attrPath
       when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
       lift $ File.replace oldHash Nix.sha256Zero derivationFile
       newHash <- Nix.getHashFromBuild (attrPath <> ".src") <|>
@@ -216,7 +216,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
     case Blacklist.checkResult (packageName updateEnv) of
       Right () -> lift $ sub (Check.result updateEnv result)
       Left msg -> pure msg
-  d <- ExceptT $ (Nix.getDescription attrPath)
+  d <- Nix.getDescription attrPath
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
   releaseUrlResult <- liftIO $ GH.releaseUrl newSrcUrl
@@ -233,7 +233,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
         lift $ log e
         return "\n"
       Right msg -> return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
-  maintainers <- ExceptT $ (Nix.getMaintainers attrPath)
+  maintainers <- Nix.getMaintainers attrPath
   let maintainersCc =
         if not (T.null maintainers)
           then "\n\ncc " <> maintainers <> " for testing."
@@ -242,36 +242,33 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   ExceptT $ shE $ Git.commit commitMsg
   commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  ExceptT $ shE
-    (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
-  isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
+  Git.push updateEnv <|>  Git.push updateEnv <|> Git.push updateEnv
+  isBroken <- Nix.getIsBroken attrPath
   lift $ untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
           else "staging"
-  ExceptT $ shE $
-    GH.pr
-      base
-      (prMessage
-         updateEnv
-         isBroken
-         metaDescription
-         releaseUrlMessage
-         compareUrlMessage
-         resultCheckReport
-         commitHash
-         attrPath
-         maintainersCc
-         result
-         (outpathReport opDiff))
-  lift $ Git.cleanAndResetToMaster
+  lift $ GH.pr
+    base
+    (prMessage
+       updateEnv
+       isBroken
+       metaDescription
+       releaseUrlMessage
+       compareUrlMessage
+       resultCheckReport
+       commitHash
+       attrPath
+       maintainersCc
+       result
+       (outpathReport opDiff))
+  liftIO $ Git.cleanAndResetToMaster
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]
   where
-    pname = (packageName >>> T.toLower) updateEnv
-
+    pname = updateEnv & packageName & T.toLower
 commitMessage :: UpdateEnv -> Text -> Text
 commitMessage updateEnv attrPath =
   let oV = oldVersion updateEnv

@@ -20,7 +20,7 @@ import Prelude hiding (FilePath)
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (UpdateEnv(..), Version, canFail, setupNixpkgs, succeded)
+import Utils (UpdateEnv(..), Version, canFail, succeded)
 
 default (T.Text)
 
@@ -33,7 +33,6 @@ archiveRegex version =
 
 fixSrcUrl :: UpdateEnv -> FilePath -> Text -> Text -> Sh Text
 fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
-  setupNixpkgs
   oldDerivationName <-
     T.strip <$>
     cmd "nix" "eval" "-f" "." "--raw" ("pkgs." <> attrPath <> ".name")
