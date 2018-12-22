@@ -127,7 +127,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.packageName (packageName updateEnv)
     lift setupNixpkgs
     -- Check whether requested version is newer than the current one
-    lift $ Nix.compareVersions updateEnv
+    ExceptT $ Nix.compareVersions updateEnv
     lift Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
     lift Git.cleanAndResetToMaster
