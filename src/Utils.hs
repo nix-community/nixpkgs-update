@@ -14,6 +14,7 @@ module Utils
   , parseUpdates
   , succeded
   , shE
+  , shRE
   , rewriteError
   , eitherToError
   , branchName
@@ -86,6 +87,17 @@ shE s = do
   case status of
     0 -> return $ Right r
     c -> return $ Left ("Exit code: " <> T.pack (show c))
+
+-- A shell cmd we are expecting to fail and want to look at the output
+-- of it.
+shRE :: Sh a -> Sh (Either Text Text)
+shRE s = do
+  canFail s
+  stderr <- lastStderr
+  status <- lastExitCode
+  case status of
+    0 -> return $ Left ""
+    c -> return $ Right stderr
 
 rewriteError :: Text -> Sh (Either Text a) -> Sh (Either Text a)
 rewriteError t = fmap (first (const t))

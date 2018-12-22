@@ -179,13 +179,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
           derivationFile
       newSrcUrl <- ExceptT $ Nix.getSrcUrl attrPath
       when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
-      newHash <-
-        ExceptT (Nix.prefetchUrl (attrPath <> ".src")) <|>
-        ExceptT (Nix.prefetchUrl attrPath) <|>
-        lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
-        throwE "Could not prefetch new version URL."
+      lift $ File.replace oldHash Nix.sha256Zero derivationFile
+      newHash <- Nix.getHashFromBuild (attrPath <> ".src") <|>
+                 Nix.getHashFromBuild attrPath -- <|>
+                 -- lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
+                 -- throwE "Could not get new hash."
       when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-      lift $ File.replace oldHash newHash derivationFile
+      lift $ File.replace Nix.sha256Zero newHash derivationFile
       editedOutpathSet <- ExceptT $ currentOutpathSet
       let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
       let numPRebuilds = numPackageRebuilds opDiff
@@ -239,10 +239,10 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           then "\n\ncc " <> maintainers <> " for testing."
           else ""
   let commitMsg = commitMessage updateEnv attrPath
-  lift $ Git.commit commitMsg
+  ExceptT $ shE $ Git.commit commitMsg
   commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  lift $
+  ExceptT $ shE
     (Git.push updateEnv `orElse` Git.push updateEnv `orElse` Git.push updateEnv)
   isBroken <- ExceptT $ (Nix.getIsBroken attrPath)
   lift $ untilOfBorgFree
@@ -250,7 +250,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
         if numPackageRebuilds opDiff < 100
           then "master"
           else "staging"
-  lift $
+  ExceptT $ shE $
     GH.pr
       base
       (prMessage

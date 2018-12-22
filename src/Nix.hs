@@ -17,9 +17,10 @@ module Nix
   , getDescription
   , cachix
   , numberOfFetchers
-  , prefetchUrl
+  , getHashFromBuild
   , oldVersionOn
   , resultLink
+  , sha256Zero
   ) where
 
 import Control.Applicative ((<|>))
@@ -33,7 +34,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, toTextIgnore)
-import Utils (UpdateEnv(..), rewriteError, shE)
+import Utils (UpdateEnv(..), rewriteError, shE, shRE)
 
 data Raw
   = Raw
@@ -161,11 +162,9 @@ getSrcAttr attr attrPath = do
 getSrcUrls :: Text -> Sh (Either Text Text)
 getSrcUrls = getSrcAttr "urls"
 
-build :: Text -> Sh (Either Text ())
-build attrPath = do
-  buildE <-
-    shE $
-    cmd
+buildCmd :: Text -> Sh Text
+buildCmd attrPath =
+  cmd
       "nix-build"
       "--option"
       "sandbox"
@@ -175,6 +174,10 @@ build attrPath = do
       "true"
       "-A"
       attrPath
+
+build :: Text -> Sh (Either Text ())
+build attrPath = do
+  buildE <- shE $ buildCmd attrPath
   case buildE of
     Right _ -> return $ Right ()
     Left _ -> do
@@ -206,15 +209,21 @@ oldVersionOn updateEnv branchName contents =
        ("Old version not present in " <> branchName <> " derivation file.")
        (oldVersion updateEnv `T.isInfixOf` contents))
 
-prefetchUrl :: Text -> Sh (Either Text Text)
-prefetchUrl attrPath =
-  cmd "nix-prefetch-url" "-A" attrPath &
-  (fmap T.strip >>>
-   shE >>> rewriteError ("nix-prefetch-url failed for " <> attrPath))
-
 resultLink :: ExceptT Text Sh FilePath
 resultLink =
   (T.strip >>> fromText) <$> do
     (ExceptT $ shE $ cmd "readlink" "./result") <|>
       (ExceptT $ shE $ cmd "readlink" "./result-bin") <|>
       throwE "Could not find result link."
+
+sha256Zero :: Text
+sha256Zero = "0000000000000000000000000000000000000000000000000000"
+
+-- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
+getHashFromBuild :: Text -> ExceptT Text Sh Text
+getHashFromBuild attrPath = do
+  stderr <- (ExceptT $ shRE (buildCmd attrPath)) <|> throwE "Build succeeded unexpectedly"
+  let firstSplit = T.splitOn "with sha256 hash '" stderr
+  firstSplitSecondPart <- tryLast "stdout did not split as expected" firstSplit
+  let secondSplit = T.splitOn "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'" firstSplitSecondPart
+  tryHead "stdout did not split second part as expected" secondSplit
