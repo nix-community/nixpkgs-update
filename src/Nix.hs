@@ -68,7 +68,7 @@ compareVersions updateEnv = do
       a)
 
 -- This is extremely slow but gives us the best results we know of
-lookupAttrPath :: MonadIO m => UpdateEnv -> m (Either Text Text)
+lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
   cmd
     "nix-env"
@@ -81,17 +81,15 @@ lookupAttrPath updateEnv =
     "config"
     "{ allowBroken = true; allowUnfree = true; allowAliases = false; }" &
   (fmap (T.lines >>> head >>> T.words >>> head)) &
-  shE &
-  rewriteError "nix-env -q failed to find package name with old version" &
-  shelly
+  shellyET &
+  overwriteErrorT "nix-env -q failed to find package name with old version"
 
-getDerivationFile :: MonadIO m => UpdateEnv -> Text -> m (Either Text FilePath)
+getDerivationFile :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m FilePath
 getDerivationFile updateEnv attrPath =
   cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
   fmap fromText &
-  shE &
-  rewriteError "Couldn't find derivation file." &
-  shelly
+  shellyET &
+  overwriteErrorT "Couldn't find derivation file."
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash attrPath =
