@@ -106,8 +106,12 @@ nameList =
       "burp"
       "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301"
   , eq "chromedriver" "complicated package"
-  , eq "gitlab-shell" "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52294#issuecomment-447653417"
-  , eq "gitlab-workhorse" "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52286#issuecomment-447653409"
+  , eq
+      "gitlab-shell"
+      "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52294#issuecomment-447653417"
+  , eq
+      "gitlab-workhorse"
+      "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52286#issuecomment-447653409"
   ]
 
 contentList :: Blacklist
@@ -138,8 +142,8 @@ checkResultList =
       "x2goclient"
       "- x2goclient result is not automatically checked, because some binaries don't timeout properly"
   , infixOf
-    "kicad"
-    "- kicad result is not automatically checekd, because some binaries don't timeout properly"
+      "kicad"
+      "- kicad result is not automatically checekd, because some binaries don't timeout properly"
   ]
 
 blacklister :: Blacklist -> TextBlacklister m

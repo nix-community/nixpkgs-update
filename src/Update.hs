@@ -53,8 +53,8 @@ import Utils
   , ourShell
   , parseUpdates
   , rewriteError
-  , tRead
   , shE
+  , tRead
   )
 
 default (T.Text)
@@ -180,8 +180,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       newSrcUrl <- Nix.getSrcUrl attrPath
       when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
       lift $ File.replace oldHash Nix.sha256Zero derivationFile
-      newHash <- Nix.getHashFromBuild (attrPath <> ".src") <|>
-                 Nix.getHashFromBuild attrPath -- <|>
+      newHash <-
+        Nix.getHashFromBuild (attrPath <> ".src") <|>
+        Nix.getHashFromBuild attrPath -- <|>
                  -- lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
                  -- throwE "Could not get new hash."
       when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
@@ -242,33 +243,35 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   ExceptT $ shE $ Git.commit commitMsg
   commitHash <- lift $ Git.headHash
   -- Try to push it three times
-  Git.push updateEnv <|>  Git.push updateEnv <|> Git.push updateEnv
+  Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv
   isBroken <- Nix.getIsBroken attrPath
   lift $ untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
           else "staging"
-  lift $ GH.pr
-    base
-    (prMessage
-       updateEnv
-       isBroken
-       metaDescription
-       releaseUrlMessage
-       compareUrlMessage
-       resultCheckReport
-       commitHash
-       attrPath
-       maintainersCc
-       result
-       (outpathReport opDiff))
+  lift $
+    GH.pr
+      base
+      (prMessage
+         updateEnv
+         isBroken
+         metaDescription
+         releaseUrlMessage
+         compareUrlMessage
+         resultCheckReport
+         commitHash
+         attrPath
+         maintainersCc
+         result
+         (outpathReport opDiff))
   liftIO $ Git.cleanAndResetToMaster
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]
   where
     pname = updateEnv & packageName & T.toLower
+
 commitMessage :: UpdateEnv -> Text -> Text
 commitMessage updateEnv attrPath =
   let oV = oldVersion updateEnv

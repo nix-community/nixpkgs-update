@@ -35,7 +35,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, shelly, toTextIgnore)
-import Utils (UpdateEnv(..), rewriteError, overwriteErrorT, shE, shRE, shellyET)
+import Utils (UpdateEnv(..), overwriteErrorT, rewriteError, shE, shRE, shellyET)
 
 data Raw
   = Raw
@@ -62,10 +62,11 @@ compareVersions updateEnv = do
        "\")")
   case versionComparison of
     "1" -> return ()
-    a -> throwE (
-      newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
-      " according to Nix; versionComparison: " <>
-      a)
+    a ->
+      throwE
+        (newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
+         " according to Nix; versionComparison: " <>
+         a)
 
 -- This is extremely slow but gives us the best results we know of
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
@@ -94,7 +95,7 @@ getDerivationFile updateEnv attrPath =
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash attrPath =
   (nixEvalET Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")) <|>
-    nixEvalET Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
+  nixEvalET Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
 
 getOldHash :: MonadIO m => Text -> ExceptT Text m Text
 getOldHash attrPath =
@@ -143,10 +144,10 @@ getSrcUrl attrPath =
     Raw
     ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
      ".src.drvAttrs.urls 0)") <|>
-    nixEvalET
-      Raw
-      ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-       ".drvAttrs.urls 0)")
+  nixEvalET
+    Raw
+    ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+     ".drvAttrs.urls 0)")
 
 getSrcAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getSrcAttr attr attrPath = do
@@ -160,34 +161,32 @@ buildCmd :: Text -> Sh ()
 buildCmd attrPath =
   cmd
     "nix-build"
-      "--option"
-      "sandbox"
-      "true"
-      "--option"
-      "restrict-eval"
-      "true"
-      "-A"
-      attrPath
-
+    "--option"
+    "sandbox"
+    "true"
+    "--option"
+    "restrict-eval"
+    "true"
+    "-A"
+    attrPath
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
-    (buildCmd attrPath & shellyET) <|>
-    (do
-        buildFailedLog
-        throwE "nix log failed trying to get build logs")
-
+  (buildCmd attrPath & shellyET) <|>
+  (do buildFailedLog
+      throwE "nix log failed trying to get build logs")
   where
     buildFailedLog = do
-      buildLog <- (cmd "nix" "log" "-f" "." attrPath) & shellyET &
-        fmap
-        (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
+      buildLog <-
+        (cmd "nix" "log" "-f" "." attrPath) & shellyET &
+        fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog)
 
 cachix :: MonadIO m => FilePath -> m ()
-cachix resultPath = shelly $ do
-  setStdin (toTextIgnore resultPath)
-  void $ shE $ cmd "cachix" "push" "r-ryantm"
+cachix resultPath =
+  shelly $ do
+    setStdin (toTextIgnore resultPath)
+    void $ shE $ cmd "cachix" "push" "r-ryantm"
 
 numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =
@@ -195,7 +194,8 @@ numberOfFetchers derivationContents =
   where
     count x = T.count x derivationContents
 
-assertOldVersionOn :: MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
+assertOldVersionOn ::
+     MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
 assertOldVersionOn updateEnv branchName contents =
   tryAssert
     ("Old version not present in " <> branchName <> " derivation file.")
@@ -214,8 +214,13 @@ sha256Zero = "0000000000000000000000000000000000000000000000000000"
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
 getHashFromBuild :: Text -> ExceptT Text Sh Text
 getHashFromBuild attrPath = do
-  stderr <- (ExceptT $ shRE (buildCmd attrPath)) <|> throwE "Build succeeded unexpectedly"
+  stderr <-
+    (ExceptT $ shRE (buildCmd attrPath)) <|>
+    throwE "Build succeeded unexpectedly"
   let firstSplit = T.splitOn "with sha256 hash '" stderr
   firstSplitSecondPart <- tryLast "stdout did not split as expected" firstSplit
-  let secondSplit = T.splitOn "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'" firstSplitSecondPart
+  let secondSplit =
+        T.splitOn
+          "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"
+          firstSplitSecondPart
   tryHead "stdout did not split second part as expected" secondSplit
