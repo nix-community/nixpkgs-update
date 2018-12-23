@@ -51,7 +51,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
       ("(let pkgs = import ./. {}; in (builtins.parseDrvName pkgs." <> attrPath <>
        ".name).name)")
   whenM
-    (Shell.succeded $
+    (Shell.succeeded $
      cmd "grep" "-q" ("name = \"" <> newDerivationName <> "\"") derivationFile) $
     -- Separate name and version
    do
@@ -104,7 +104,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
       lift $ cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile
       whenM
         (lift $
-         Shell.succeded $
+         Shell.succeeded $
          cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile) $ do
         hash <-
           lift $

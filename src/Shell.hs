@@ -4,7 +4,7 @@ module Shell
   ( shE
   , shRE
   , shellyET
-  , succeded
+  , succeeded
   , canFail
   , ourShell
   , ourSilentShell
@@ -63,8 +63,8 @@ shellyET = shE >>> shelly >>> ExceptT
 canFail :: Sh a -> Sh a
 canFail = errExit False
 
-succeded :: Sh a -> Sh Bool
-succeded s = do
+succeeded :: Sh a -> Sh Bool
+succeeded s = do
   canFail s
   status <- lastExitCode
   return (status == 0)
