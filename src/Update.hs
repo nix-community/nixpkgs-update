@@ -45,7 +45,6 @@ import Utils
   , branchName
   , canFail
   , eitherToError
-  , ensureVersionCompatibleWithPathPin
   , orElse
   , ourShell
   , parseUpdates
@@ -53,6 +52,7 @@ import Utils
   , shE
   , tRead
   )
+import qualified Version
 
 default (T.Text)
 
@@ -129,7 +129,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetToMaster
     attrPath <- Nix.lookupAttrPath updateEnv
-    ensureVersionCompatibleWithPathPin updateEnv attrPath
+    Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
