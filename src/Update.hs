@@ -2,9 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
@@ -31,7 +29,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
-import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
 import qualified GH
@@ -129,7 +126,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- Check whether requested version is newer than the current one
     Nix.compareVersions updateEnv
     Git.fetchIfStale
-    Git.checkAutoUpdateBranchDoesn'tExist (packageName updateEnv)
+    Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetToMaster
     attrPath <- Nix.lookupAttrPath updateEnv
     ensureVersionCompatibleWithPathPin updateEnv attrPath
@@ -157,13 +154,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       mergeBaseOutpathSet <-
         if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
           then do
-            mbos <- ExceptT $ currentOutpathSet
-            now <- liftIO $ getCurrentTime
+            mbos <- ExceptT currentOutpathSet
+            now <- liftIO getCurrentTime
             liftIO $
               writeIORef
                 mergeBaseOutpathsContext
                 (MergeBaseOutpathsInfo now mbos)
-            return $ mbos
+            return mbos
           else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
       derivationContents <- lift $ readfile derivationFile
       when
@@ -187,7 +184,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
                  -- throwE "Could not get new hash."
       when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
       lift $ File.replace Nix.sha256Zero newHash derivationFile
-      editedOutpathSet <- ExceptT $ currentOutpathSet
+      editedOutpathSet <- ExceptT currentOutpathSet
       let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
       let numPRebuilds = numPackageRebuilds opDiff
       when
@@ -241,11 +238,11 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           else ""
   let commitMsg = commitMessage updateEnv attrPath
   ExceptT $ shE $ Git.commit commitMsg
-  commitHash <- lift $ Git.headHash
+  commitHash <- lift Git.headHash
   -- Try to push it three times
   Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv
   isBroken <- Nix.getIsBroken attrPath
-  lift $ untilOfBorgFree
+  lift untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
@@ -265,7 +262,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
          maintainersCc
          result
          (outpathReport opDiff))
-  liftIO $ Git.cleanAndResetToMaster
+  liftIO Git.cleanAndResetToMaster
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv = [text|https://repology.org/metapackage/$pname/versions|]

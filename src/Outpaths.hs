@@ -119,8 +119,7 @@ testInput =
 
 currentOutpathSet :: Sh (Either Text (Set ResultLine))
 currentOutpathSet =
-  first (show >>> T.pack) <$> parse parseResults "outpath" <$>
-  (silently $ outPath)
+  first (show >>> T.pack) . parse parseResults "outpath" <$> silently outPath
 
 parseResults :: CharParsing m => m (Set ResultLine)
 parseResults = S.fromList <$> parseResultLine `sepEndBy` newline
@@ -180,7 +179,7 @@ outpathReport diff =
       linux = tshow $ linuxRebuilds diff
       linux32b = tshow $ linux32bRebuilds diff
       arm = tshow $ armRebuilds diff
-      numPaths = tshow $ S.size $ diff
+      numPaths = tshow $ S.size diff
    in [NeatInterpolation.text|
         $numPaths total rebuild path(s)
 

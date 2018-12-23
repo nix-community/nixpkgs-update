@@ -81,7 +81,7 @@ lookupAttrPath updateEnv =
     "--arg"
     "config"
     "{ allowBroken = true; allowUnfree = true; allowAliases = false; }" &
-  (fmap (T.lines >>> head >>> T.words >>> head)) &
+  fmap (T.lines >>> head >>> T.words >>> head) &
   shellyET &
   overwriteErrorT "nix-env -q failed to find package name with old version"
 
@@ -94,7 +94,7 @@ getDerivationFile updateEnv attrPath =
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash attrPath =
-  (nixEvalET Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash")) <|>
+  nixEvalET Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") <|>
   nixEvalET Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
 
 getOldHash :: MonadIO m => Text -> ExceptT Text m Text
@@ -150,15 +150,15 @@ getSrcUrl attrPath =
      ".drvAttrs.urls 0)")
 
 getSrcAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getSrcAttr attr attrPath = do
+getSrcAttr attr attrPath =
   nixEvalET NoRaw ("pkgs." <> attrPath <> ".src." <> attr) <|>
-    nixEvalET NoRaw ("pkgs." <> attrPath <> "." <> attr)
+  nixEvalET NoRaw ("pkgs." <> attrPath <> "." <> attr)
 
 getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrls = getSrcAttr "urls"
 
 buildCmd :: Text -> Sh ()
-buildCmd attrPath =
+buildCmd =
   cmd
     "nix-build"
     "--option"
@@ -168,7 +168,6 @@ buildCmd attrPath =
     "restrict-eval"
     "true"
     "-A"
-    attrPath
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
@@ -178,7 +177,7 @@ build attrPath =
   where
     buildFailedLog = do
       buildLog <-
-        (cmd "nix" "log" "-f" "." attrPath) & shellyET &
+        cmd "nix" "log" "-f" "." attrPath & shellyET &
         fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog)
 
@@ -204,8 +203,8 @@ assertOldVersionOn updateEnv branchName contents =
 resultLink :: MonadIO m => ExceptT Text m FilePath
 resultLink =
   (T.strip >>> fromText) <$> do
-    (shellyET $ cmd "readlink" "./result") <|>
-      (shellyET $ cmd "readlink" "./result-bin") <|>
+    shellyET (cmd "readlink" "./result") <|>
+      shellyET (cmd "readlink" "./result-bin") <|>
       throwE "Could not find result link."
 
 sha256Zero :: Text

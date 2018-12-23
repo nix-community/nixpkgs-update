@@ -195,7 +195,7 @@ clearBreakOn boundary string =
 -- True
 versionCompatibleWithPathPin :: Text -> Version -> Bool
 versionCompatibleWithPathPin attrPath newVersion
-  | "_x" `T.isSuffixOf` (T.toLower attrPath) =
+  | "_x" `T.isSuffixOf` T.toLower attrPath =
     versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVersion
   | "_" `T.isInfixOf` attrPath =
     let attrVersionPart =

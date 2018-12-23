@@ -29,7 +29,7 @@ attrPath = blacklister attrPathList
 
 packageName :: TextBlacklister m
 packageName name =
-  if (name == "elementary-xfce-icon-theme") -- https://github.com/ryantm/nixpkgs-update/issues/63
+  if name == "elementary-xfce-icon-theme" -- https://github.com/ryantm/nixpkgs-update/issues/63
     then return ()
     else blacklister nameList name
 
@@ -147,10 +147,7 @@ checkResultList =
   ]
 
 blacklister :: Blacklist -> TextBlacklister m
-blacklister blacklist input =
-  case result of
-    Nothing -> return ()
-    Just msg -> throwError msg
+blacklister blacklist input = forM_ result throwError
   where
     result = snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
 

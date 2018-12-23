@@ -13,7 +13,6 @@ import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Vector as V
-import qualified Data.Vector as V
 import qualified GH
 import qualified Git
 import Shelly

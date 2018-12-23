@@ -42,7 +42,7 @@ releaseUrl url =
     ExceptT $ gReleaseUrl urlParts
 
 pr :: Text -> Text -> Sh ()
-pr base msg = cmd "hub" "pull-request" "-b" base "-m" msg
+pr base = cmd "hub" "pull-request" "-b" base "-m"
 
 data URLParts = URLParts
   { owner :: Name Owner
@@ -92,17 +92,18 @@ autoUpdateRefs o =
 
 openPRWithAutoUpdateRefFromRRyanTM :: Options -> Text -> IO (Either Text Bool)
 openPRWithAutoUpdateRefFromRRyanTM o ref =
-  (executeRequest (OAuth (T.encodeUtf8 (githubToken o))) $
-   pullRequestsForR
-     "nixos"
-     "nixpkgs"
-     (optionsHead ("r-ryantm:auto-update/" <> ref) <> stateOpen)
-     FetchAll) &
-  fmap (first (T.pack . show) >>> second (\v -> not (V.null v)))
+  executeRequest
+    (OAuth (T.encodeUtf8 (githubToken o)))
+    (pullRequestsForR
+       "nixos"
+       "nixpkgs"
+       (optionsHead ("r-ryantm:auto-update/" <> ref) <> stateOpen)
+       FetchAll) &
+  fmap (first (T.pack . show) >>> second (not . V.null))
 
 refShouldBeDeleted :: Options -> Text -> IO Bool
 refShouldBeDeleted o ref =
-  not <$> either (const True) id <$> openPRWithAutoUpdateRefFromRRyanTM o ref
+  not . either (const True) id <$> openPRWithAutoUpdateRefFromRRyanTM o ref
 
 closedAutoUpdateRefs :: Options -> IO (Either Text (Vector Text))
 closedAutoUpdateRefs o =
@@ -112,8 +113,9 @@ closedAutoUpdateRefs o =
 
 openPullRequests :: Options -> IO (Either Text (Vector SimplePullRequest))
 openPullRequests o =
-  (executeRequest (OAuth (T.encodeUtf8 (githubToken o))) $
-   pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll) &
+  executeRequest
+    (OAuth (T.encodeUtf8 (githubToken o)))
+    (pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll) &
   fmap (first (T.pack . show))
 
 openAutoUpdatePR :: UpdateEnv -> Vector SimplePullRequest -> Bool
@@ -122,5 +124,5 @@ openAutoUpdatePR updateEnv openPRs = openPRs & (V.find isThisPkg >>> isJust)
     isThisPkg simplePullRequest =
       let title = simplePullRequestTitle simplePullRequest
           titleHasName = (packageName updateEnv <> ":") `T.isPrefixOf` title
-          titleHasNewVersion = (newVersion updateEnv) `T.isSuffixOf` title
+          titleHasNewVersion = newVersion updateEnv `T.isSuffixOf` title
        in titleHasName && titleHasNewVersion
