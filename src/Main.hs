@@ -2,12 +2,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-import Control.Applicative ((<**>), (<|>))
-import Control.Exception
-import Data.Maybe (isJust)
-import Data.Semigroup ((<>))
+module Main where
+
+import OurPrelude
+
+import Control.Applicative ((<**>))
 import qualified Data.Text as T
-import Data.Text (Text)
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
 import qualified Options.Applicative as Opt

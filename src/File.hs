@@ -2,7 +2,8 @@ module File
   ( replace
   ) where
 
-import Data.Text (Text)
+import OurPrelude
+
 import qualified Data.Text as T
 import Data.Text.IO as T
 import qualified Shelly

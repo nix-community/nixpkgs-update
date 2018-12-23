@@ -10,10 +10,8 @@ module Shell
   , ourSilentShell
   ) where
 
-import Control.Category ((>>>))
-import Control.Error
-import Control.Monad.IO.Class
-import Data.Text (Text)
+import OurPrelude
+
 import qualified Data.Text as T
 import Shelly.Lifted
 import Utils

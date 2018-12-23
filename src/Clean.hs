@@ -6,15 +6,10 @@ module Clean
   ( fixSrcUrl
   ) where
 
-import Control.Applicative ((<|>), some)
-import Control.Error
-import Control.Monad (forM_)
-import Control.Monad.Trans
-import Data.Function ((&))
-import Data.Maybe (isNothing)
-import Data.Semigroup ((<>))
+import OurPrelude
+
+import Control.Applicative (some)
 import qualified Data.Text as T
-import Data.Text (Text)
 import qualified File
 import Prelude hiding (FilePath)
 import qualified Shell

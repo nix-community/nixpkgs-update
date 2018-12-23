@@ -4,8 +4,8 @@ module Version
   ( assertCompatibleWithPathPin
   ) where
 
-import Control.Error
-import Data.Text (Text)
+import OurPrelude
+
 import qualified Data.Text as T
 import Utils
 

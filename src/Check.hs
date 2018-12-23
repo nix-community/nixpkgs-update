@@ -6,13 +6,11 @@ module Check
   ( result
   ) where
 
+import OurPrelude
+
 import Control.Applicative (many)
-import Control.Monad (forM)
 import Data.Char (isSpace)
-import Data.Maybe (isJust)
-import Data.Semigroup ((<>))
 import qualified Data.Text as T
-import Data.Text (Text)
 import Prelude hiding (FilePath)
 import qualified Shell
 import Shelly

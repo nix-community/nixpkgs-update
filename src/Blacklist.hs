@@ -10,9 +10,9 @@ module Blacklist
   , checkResult
   ) where
 
-import Control.Monad.Except
+import OurPrelude
+
 import Data.Foldable (find)
-import Data.Text (Text)
 import qualified Data.Text as T
 
 type Blacklist = [(Text -> Bool, Text)]

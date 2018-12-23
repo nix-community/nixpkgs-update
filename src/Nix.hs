@@ -23,15 +23,9 @@ module Nix
   , sha256Zero
   ) where
 
-import Control.Applicative ((<|>))
-import Control.Category ((>>>))
-import Control.Error
+import OurPrelude
+
 import Control.Monad (void)
-import Control.Monad.IO.Class
-import Data.Bifunctor (second)
-import Data.Function ((&))
-import Data.Semigroup ((<>))
-import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import qualified Shell

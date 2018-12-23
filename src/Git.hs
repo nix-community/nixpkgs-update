@@ -17,12 +17,9 @@ module Git
   , showRef
   ) where
 
-import Control.Error
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
-import Data.Semigroup ((<>))
+import OurPrelude
+
 import qualified Data.Text as T
-import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
 import qualified Shell
 import Shelly

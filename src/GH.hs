@@ -12,17 +12,11 @@ module GH
   , openAutoUpdatePR
   ) where
 
-import Control.Category ((>>>))
-import Control.Error
-import Data.Bifunctor (bimap, first, second)
-import Data.Function ((&))
-import Data.Maybe (fromJust)
-import Data.Semigroup ((<>))
+import OurPrelude
+
 import qualified Data.Text as T
-import Data.Text (Text)
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
-import Data.Vector (Vector)
 import GitHub
 import GitHub.Data.Name (Name(..), untagName)
 import GitHub.Endpoints.GitData.References (references')

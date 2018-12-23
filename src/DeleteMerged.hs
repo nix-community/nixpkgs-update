@@ -6,10 +6,8 @@ module DeleteMerged
   ( deleteDone
   ) where
 
-import Control.Monad (forM_)
-import Data.Function ((&))
-import Data.Maybe (mapMaybe)
-import Data.Semigroup ((<>))
+import OurPrelude
+
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Vector as V

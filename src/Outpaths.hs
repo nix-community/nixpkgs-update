@@ -6,18 +6,12 @@
 
 module Outpaths where
 
-import Control.Category ((>>>))
-import Data.Bifunctor (first)
-import Data.Function ((&))
+import OurPrelude
+
 import Data.List (sort)
-import Data.Semigroup ((<>))
-import Data.Set (Set)
 import qualified Data.Set as S
-import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Vector (Vector)
 import qualified Data.Vector as V
-import qualified NeatInterpolation (text)
 import Shelly
 import Text.Parsec (parse)
 import Text.Parser.Char
@@ -27,7 +21,7 @@ import Utils
 default (Text)
 
 outPathsExpr =
-  [NeatInterpolation.text|
+  [interpolate|
 
 (let
   lib = import ./lib;
@@ -81,7 +75,6 @@ in
   tweak (builtins.removeAttrs hydraJobs blacklist))
 |]
 
---downloadOutPath :: Sh ()
 outPath :: Sh Text
 outPath =
   sub $ do
@@ -135,17 +128,17 @@ parseAttrpath :: CharParsing m => m Text
 parseAttrpath = T.concat <$> many (try parseAttrpathPart)
 
 parseAttrpathPart :: CharParsing m => m Text
-parseAttrpathPart = T.append <$> (T.pack <$> many (noneOf ". ")) <*> text "."
+parseAttrpathPart = T.snoc <$> (T.pack <$> many (noneOf ". ")) <*> char '.'
 
 parseArchitecture :: CharParsing m => m Text
 parseArchitecture = T.pack <$> many (noneOf " ")
 
 parseOutpaths :: CharParsing m => m (Vector Outpath)
-parseOutpaths = V.fromList <$> (parseOutpath `sepBy1` text ";")
+parseOutpaths = V.fromList <$> (parseOutpath `sepBy1` char ';')
 
 parseOutpath :: CharParsing m => m Outpath
 parseOutpath =
-  Outpath <$> optional (try (T.pack <$> (many (noneOf "=\n") <* text "="))) <*>
+  Outpath <$> optional (try (T.pack <$> (many (noneOf "=\n") <* char '='))) <*>
   (T.pack <$> many (noneOf ";\n"))
 
 packageRebuilds :: Set ResultLine -> Vector Text
@@ -180,7 +173,7 @@ outpathReport diff =
       linux32b = tshow $ linux32bRebuilds diff
       arm = tshow $ armRebuilds diff
       numPaths = tshow $ S.size diff
-   in [NeatInterpolation.text|
+   in [interpolate|
         $numPaths total rebuild path(s)
 
         $pkg package rebuild(s)

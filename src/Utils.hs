@@ -14,13 +14,8 @@ module Utils
   , branchName
   ) where
 
-import Control.Category ((>>>))
-import Control.Error
-import Control.Exception (Exception)
-import Control.Monad.IO.Class
-import Data.Bifunctor (first)
-import Data.Semigroup ((<>))
-import Data.Text (Text)
+import OurPrelude
+
 import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import Shelly.Lifted
