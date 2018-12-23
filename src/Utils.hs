@@ -10,7 +10,6 @@ module Utils
   , tRead
   , parseUpdates
   , overwriteErrorT
-  , rewriteError
   , eitherToError
   , branchName
   ) where

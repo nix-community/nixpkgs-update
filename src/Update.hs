@@ -46,7 +46,6 @@ import Utils
   , branchName
   , eitherToError
   , parseUpdates
-  , rewriteError
   , tRead
   )
 import qualified Version

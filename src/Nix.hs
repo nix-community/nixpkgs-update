@@ -36,7 +36,7 @@ import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import qualified Shell
 import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, shelly, toTextIgnore)
-import Utils (UpdateEnv(..), overwriteErrorT, rewriteError)
+import Utils (UpdateEnv(..), overwriteErrorT)
 
 data Raw
   = Raw
