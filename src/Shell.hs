@@ -6,7 +6,6 @@ module Shell
   , shellyET
   , succeded
   , canFail
-  , orElse
   , ourShell
   , ourSilentShell
   ) where
@@ -69,13 +68,3 @@ succeded s = do
   canFail s
   status <- lastExitCode
   return (status == 0)
-
-orElse :: Sh a -> Sh a -> Sh a
-orElse a b = do
-  v <- canFail a
-  status <- lastExitCode
-  if status == 0
-    then return v
-    else b
-
-infixl 3 `orElse`
