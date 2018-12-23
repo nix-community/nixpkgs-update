@@ -37,19 +37,16 @@ import NeatInterpolation (text)
 import qualified Nix
 import Outpaths
 import Prelude hiding (FilePath)
+import qualified Shell
 import Shelly.Lifted
 import Utils
   ( Options(..)
   , UpdateEnv(..)
   , Version
   , branchName
-  , canFail
   , eitherToError
-  , orElse
-  , ourShell
   , parseUpdates
   , rewriteError
-  , shE
   , tRead
   )
 import qualified Version
@@ -71,7 +68,7 @@ log' logFile msg
 
 updateAll :: Options -> IO ()
 updateAll options =
-  ourShell options $ do
+  Shell.ourShell options $ do
     let logFile = fromText (workingDir options) </> "ups.log"
     mkdir_p (fromText (workingDir options))
     touchfile logFile
@@ -237,7 +234,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           then "\n\ncc " <> maintainers <> " for testing."
           else ""
   let commitMsg = commitMessage updateEnv attrPath
-  ExceptT $ shE $ Git.commit commitMsg
+  Shell.shellyET $ Git.commit commitMsg
   commitHash <- lift Git.headHash
   -- Try to push it three times
   Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv
@@ -370,7 +367,7 @@ untilOfBorgFree :: Sh ()
 untilOfBorgFree = do
   waiting :: Int <-
     tRead <$>
-    canFail
+    Shell.canFail
       (cmd "curl" "-s" "https://events.nix.ci/stats.php" -|-
        cmd "jq" ".evaluator.messages.waiting")
   when (waiting > 2) $ do

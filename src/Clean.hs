@@ -17,10 +17,11 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import qualified File
 import Prelude hiding (FilePath)
+import qualified Shell
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (UpdateEnv(..), Version, canFail, succeded)
+import Utils (UpdateEnv(..), Version)
 
 default (T.Text)
 
@@ -50,7 +51,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
       ("(let pkgs = import ./. {}; in (builtins.parseDrvName pkgs." <> attrPath <>
        ".name).name)")
   whenM
-    (succeded $
+    (Shell.succeded $
      cmd "grep" "-q" ("name = \"" <> newDerivationName <> "\"") derivationFile) $
     -- Separate name and version
    do
@@ -103,10 +104,11 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
       lift $ cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile
       whenM
         (lift $
-         succeded $
+         Shell.succeded $
          cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile) $ do
         hash <-
-          lift $ canFail $ cmd "nix-prefetch-url" "-A" (attrPath <> ".src")
+          lift $
+          Shell.canFail $ cmd "nix-prefetch-url" "-A" (attrPath <> ".src")
         succeedT hash
       return ()
   case forResult of

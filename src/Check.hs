@@ -14,10 +14,11 @@ import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
 import Prelude hiding (FilePath)
+import qualified Shell
 import Shelly
 import qualified Text.Regex.Applicative as RE
 import Text.Regex.Applicative (RE, (=~))
-import Utils (Options(..), UpdateEnv(..), Version, canFail, succeded)
+import Utils (Options(..), UpdateEnv(..), Version)
 
 default (T.Text)
 
@@ -39,7 +40,7 @@ versionRegex version =
 checkBinary :: Text -> Version -> FilePath -> Sh BinaryCheck
 checkBinary argument expectedVersion program =
   catchany_sh
-    (do stdout <- canFail $ cmd "timeout" "-k" "2" "1" program argument
+    (do stdout <- Shell.canFail $ cmd "timeout" "-k" "2" "1" program argument
         code <- lastExitCode
         stderr <- lastStderr
         let hasVersion =
@@ -140,7 +141,7 @@ result updateEnv resultPath = do
     addToReport
       ("- " <> passedVersionPresent <> " of " <> numBinaries <>
        " passed binary check by having the new version present in output.")
-    canFail $ cmd "grep" "-r" expectedVersion resultPath
+    Shell.canFail $ cmd "grep" "-r" expectedVersion resultPath
     whenM ((== 0) <$> lastExitCode) $
       addToReport $
       "- found " <> expectedVersion <> " with grep in " <>
@@ -161,4 +162,4 @@ result updateEnv resultPath = do
       addToReport $ "- directory tree listing: " <> T.strip gist1
     gist2 <- cmd "du" "-h" resultPath -|- cmd "gist"
     unless (T.null gist2) $ addToReport $ "- du listing: " <> T.strip gist2
-  canFail $ readfile logFile
+  Shell.canFail $ readfile logFile

@@ -24,9 +24,10 @@ import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import qualified Shell
 import Shelly
 import System.Directory (getHomeDirectory, getModificationTime)
-import Utils (Options(..), UpdateEnv(..), branchName, canFail, shellyET)
+import Utils (Options(..), UpdateEnv(..), branchName)
 
 default (T.Text)
 
@@ -50,7 +51,7 @@ cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
 cleanup :: MonadIO m => Text -> m ()
 cleanup branchName = do
   cleanAndResetToMaster
-  shelly $ canFail $ cmd "git" "branch" "-D" branchName
+  shelly $ Shell.canFail $ cmd "git" "branch" "-D" branchName
 
 showRef :: MonadIO m => Text -> m Text
 showRef ref = shelly $ cmd "git" "show-ref" ref
@@ -70,11 +71,12 @@ fetchIfStale = whenM staleFetchHead fetch
 fetch :: MonadIO m => m ()
 fetch =
   shelly $
-  canFail $ cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
+  Shell.canFail $
+  cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
-  shellyET $
+  Shell.shellyET $
   run_
     "git"
     (["push", "--force", "--set-upstream", "origin", branchName updateEnv] ++
@@ -105,6 +107,6 @@ headHash = shelly $ cmd "git" "rev-parse" "HEAD"
 deleteBranch :: MonadIO m => Text -> m ()
 deleteBranch branchName =
   shelly $
-  canFail $ do
+  Shell.canFail $ do
     cmd "git" "branch" "-D" branchName
     cmd "git" "push" "origin" (":" <> branchName)

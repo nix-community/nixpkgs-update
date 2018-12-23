@@ -6,21 +6,13 @@ module Utils
   ( Options(..)
   , Version
   , UpdateEnv(..)
-  , canFail
-  , orElse
   , setupNixpkgs
   , tRead
   , parseUpdates
-  , succeded
-  , shE
-  , shRE
-  , shellyET
   , overwriteErrorT
   , rewriteError
   , eitherToError
   , branchName
-  , ourShell
-  , ourSilentShell
   ) where
 
 import Control.Category ((>>>))
@@ -67,77 +59,16 @@ setupNixpkgs = do
   setCurrentDirectory fp
   setEnv "NIX_PATH" ("nixpkgs=" <> fp)
 
--- | Set environment variables needed by various programs
-setUpEnvironment :: Options -> Sh ()
-setUpEnvironment options = do
-  setenv "PAGER" ""
-  setenv "GITHUB_TOKEN" (githubToken options)
-
-ourSilentShell :: Options -> Sh a -> IO a
-ourSilentShell o s =
-  shelly $
-  silently $ do
-    setUpEnvironment o
-    s
-
-ourShell :: Options -> Sh a -> IO a
-ourShell o s =
-  shelly $
-  verbosely $ do
-    setUpEnvironment o
-    s
-
-shE :: Sh a -> Sh (Either Text a)
-shE s = do
-  r <- canFail s
-  status <- lastExitCode
-  case status of
-    0 -> return $ Right r
-    c -> return $ Left ("Exit code: " <> T.pack (show c))
-
--- A shell cmd we are expecting to fail and want to look at the output
--- of it.
-shRE :: Sh a -> Sh (Either Text Text)
-shRE s = do
-  canFail s
-  stderr <- lastStderr
-  status <- lastExitCode
-  case status of
-    0 -> return $ Left ""
-    c -> return $ Right stderr
-
-shellyET :: MonadIO m => Sh a -> ExceptT Text m a
-shellyET = shE >>> shelly >>> ExceptT
-
 overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
 overwriteErrorT t = fmapLT (const t)
 
-rewriteError :: Text -> Sh (Either Text a) -> Sh (Either Text a)
+rewriteError :: Monad m => Text -> m (Either Text a) -> m (Either Text a)
 rewriteError t = fmap (first (const t))
 
-eitherToError :: (Text -> Sh a) -> Sh (Either Text a) -> Sh a
+eitherToError :: Monad m => (Text -> m a) -> m (Either Text a) -> m a
 eitherToError errorExit s = do
   e <- s
   either errorExit return e
-
-canFail :: Sh a -> Sh a
-canFail = errExit False
-
-succeded :: Sh a -> Sh Bool
-succeded s = do
-  canFail s
-  status <- lastExitCode
-  return (status == 0)
-
-orElse :: Sh a -> Sh a -> Sh a
-orElse a b = do
-  v <- canFail a
-  status <- lastExitCode
-  if status == 0
-    then return v
-    else b
-
-infixl 3 `orElse`
 
 branchName :: UpdateEnv -> Text
 branchName ue = "auto-update/" <> packageName ue
