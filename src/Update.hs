@@ -196,7 +196,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
          "Python package with too many package rebuilds " <>
          (T.pack . show) numPRebuilds <>
          "  > 10")
-      ExceptT $ (Nix.build attrPath)
+      Nix.build attrPath
       result <- Nix.resultLink
       publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 

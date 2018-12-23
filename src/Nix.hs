@@ -169,20 +169,20 @@ buildCmd attrPath =
       "-A"
       attrPath
 
-build :: Text -> Sh (Either Text ())
-build attrPath = do
-  buildE <- shE $ buildCmd attrPath
-  case buildE of
-    Right _ -> return $ Right ()
-    Left _ -> do
-      buildLogE <-
-        cmd "nix" "log" "-f" "." attrPath & shE &
-        (fmap . fmap)
-          (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
-      return $
-        case buildLogE of
-          Left t -> Left "nix log failed trying to get build logs"
-          Right buildLog -> Left ("nix build failed.\n" <> buildLog)
+
+build :: MonadIO m => Text -> ExceptT Text m ()
+build attrPath =
+    (buildCmd attrPath & shellyET) <|>
+    (do
+        buildFailedLog
+        throwE "nix log failed trying to get build logs")
+
+  where
+    buildFailedLog = do
+      buildLog <- (cmd "nix" "log" "-f" "." attrPath) & shellyET &
+        fmap
+        (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
+      throwE ("nix build failed.\n" <> buildLog)
 
 cachix :: MonadIO m => FilePath -> m ()
 cachix resultPath = shelly $ do
