@@ -83,5 +83,6 @@ assertCompatibleWithPathPin ue attrPath =
   tryAssert
     ("Version in attr path " <> attrPath <> " not compatible with " <>
      newVersion ue)
-    (versionCompatibleWithPathPin attrPath (oldVersion ue) &&
-     versionIncompatibleWithPathPin attrPath (newVersion ue))
+    (not
+       (versionCompatibleWithPathPin attrPath (oldVersion ue) &&
+        versionIncompatibleWithPathPin attrPath (newVersion ue)))

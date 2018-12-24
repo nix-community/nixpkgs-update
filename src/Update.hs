@@ -54,13 +54,12 @@ log' logFile msg
     liftIO getCurrentTime
   appendfile logFile (runDate <> " " <> msg <> "\n")
 
-updateAll :: Options -> IO ()
-updateAll o =
+updateAll :: Options -> Text -> IO ()
+updateAll o updates = do
   Shell.ourShell o $ do
     let logFile = fromText (workingDir o) </> "ups.log"
     mkdir_p (fromText (workingDir o))
     touchfile logFile
-    updates <- readfile "packages-to-update.txt"
     let log = log' logFile
     appendfile logFile "\n\n"
     log "New run of ups.sh"
