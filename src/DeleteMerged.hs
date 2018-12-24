@@ -6,14 +6,11 @@ module DeleteMerged
   ( deleteDone
   ) where
 
-import OurPrelude
-
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Vector as V
 import qualified GH
 import qualified Git
-import qualified Shell
 import Utils (Options)
 
 default (T.Text)
@@ -24,6 +21,6 @@ deleteDone o = do
   Git.cleanAndResetToMaster
   result <- GH.closedAutoUpdateRefs o
   case result of
-    Left error -> T.putStrLn error
+    Left e -> T.putStrLn e
     Right refs ->
       V.sequence_ (fmap (\r -> Git.deleteBranch ("auto-update/" <> r)) refs)

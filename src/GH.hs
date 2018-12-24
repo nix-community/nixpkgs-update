@@ -25,9 +25,8 @@ import Shelly hiding (tag)
 import Utils
 
 gReleaseUrl :: URLParts -> IO (Either Text Text)
-gReleaseUrl (URLParts owner repo tag) =
-  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$>
-  releaseByTagName owner repo tag
+gReleaseUrl (URLParts o r t) =
+  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$> releaseByTagName o r t
 
 releaseUrl :: Text -> IO (Either Text Text)
 releaseUrl url =
@@ -51,14 +50,14 @@ parseURL url =
       ("GitHub: " <> url <> " is not a GitHub URL.")
       ("https://github.com/" `T.isPrefixOf` url)
     let parts = T.splitOn "/" url
-    owner <- N <$> tryAt ("GitHub: owner part missing from " <> url) parts 3
-    repo <- N <$> tryAt ("GitHub: repo part missing from " <> url) parts 4
+    o <- N <$> tryAt ("GitHub: owner part missing from " <> url) parts 3
+    r <- N <$> tryAt ("GitHub: repo part missing from " <> url) parts 4
     tagPart <- tryAt ("GitHub: tag part missing from " <> url) parts 6
-    tag <-
+    t <-
       tryJust
         ("GitHub: tag part missing .tar.gz suffix " <> url)
         (T.stripSuffix ".tar.gz" tagPart)
-    return $ URLParts owner repo tag
+    return $ URLParts o r t
 
 compareUrl :: Text -> Text -> IO (Either Text Text)
 compareUrl urlOld urlNew =

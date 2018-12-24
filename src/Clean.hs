@@ -52,15 +52,16 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
    do
     let newName = name <> "-${version}"
     File.replace newDerivationName newName derivationFile
-    cmd "grep" "-q" ("name = \"" <> newName <> "\"") derivationFile
-    cmd
-      "sed"
-      "-i"
-      ("s|^\\([ ]*\\)\\(name = \"" <> name <>
-       "-${version}\";\\)|\\1\\2\\n\\1version = \"" <>
-       newVersion updateEnv <>
-       "\";|")
-      derivationFile
+    _ <- cmd "grep" "-q" ("name = \"" <> newName <> "\"") derivationFile
+    _ <-
+      cmd
+        "sed"
+        "-i"
+        ("s|^\\([ ]*\\)\\(name = \"" <> name <>
+         "-${version}\";\\)|\\1\\2\\n\\1version = \"" <>
+         newVersion updateEnv <>
+         "\";|")
+        derivationFile
     cmd
       "grep"
       "-q"
@@ -96,7 +97,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
               "${version}"
               (T.replace newDerivationName "${name}" downloadUrl)
       lift $ File.replace oldUrl newUrl derivationFile
-      lift $ cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile
+      _ <- lift $ cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile
       whenM
         (lift $
          Shell.succeeded $

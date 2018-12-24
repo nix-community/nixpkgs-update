@@ -5,3 +5,4 @@ dist/
 dist-newstyle/
 /nixpkgs-update.cabal
 /shell.nix
+.ghc*

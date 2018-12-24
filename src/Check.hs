@@ -91,10 +91,6 @@ checkReport (BinaryCheck p False False) =
 checkReport (BinaryCheck p _ _) =
   "- " <> toTextIgnore p <> " passed the binary check."
 
-successfullCheck :: BinaryCheck -> Bool
-successfullCheck (BinaryCheck _ False False) = False
-successfullCheck _ = True
-
 result :: UpdateEnv -> FilePath -> Sh Text
 result updateEnv resultPath = do
   let expectedVersion = newVersion updateEnv
@@ -112,26 +108,26 @@ result updateEnv resultPath = do
       if binExists
         then findWhen test_f (resultPath </> "bin")
         else return []
-    checks <- forM binaries $ \binary -> runChecks expectedVersion binary
-    addToReport (T.intercalate "\n" (map checkReport checks))
+    checks' <- forM binaries $ \binary -> runChecks expectedVersion binary
+    addToReport (T.intercalate "\n" (map checkReport checks'))
     let passedZeroExitCode =
           (T.pack . show)
             (foldl
-               (\sum c ->
+               (\acc c ->
                   if zeroExitCode c
-                    then sum + 1
-                    else sum)
+                    then acc + 1
+                    else acc)
                0
-               checks :: Int)
+               checks' :: Int)
         passedVersionPresent =
           (T.pack . show)
             (foldl
-               (\sum c ->
+               (\acc c ->
                   if versionPresent c
-                    then sum + 1
-                    else sum)
+                    then acc + 1
+                    else acc)
                0
-               checks :: Int)
+               checks' :: Int)
         numBinaries = (T.pack . show) (length binaries)
     addToReport
       ("- " <> passedZeroExitCode <> " of " <> numBinaries <>
@@ -139,7 +135,7 @@ result updateEnv resultPath = do
     addToReport
       ("- " <> passedVersionPresent <> " of " <> numBinaries <>
        " passed binary check by having the new version present in output.")
-    Shell.canFail $ cmd "grep" "-r" expectedVersion resultPath
+    _ <- Shell.canFail $ cmd "grep" "-r" expectedVersion resultPath
     whenM ((== 0) <$> lastExitCode) $
       addToReport $
       "- found " <> expectedVersion <> " with grep in " <>
@@ -147,9 +143,7 @@ result updateEnv resultPath = do
     whenM
       (null <$>
        findWhen
-         (\path ->
-            ((expectedVersion `T.isInfixOf` toTextIgnore path) &&) <$>
-            test_f path)
+         (\p -> ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$> test_f p)
          resultPath) $
       addToReport $
       "- found " <> expectedVersion <> " in filename of file in " <>

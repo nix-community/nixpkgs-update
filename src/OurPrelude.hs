@@ -1,3 +1,5 @@
+{-# LANGUAGE PartialTypeSignatures #-}
+
 module OurPrelude
   ( (>>>)
   , (<|>)
@@ -26,6 +28,8 @@ import Data.Semigroup ((<>))
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Vector (Vector)
+import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
 
+interpolate :: QuasiQuoter
 interpolate = NeatInterpolation.text

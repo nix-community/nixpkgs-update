@@ -10,7 +10,7 @@ import qualified Data.Text as T
 import Utils
 
 notElemOf :: (Eq a, Foldable t) => t a -> a -> Bool
-notElemOf options = not . flip elem options
+notElemOf o = not . flip elem o
 
 -- | Similar to @breakOn@, but will not keep the pattern at the beginning of the suffix.
 --
@@ -49,19 +49,19 @@ clearBreakOn boundary string =
 -- >>> versionCompatibleWithPathPin "nodejs-slim-10_x" "10.12.0"
 -- True
 versionCompatibleWithPathPin :: Text -> Version -> Bool
-versionCompatibleWithPathPin attrPath newVersion
+versionCompatibleWithPathPin attrPath newVer
   | "_x" `T.isSuffixOf` T.toLower attrPath =
-    versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVersion
+    versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVer
   | "_" `T.isInfixOf` attrPath =
     let attrVersionPart =
-          let (name, version) = clearBreakOn "_" attrPath
+          let (_, version) = clearBreakOn "_" attrPath
            in if T.any (notElemOf ('_' : ['0' .. '9'])) version
                 then Nothing
                 else Just version
         -- Check assuming version part has underscore separators
         attrVersionPeriods = T.replace "_" "." <$> attrVersionPart
         -- If we don't find version numbers in the attr path, exit success.
-     in maybe True (`T.isPrefixOf` newVersion) attrVersionPeriods
+     in maybe True (`T.isPrefixOf` newVer) attrVersionPeriods
   | otherwise =
     let attrVersionPart =
           let version = T.dropWhile (notElemOf ['0' .. '9']) attrPath
@@ -70,7 +70,7 @@ versionCompatibleWithPathPin attrPath newVersion
                 else Just version
           -- Check assuming version part is the prefix of the version with dots
           -- removed. For example, 91 => "9.1"
-        noPeriodNewVersion = T.replace "." "" newVersion
+        noPeriodNewVersion = T.replace "." "" newVer
           -- If we don't find version numbers in the attr path, exit success.
      in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 

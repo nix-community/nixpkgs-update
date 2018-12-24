@@ -80,8 +80,8 @@ lookupAttrPath updateEnv =
   Shell.shellyET &
   overwriteErrorT "nix-env -q failed to find package name with old version"
 
-getDerivationFile :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m FilePath
-getDerivationFile updateEnv attrPath =
+getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
+getDerivationFile attrPath =
   cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
   fmap fromText &
   Shell.shellyET &
@@ -167,7 +167,7 @@ buildCmd =
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
   (buildCmd attrPath & Shell.shellyET) <|>
-  (do buildFailedLog
+  (do _ <- buildFailedLog
       throwE "nix log failed trying to get build logs")
   where
     buildFailedLog = do

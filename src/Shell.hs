@@ -18,9 +18,9 @@ import Utils
 
 -- | Set environment variables needed by various programs
 setUpEnvironment :: Options -> Sh ()
-setUpEnvironment options = do
+setUpEnvironment o = do
   setenv "PAGER" ""
-  setenv "GITHUB_TOKEN" (githubToken options)
+  setenv "GITHUB_TOKEN" (githubToken o)
 
 ourSilentShell :: Options -> Sh a -> IO a
 ourSilentShell o s =
@@ -48,12 +48,12 @@ shE s = do
 -- of it.
 shRE :: Sh a -> Sh (Either Text Text)
 shRE s = do
-  canFail s
+  _ <- canFail s
   stderr <- lastStderr
   status <- lastExitCode
   case status of
     0 -> return $ Left ""
-    c -> return $ Right stderr
+    _ -> return $ Right stderr
 
 shellyET :: MonadIO m => Sh a -> ExceptT Text m a
 shellyET = shE >>> shelly >>> ExceptT
@@ -63,6 +63,6 @@ canFail = errExit False
 
 succeeded :: Sh a -> Sh Bool
 succeeded s = do
-  canFail s
+  _ <- canFail s
   status <- lastExitCode
   return (status == 0)

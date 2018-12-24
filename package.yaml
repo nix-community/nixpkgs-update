@@ -16,6 +16,8 @@ extra-source-files:
 
 github: ryantm/nixpkgs-update
 
+ghc-options: -Wall
+
 dependencies:
   - base >= 4.7 && < 5
   - directory >= 1.3 && < 1.4
@@ -37,6 +39,7 @@ dependencies:
   - transformers
   - lifted-base
   - xdg-basedir
+  - template-haskell
 
 executables:
   nixpkgs-update:

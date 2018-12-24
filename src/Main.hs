@@ -41,10 +41,10 @@ programInfo =
 
 makeOptions :: IO Options
 makeOptions = do
-  dryRun <- isJust <$> getEnv "DRY_RUN"
+  dry <- isJust <$> getEnv "DRY_RUN"
   homeDir <- T.pack <$> getHomeDirectory
-  githubToken <- T.strip <$> T.readFile "github_token.txt"
-  return $ Options dryRun (homeDir <> "/.nixpkgs-update") githubToken
+  token <- T.strip <$> T.readFile "github_token.txt"
+  return $ Options dry (homeDir <> "/.nixpkgs-update") token
 
 main :: IO ()
 main = do

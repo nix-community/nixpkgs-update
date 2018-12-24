@@ -20,7 +20,7 @@ module Git
 import OurPrelude
 
 import qualified Data.Text as T
-import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Shell
 import Shelly
 import System.Directory (getHomeDirectory, getModificationTime)
@@ -33,10 +33,10 @@ clean = shelly $ cmd "git" "clean" "-fdx"
 
 cleanAndResetTo :: MonadIO m => Text -> Text -> m ()
 cleanAndResetTo branch target = do
-  shelly $ cmd "git" "reset" "--hard"
+  _ <- shelly $ cmd "git" "reset" "--hard"
   clean
-  shelly $ cmd "git" "checkout" "-B" branch target
-  shelly $ cmd "git" "reset" "--hard" target
+  _ <- shelly $ cmd "git" "checkout" "-B" branch target
+  _ <- shelly $ cmd "git" "reset" "--hard" target
   clean
 
 cleanAndResetToMaster :: MonadIO m => m ()
@@ -46,9 +46,9 @@ cleanAndResetToStaging :: MonadIO m => m ()
 cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
 
 cleanup :: MonadIO m => Text -> m ()
-cleanup branchName = do
+cleanup bName = do
   cleanAndResetToMaster
-  shelly $ Shell.canFail $ cmd "git" "branch" "-D" branchName
+  shelly $ Shell.canFail $ cmd "git" "branch" "-D" bName
 
 showRef :: MonadIO m => Text -> m Text
 showRef ref = shelly $ cmd "git" "show-ref" ref
@@ -80,19 +80,19 @@ push updateEnv =
      ["--dry-run" | dryRun (options updateEnv)])
 
 checkoutAtMergeBase :: MonadIO m => Text -> m ()
-checkoutAtMergeBase branchName = do
+checkoutAtMergeBase bName = do
   base <-
     T.strip <$>
     shelly (cmd "git" "merge-base" "upstream/master" "upstream/staging")
-  shelly $ cmd "git" "checkout" "-B" branchName base
+  shelly $ cmd "git" "checkout" "-B" bName base
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
-checkAutoUpdateBranchDoesntExist packageName = do
+checkAutoUpdateBranchDoesntExist pName = do
   remoteBranches <-
     lift $
     map T.strip . T.lines <$> shelly (silently $ cmd "git" "branch" "--remote")
   when
-    (("origin/auto-update/" <> packageName) `elem` remoteBranches)
+    (("origin/auto-update/" <> pName) `elem` remoteBranches)
     (throwE "Update branch already on origin.")
 
 commit :: MonadIO m => Text -> m ()
@@ -102,8 +102,8 @@ headHash :: MonadIO m => m Text
 headHash = shelly $ cmd "git" "rev-parse" "HEAD"
 
 deleteBranch :: MonadIO m => Text -> m ()
-deleteBranch branchName =
+deleteBranch bName =
   shelly $
   Shell.canFail $ do
-    cmd "git" "branch" "-D" branchName
-    cmd "git" "push" "origin" (":" <> branchName)
+    _ <- cmd "git" "branch" "-D" bName
+    cmd "git" "push" "origin" (":" <> bName)

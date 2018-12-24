@@ -16,10 +16,10 @@ import Shelly
 import Text.Parsec (parse)
 import Text.Parser.Char
 import Text.Parser.Combinators
-import Utils
 
 default (Text)
 
+outPathsExpr :: Text
 outPathsExpr =
   [interpolate|
 
@@ -78,11 +78,12 @@ in
 outPath :: Sh Text
 outPath =
   sub $ do
-    cmd
-      "curl"
-      "-o"
-      "outpaths.nix"
-      "https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix"
+    _ <-
+      cmd
+        "curl"
+        "-o"
+        "outpaths.nix"
+        "https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix"
     setenv "GC_INITIAL_HEAP_SIZE" "10g"
     cmd
       "nix-env"
@@ -107,6 +108,7 @@ data ResultLine = ResultLine
   } deriving (Eq, Ord, Show)
 
 -- Example query result line:
+testInput :: Text
 testInput =
   "haskellPackages.amazonka-dynamodb-streams.x86_64-linux                        doc=/nix/store/m4rpsc9nx0qcflh9ni6qdlg6hbkwpicc-amazonka-dynamodb-streams-1.6.0-doc;/nix/store/rvd4zydr22a7j5kgnmg5x6695c7bgqbk-amazonka-dynamodb-streams-1.6.0\nhaskellPackages.agum.x86_64-darwin                                            doc=/nix/store/n526rc0pa5h0krdzsdni5agcpvcd3cb9-agum-2.7-doc;/nix/store/s59r75svbjm724q5iaprq4mln5k6wcr9-agum-2.7"
 

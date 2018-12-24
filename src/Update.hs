@@ -13,21 +13,19 @@ import OurPrelude
 
 import qualified Blacklist
 import qualified Check
-import Clean (fixSrcUrl)
 import Control.Exception (SomeException)
 import Control.Exception.Lifted
 import Data.IORef
 import qualified Data.Set as S
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 import qualified File
 import qualified GH
 import qualified Git
 import qualified Nix
 import Outpaths
-import Prelude hiding (FilePath)
+import Prelude hiding (FilePath, log)
 import qualified Shell
 import Shelly.Lifted
 import Utils
@@ -35,7 +33,6 @@ import Utils
   , UpdateEnv(..)
   , Version
   , branchName
-  , eitherToError
   , parseUpdates
   , tRead
   )
@@ -48,6 +45,7 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
   , mergeBaseOutpaths :: Set ResultLine
   }
 
+log' :: (MonadIO m, MonadSh m) => FilePath -> Text -> m ()
 log' logFile msg
     -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
  = do
@@ -57,10 +55,10 @@ log' logFile msg
   appendfile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> IO ()
-updateAll options =
-  Shell.ourShell options $ do
-    let logFile = fromText (workingDir options) </> "ups.log"
-    mkdir_p (fromText (workingDir options))
+updateAll o =
+  Shell.ourShell o $ do
+    let logFile = fromText (workingDir o) </> "ups.log"
+    mkdir_p (fromText (workingDir o))
     touchfile logFile
     updates <- readfile "packages-to-update.txt"
     let log = log' logFile
@@ -70,7 +68,7 @@ updateAll options =
       liftIO $ addUTCTime (fromInteger $ -60 * 60 * 2) <$> getCurrentTime
     mergeBaseOutpathSet <-
       liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
-    updateLoop options log (parseUpdates updates) mergeBaseOutpathSet
+    updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
 
 updateLoop ::
      Options
@@ -79,28 +77,28 @@ updateLoop ::
   -> IORef MergeBaseOutpathsInfo
   -> Sh ()
 updateLoop _ log [] _ = log "ups.sh finished"
-updateLoop options log (Left e:moreUpdates) mergeBaseOutpathsContext = do
+updateLoop o log (Left e:moreUpdates) mergeBaseOutpathsContext = do
   log e
-  updateLoop options log moreUpdates mergeBaseOutpathsContext
-updateLoop options log (Right (package, oldVersion, newVersion):moreUpdates) mergeBaseOutpathsContext = do
-  log (package <> " " <> oldVersion <> " -> " <> newVersion)
-  let updateEnv = UpdateEnv package oldVersion newVersion options
+  updateLoop o log moreUpdates mergeBaseOutpathsContext
+updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsContext = do
+  log (pName <> " " <> oldVer <> " -> " <> newVer)
+  let updateEnv = UpdateEnv pName oldVer newVer o
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
       liftIO $ Git.cleanup (branchName updateEnv)
       log $ "FAIL " <> failure
-      if ".0" `T.isSuffixOf` newVersion
-        then let Just newNewVersion = ".0" `T.stripSuffix` newVersion
+      if ".0" `T.isSuffixOf` newVer
+        then let Just newNewVersion = ".0" `T.stripSuffix` newVer
               in updateLoop
-                   options
+                   o
                    log
-                   (Right (package, oldVersion, newNewVersion) : moreUpdates)
+                   (Right (pName, oldVer, newNewVersion) : moreUpdates)
                    mergeBaseOutpathsContext
-        else updateLoop options log moreUpdates mergeBaseOutpathsContext
+        else updateLoop o log moreUpdates mergeBaseOutpathsContext
     Right _ -> do
       log "SUCCESS"
-      updateLoop options log moreUpdates mergeBaseOutpathsContext
+      updateLoop o log moreUpdates mergeBaseOutpathsContext
 
 updatePackage ::
      (Text -> Sh ())
@@ -122,7 +120,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.attrPath attrPath
     masterShowRef <- lift $ Git.showRef "master"
     lift $ log masterShowRef
-    derivationFile <- Nix.getDerivationFile updateEnv attrPath
+    derivationFile <- Nix.getDerivationFile attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
       -- Make sure it hasn't been updated on master
      do
@@ -130,8 +128,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       Nix.assertOldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
       Git.cleanAndResetToStaging
-      masterShowRef <- lift $ Git.showRef "staging"
-      lift $ log masterShowRef
+      stagingShowRef <- lift $ Git.showRef "staging"
+      lift $ log stagingShowRef
       stagingDerivationContents <- lift $ readfile derivationFile
       Nix.assertOldVersionOn updateEnv "staging" stagingDerivationContents
       lift $ Git.checkoutAtMergeBase (branchName updateEnv)

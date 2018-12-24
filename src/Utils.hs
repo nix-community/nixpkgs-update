@@ -10,7 +10,6 @@ module Utils
   , tRead
   , parseUpdates
   , overwriteErrorT
-  , eitherToError
   , branchName
   ) where
 
@@ -45,9 +44,10 @@ setupNixpkgs = do
   fp <- getUserCacheDir "nixpkgs"
   exists <- doesDirectoryExist fp
   unless exists $ do
-    shelly $ run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
+    _ <- shelly $ run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
     setCurrentDirectory fp
-    shelly $
+    _ <-
+      shelly $
       cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
     shelly $ cmd "git" "fetch" "upstream"
   setCurrentDirectory fp
@@ -56,14 +56,6 @@ setupNixpkgs = do
 overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
 overwriteErrorT t = fmapLT (const t)
 
-rewriteError :: Monad m => Text -> m (Either Text a) -> m (Either Text a)
-rewriteError t = fmap (first (const t))
-
-eitherToError :: Monad m => (Text -> m a) -> m (Either Text a) -> m a
-eitherToError errorExit s = do
-  e <- s
-  either errorExit return e
-
 branchName :: UpdateEnv -> Text
 branchName ue = "auto-update/" <> packageName ue
 
@@ -71,8 +63,7 @@ parseUpdates :: Text -> [Either Text (Text, Version, Version)]
 parseUpdates = map (toTriple . T.words) . T.lines
   where
     toTriple :: [Text] -> Either Text (Text, Version, Version)
-    toTriple [package, oldVersion, newVersion] =
-      Right (package, oldVersion, newVersion)
+    toTriple [package, oldVer, newVer] = Right (package, oldVer, newVer)
     toTriple line = Left $ "Unable to parse update: " <> T.unwords line
 
 tRead :: Read a => Text -> a
