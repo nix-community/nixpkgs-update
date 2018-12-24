@@ -202,20 +202,14 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   d <- Nix.getDescription attrPath
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
-  releaseUrlResult <- liftIO $ GH.releaseUrl newSrcUrl
   releaseUrlMessage <-
-    case releaseUrlResult of
-      Left e -> do
-        lift $ log e
-        return ""
-      Right msg -> return ("\n[Release on GitHub](" <> msg <> ")\n\n")
-  compareUrlResult <- liftIO $ GH.compareUrl oldSrcUrl newSrcUrl
+    (do msg <- GH.releaseUrl newSrcUrl
+        return ("\n[Release on GitHub](" <> msg <> ")\n\n")) <|>
+    return ""
   compareUrlMessage <-
-    case compareUrlResult of
-      Left e -> do
-        lift $ log e
-        return "\n"
-      Right msg -> return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
+    (do msg <- GH.compareUrl oldSrcUrl newSrcUrl
+        return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")) <|>
+    return "\n"
   maintainers <- Nix.getMaintainers attrPath
   let maintainersCc =
         if not (T.null maintainers)

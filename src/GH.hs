@@ -24,15 +24,16 @@ import GitHub.Endpoints.Repos.Releases (releaseByTagName)
 import Shelly hiding (tag)
 import Utils
 
-gReleaseUrl :: URLParts -> IO (Either Text Text)
+gReleaseUrl :: MonadIO m => URLParts -> ExceptT Text m Text
 gReleaseUrl (URLParts o r t) =
-  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$> releaseByTagName o r t
+  ExceptT $
+  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$>
+  (liftIO $ releaseByTagName o r t)
 
-releaseUrl :: Text -> IO (Either Text Text)
-releaseUrl url =
-  runExceptT $ do
-    urlParts <- ExceptT $ parseURL url
-    ExceptT $ gReleaseUrl urlParts
+releaseUrl :: MonadIO m => Text -> ExceptT Text m Text
+releaseUrl url = do
+  urlParts <- parseURL url
+  gReleaseUrl urlParts
 
 pr :: Text -> Text -> Sh ()
 pr base = cmd "hub" "pull-request" "-b" base "-m"
@@ -43,34 +44,32 @@ data URLParts = URLParts
   , tag :: Text
   }
 
-parseURL :: Text -> IO (Either Text URLParts)
-parseURL url =
-  runExceptT $ do
-    tryAssert
-      ("GitHub: " <> url <> " is not a GitHub URL.")
-      ("https://github.com/" `T.isPrefixOf` url)
-    let parts = T.splitOn "/" url
-    o <- N <$> tryAt ("GitHub: owner part missing from " <> url) parts 3
-    r <- N <$> tryAt ("GitHub: repo part missing from " <> url) parts 4
-    tagPart <- tryAt ("GitHub: tag part missing from " <> url) parts 6
-    t <-
-      tryJust
-        ("GitHub: tag part missing .tar.gz suffix " <> url)
-        (T.stripSuffix ".tar.gz" tagPart)
-    return $ URLParts o r t
+parseURL :: MonadIO m => Text -> ExceptT Text m URLParts
+parseURL url = do
+  tryAssert
+    ("GitHub: " <> url <> " is not a GitHub URL.")
+    ("https://github.com/" `T.isPrefixOf` url)
+  let parts = T.splitOn "/" url
+  o <- N <$> tryAt ("GitHub: owner part missing from " <> url) parts 3
+  r <- N <$> tryAt ("GitHub: repo part missing from " <> url) parts 4
+  tagPart <- tryAt ("GitHub: tag part missing from " <> url) parts 6
+  t <-
+    tryJust
+      ("GitHub: tag part missing .tar.gz suffix " <> url)
+      (T.stripSuffix ".tar.gz" tagPart)
+  return $ URLParts o r t
 
-compareUrl :: Text -> Text -> IO (Either Text Text)
-compareUrl urlOld urlNew =
-  runExceptT $ do
-    oldParts <- ExceptT $ parseURL urlOld
-    newParts <- ExceptT $ parseURL urlNew
-    return $
-      "https://github.com/" <> untagName (owner newParts) <> "/" <>
-      untagName (repo newParts) <>
-      "/compare/" <>
-      tag oldParts <>
-      "..." <>
-      tag newParts
+compareUrl :: MonadIO m => Text -> Text -> ExceptT Text m Text
+compareUrl urlOld urlNew = do
+  oldParts <- parseURL urlOld
+  newParts <- parseURL urlNew
+  return $
+    "https://github.com/" <> untagName (owner newParts) <> "/" <>
+    untagName (repo newParts) <>
+    "/compare/" <>
+    tag oldParts <>
+    "..." <>
+    tag newParts
 
 --deleteDoneBranches :: IO ()
 --deleteDoneBranches = do
