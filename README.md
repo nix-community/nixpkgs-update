@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/ryantm/nixpkgs-update.svg?branch=master)](https://travis-ci.org/ryantm/nixpkgs-update)
 
+> The future is here; let's evenly distribute it!
 
 # Introduction
 
