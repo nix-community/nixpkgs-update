@@ -123,6 +123,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
      do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
+      assertNotUpdatedOn updateEnv derivationFile "staging-next"
+      assertNotUpdatedOn updateEnv derivationFile "python-unstable"
       lift $ Git.checkoutAtMergeBase (branchName updateEnv)
       oneHourAgo <-
         liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
