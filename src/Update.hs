@@ -118,8 +118,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
     derivationFile <- Nix.getDerivationFile attrPath
-    flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
-     do
+    flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
