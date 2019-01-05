@@ -117,8 +117,6 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     srcUrls <- Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     Blacklist.attrPath attrPath
-    masterShowRef <- lift $ Git.showRef "master"
-    lift $ log masterShowRef
     derivationFile <- Nix.getDerivationFile attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
       -- Make sure it hasn't been updated on master
@@ -127,8 +125,6 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       Nix.assertOldVersionOn updateEnv "master" masterDerivationContents
       -- Make sure it hasn't been updated on staging
       Git.cleanAndResetToStaging
-      stagingShowRef <- lift $ Git.showRef "staging"
-      lift $ log stagingShowRef
       stagingDerivationContents <- lift $ readfile derivationFile
       Nix.assertOldVersionOn updateEnv "staging" stagingDerivationContents
       lift $ Git.checkoutAtMergeBase (branchName updateEnv)
