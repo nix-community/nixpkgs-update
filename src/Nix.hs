@@ -193,7 +193,9 @@ assertOldVersionOn ::
 assertOldVersionOn updateEnv branchName contents =
   tryAssert
     ("Old version not present in " <> branchName <> " derivation file.")
-    (oldVersion updateEnv `T.isInfixOf` contents)
+    (oldVersionPattern `T.isInfixOf` contents)
+  where
+    oldVersionPattern = "\"" <> oldVersion updateEnv <> "\""
 
 resultLink :: MonadIO m => ExceptT Text m FilePath
 resultLink =
