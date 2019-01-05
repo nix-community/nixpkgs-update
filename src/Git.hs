@@ -3,8 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Git
-  ( cleanAndResetToMaster
-  , cleanAndResetToStaging
+  ( cleanAndResetTo
   , cleanup
   , fetchIfStale
   , fetch
@@ -31,23 +30,18 @@ default (T.Text)
 clean :: MonadIO m => m ()
 clean = shelly $ cmd "git" "clean" "-fdx"
 
-cleanAndResetTo :: MonadIO m => Text -> Text -> m ()
-cleanAndResetTo branch target = do
-  _ <- shelly $ cmd "git" "reset" "--hard"
-  clean
-  _ <- shelly $ cmd "git" "checkout" "-B" branch target
-  _ <- shelly $ cmd "git" "reset" "--hard" target
-  clean
-
-cleanAndResetToMaster :: MonadIO m => m ()
-cleanAndResetToMaster = cleanAndResetTo "master" "upstream/master"
-
-cleanAndResetToStaging :: MonadIO m => m ()
-cleanAndResetToStaging = cleanAndResetTo "staging" "upstream/staging"
+cleanAndResetTo :: MonadIO m => Text -> m ()
+cleanAndResetTo branch =
+  let target = "upstream/" <> branch
+   in do _ <- shelly $ cmd "git" "reset" "--hard"
+         clean
+         _ <- shelly $ cmd "git" "checkout" "-B" branch target
+         _ <- shelly $ cmd "git" "reset" "--hard" target
+         clean
 
 cleanup :: MonadIO m => Text -> m ()
 cleanup bName = do
-  cleanAndResetToMaster
+  cleanAndResetTo "master"
   shelly $ Shell.canFail $ cmd "git" "branch" "-D" bName
 
 showRef :: MonadIO m => Text -> m Text

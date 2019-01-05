@@ -111,7 +111,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Nix.compareVersions updateEnv
     Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
-    Git.cleanAndResetToMaster
+    Git.cleanAndResetTo "master"
     attrPath <- Nix.lookupAttrPath updateEnv
     Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
@@ -121,12 +121,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
       -- Make sure it hasn't been updated on master
      do
-      masterDerivationContents <- lift $ readfile derivationFile
-      Nix.assertOldVersionOn updateEnv "master" masterDerivationContents
-      -- Make sure it hasn't been updated on staging
-      Git.cleanAndResetToStaging
-      stagingDerivationContents <- lift $ readfile derivationFile
-      Nix.assertOldVersionOn updateEnv "staging" stagingDerivationContents
+      assertNotUpdatedOn updateEnv derivationFile "master"
+      assertNotUpdatedOn updateEnv derivationFile "staging"
       lift $ Git.checkoutAtMergeBase (branchName updateEnv)
       oneHourAgo <-
         liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
@@ -236,7 +232,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
          maintainersCc
          result
          (outpathReport opDiff))
-  liftIO Git.cleanAndResetToMaster
+  liftIO $ Git.cleanAndResetTo "master"
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv =
@@ -351,3 +347,9 @@ untilOfBorgFree = do
   when (waiting > 2) $ do
     sleep 60
     untilOfBorgFree
+
+assertNotUpdatedOn :: UpdateEnv -> FilePath -> Text -> ExceptT Text Sh ()
+assertNotUpdatedOn updateEnv derivationFile branch = do
+  Git.cleanAndResetTo branch
+  derivationContents <- lift $ readfile derivationFile
+  Nix.assertOldVersionOn updateEnv branch derivationContents

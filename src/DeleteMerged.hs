@@ -18,7 +18,7 @@ default (T.Text)
 deleteDone :: Options -> IO ()
 deleteDone o = do
   Git.fetch
-  Git.cleanAndResetToMaster
+  Git.cleanAndResetTo "master"
   result <- GH.closedAutoUpdateRefs o
   case result of
     Left e -> T.putStrLn e
