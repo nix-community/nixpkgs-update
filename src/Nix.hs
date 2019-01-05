@@ -16,7 +16,7 @@ module Nix
   , build
   , getDescription
   , cachix
-  , numberOfFetchers
+  , assertOneOrFewerFetcher
   , getHashFromBuild
   , assertOldVersionOn
   , resultLink
@@ -187,6 +187,12 @@ numberOfFetchers derivationContents =
   count "fetchurl {" + count "fetchgit {" + count "fetchFromGitHub {"
   where
     count x = T.count x derivationContents
+
+assertOneOrFewerFetcher :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
+assertOneOrFewerFetcher derivationContents derivationFile =
+  tryAssert
+    ("More than one fetcher in " <> toTextIgnore derivationFile)
+    (numberOfFetchers derivationContents <= 1)
 
 assertOldVersionOn ::
      MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()

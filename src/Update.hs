@@ -119,7 +119,6 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Blacklist.attrPath attrPath
     derivationFile <- Nix.getDerivationFile attrPath
     flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $
-      -- Make sure it hasn't been updated on master
      do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
@@ -141,9 +140,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
             return mbos
           else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
       derivationContents <- lift $ readfile derivationFile
-      when
-        (Nix.numberOfFetchers derivationContents > 1)
-        (throwE $ "More than one fetcher in " <> toTextIgnore derivationFile)
+      Nix.assertOneOrFewerFetcher derivationContents derivationFile
       Blacklist.content derivationContents
       oldHash <- Nix.getOldHash attrPath
       oldSrcUrl <- Nix.getSrcUrl attrPath
