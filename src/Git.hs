@@ -89,11 +89,11 @@ checkAutoUpdateBranchDoesntExist pName = do
     (("origin/auto-update/" <> pName) `elem` remoteBranches)
     (throwE "Update branch already on origin.")
 
-commit :: MonadIO m => Text -> m ()
-commit ref = shelly $ cmd "git" "commit" "-am" ref
+commit :: MonadIO m => Text -> ExceptT Text m ()
+commit ref = Shell.shellyET $ cmd "git" "commit" "-am" ref
 
-headHash :: MonadIO m => m Text
-headHash = shelly $ cmd "git" "rev-parse" "HEAD"
+headHash :: MonadIO m => ExceptT Text m Text
+headHash = Shell.shellyET $ cmd "git" "rev-parse" "HEAD"
 
 deleteBranch :: MonadIO m => Text -> m ()
 deleteBranch bName =

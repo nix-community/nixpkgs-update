@@ -193,8 +193,8 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           then "\n\ncc " <> maintainers <> " for testing."
           else ""
   let commitMsg = commitMessage updateEnv attrPath
-  Shell.shellyET $ Git.commit commitMsg
-  commitHash <- lift Git.headHash
+  Git.commit commitMsg
+  commitHash <- Git.headHash
   -- Try to push it three times
   Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv
   isBroken <- Nix.getIsBroken attrPath
