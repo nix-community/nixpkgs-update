@@ -94,6 +94,10 @@ updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsCo
       log "SUCCESS"
       updateLoop o log moreUpdates mergeBaseOutpathsContext
 
+-- Arguments this function should have to make it testable:
+-- * the merge base commit (should be updated externally to this function)
+-- * the merge base context should be updated externally to this function
+-- * the commit for branches: master, staging, staging-next, python-unstable
 updatePackage ::
      (Text -> Sh ())
   -> UpdateEnv
