@@ -117,7 +117,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     assertNotUpdatedOn updateEnv derivationFile "staging"
     assertNotUpdatedOn updateEnv derivationFile "staging-next"
     assertNotUpdatedOn updateEnv derivationFile "python-unstable"
-    lift $ Git.checkoutAtMergeBase (branchName updateEnv)
+    Git.checkoutAtMergeBase (branchName updateEnv)
     oneHourAgo <- Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
     mergeBaseOutpathSet <-
@@ -149,13 +149,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     editedOutpathSet <- ExceptT currentOutpathSet
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
-    when
-      (numPRebuilds > 10 &&
-       "buildPythonPackage" `T.isInfixOf` derivationContents)
-      (throwE $
-       "Python package with too many package rebuilds " <>
-       (T.pack . show) numPRebuilds <>
-       "  > 10")
+    Blacklist.python numPRebuilds derivationContents
     Nix.build attrPath
     result <- Nix.resultLink
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff

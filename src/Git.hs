@@ -73,12 +73,12 @@ push updateEnv =
     (["push", "--force", "--set-upstream", "origin", branchName updateEnv] ++
      ["--dry-run" | dryRun (options updateEnv)])
 
-checkoutAtMergeBase :: MonadIO m => Text -> m ()
+checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
 checkoutAtMergeBase bName = do
   base <-
     T.strip <$>
-    shelly (cmd "git" "merge-base" "upstream/master" "upstream/staging")
-  shelly $ cmd "git" "checkout" "-B" bName base
+    Shell.shellyET (cmd "git" "merge-base" "upstream/master" "upstream/staging")
+  Shell.shellyET $ cmd "git" "checkout" "-B" bName base
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do
