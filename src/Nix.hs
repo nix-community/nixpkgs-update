@@ -5,7 +5,7 @@
 
 module Nix
   ( nixEvalET
-  , compareVersions
+  , assertNewerVersion
   , lookupAttrPath
   , getDerivationFile
   , getMaintainers
@@ -47,8 +47,8 @@ nixEvalET raw expr =
   overwriteErrorT ("nix eval failed for " <> expr)
 
 -- Error if the "new version" is actually newer according to nix
-compareVersions :: MonadIO m => UpdateEnv -> ExceptT Text m ()
-compareVersions updateEnv = do
+assertNewerVersion :: MonadIO m => UpdateEnv -> ExceptT Text m ()
+assertNewerVersion updateEnv = do
   versionComparison <-
     nixEvalET
       NoRaw

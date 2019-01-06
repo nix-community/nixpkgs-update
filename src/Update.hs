@@ -18,8 +18,7 @@ import Control.Exception.Lifted
 import Data.IORef
 import qualified Data.Set as S
 import qualified Data.Text as T
-import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
-import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import qualified File
 import qualified GH
 import qualified Git
@@ -28,6 +27,7 @@ import Outpaths
 import Prelude hiding (FilePath, log)
 import qualified Shell
 import Shelly.Lifted
+import qualified Time
 import Utils
   ( Options(..)
   , UpdateEnv(..)
@@ -46,12 +46,8 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
   }
 
 log' :: (MonadIO m, MonadSh m) => FilePath -> Text -> m ()
-log' logFile msg
-    -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
- = do
-  runDate <-
-    T.pack . formatTime defaultTimeLocale (iso8601DateFormat (Just "%H:%M:%S")) <$>
-    liftIO getCurrentTime
+log' logFile msg = do
+  runDate <- Time.runDate
   appendfile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> Text -> IO ()
@@ -63,8 +59,7 @@ updateAll o updates = do
     let log = log' logFile
     appendfile logFile "\n\n"
     log "New run of ups.sh"
-    twoHoursAgo <-
-      liftIO $ addUTCTime (fromInteger $ -60 * 60 * 2) <$> getCurrentTime
+    twoHoursAgo <- Time.twoHoursAgo
     mergeBaseOutpathSet <-
       liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
     updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
@@ -105,72 +100,65 @@ updatePackage ::
   -> IORef MergeBaseOutpathsInfo
   -> Sh (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
-  runExceptT $ do
+  runExceptT $
+  flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
     Blacklist.packageName (packageName updateEnv)
-    -- Check whether requested version is newer than the current one
-    Nix.compareVersions updateEnv
+    Nix.assertNewerVersion updateEnv
     Git.fetchIfStale
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
     attrPath <- Nix.lookupAttrPath updateEnv
+    Blacklist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
-    Blacklist.attrPath attrPath
     derivationFile <- Nix.getDerivationFile attrPath
-    flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
-      assertNotUpdatedOn updateEnv derivationFile "master"
-      assertNotUpdatedOn updateEnv derivationFile "staging"
-      assertNotUpdatedOn updateEnv derivationFile "staging-next"
-      assertNotUpdatedOn updateEnv derivationFile "python-unstable"
-      lift $ Git.checkoutAtMergeBase (branchName updateEnv)
-      oneHourAgo <-
-        liftIO $ addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
-      mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
-      mergeBaseOutpathSet <-
-        if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
-          then do
-            mbos <- ExceptT currentOutpathSet
-            now <- liftIO getCurrentTime
-            liftIO $
-              writeIORef
-                mergeBaseOutpathsContext
-                (MergeBaseOutpathsInfo now mbos)
-            return mbos
-          else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
-      derivationContents <- lift $ readfile derivationFile
-      Nix.assertOneOrFewerFetcher derivationContents derivationFile
-      Blacklist.content derivationContents
-      oldHash <- Nix.getOldHash attrPath
-      oldSrcUrl <- Nix.getSrcUrl attrPath
-      lift $
-        File.replace
-          (oldVersion updateEnv)
-          (newVersion updateEnv)
-          derivationFile
-      newSrcUrl <- Nix.getSrcUrl attrPath
-      when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
-      lift $ File.replace oldHash Nix.sha256Zero derivationFile
-      newHash <-
-        Nix.getHashFromBuild (attrPath <> ".src") <|>
-        Nix.getHashFromBuild attrPath -- <|>
-                 -- lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
-                 -- throwE "Could not get new hash."
-      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-      lift $ File.replace Nix.sha256Zero newHash derivationFile
-      editedOutpathSet <- ExceptT currentOutpathSet
-      let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
-      let numPRebuilds = numPackageRebuilds opDiff
-      when
-        (numPRebuilds > 10 &&
-         "buildPythonPackage" `T.isInfixOf` derivationContents)
-        (throwE $
-         "Python package with too many package rebuilds " <>
-         (T.pack . show) numPRebuilds <>
-         "  > 10")
-      Nix.build attrPath
-      result <- Nix.resultLink
-      publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
+    assertNotUpdatedOn updateEnv derivationFile "master"
+    assertNotUpdatedOn updateEnv derivationFile "staging"
+    assertNotUpdatedOn updateEnv derivationFile "staging-next"
+    assertNotUpdatedOn updateEnv derivationFile "python-unstable"
+    lift $ Git.checkoutAtMergeBase (branchName updateEnv)
+    oneHourAgo <- Time.oneHourAgo
+    mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
+    mergeBaseOutpathSet <-
+      if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
+        then do
+          mbos <- ExceptT currentOutpathSet
+          now <- liftIO getCurrentTime
+          liftIO $
+            writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
+          return mbos
+        else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
+    derivationContents <- lift $ readfile derivationFile
+    Nix.assertOneOrFewerFetcher derivationContents derivationFile
+    Blacklist.content derivationContents
+    oldHash <- Nix.getOldHash attrPath
+    oldSrcUrl <- Nix.getSrcUrl attrPath
+    lift $
+      File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
+    newSrcUrl <- Nix.getSrcUrl attrPath
+    when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change."
+    lift $ File.replace oldHash Nix.sha256Zero derivationFile
+    newHash <-
+      Nix.getHashFromBuild (attrPath <> ".src") <|>
+      Nix.getHashFromBuild attrPath -- <|>
+               -- lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
+               -- throwE "Could not get new hash."
+    tryAssert ("Hashes equal; no update necessary") (oldHash /= newHash)
+    lift $ File.replace Nix.sha256Zero newHash derivationFile
+    editedOutpathSet <- ExceptT currentOutpathSet
+    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
+    let numPRebuilds = numPackageRebuilds opDiff
+    when
+      (numPRebuilds > 10 &&
+       "buildPythonPackage" `T.isInfixOf` derivationContents)
+      (throwE $
+       "Python package with too many package rebuilds " <>
+       (T.pack . show) numPRebuilds <>
+       "  > 10")
+    Nix.build attrPath
+    result <- Nix.resultLink
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
      (Text -> Sh ())
