@@ -21,6 +21,7 @@ default (T.Text)
 data Mode
   = Update
   | DeleteDone
+  | UpdateMergeBase
 
 modeParser :: Opt.Parser Mode
 modeParser =
@@ -30,7 +31,11 @@ modeParser =
   Opt.flag'
     DeleteDone
     (Opt.long "delete-done" <>
-     Opt.help "Delete branches from PRs that were merged or closed")
+     Opt.help "Delete branches from PRs that were merged or closed") <|>
+  Opt.flag'
+    UpdateMergeBase
+    (Opt.long "update-merge-base" <>
+     Opt.help "Updates the branch to use for updates")
 
 programInfo :: Opt.ParserInfo Mode
 programInfo =
@@ -55,3 +60,4 @@ main = do
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options updates
+    UpdateMergeBase -> return ()
