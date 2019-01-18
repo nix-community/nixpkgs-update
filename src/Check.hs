@@ -14,8 +14,8 @@ import qualified Data.Text as T
 import Prelude hiding (FilePath)
 import qualified Shell
 import Shelly
-import qualified Text.Regex.Applicative as RE
-import Text.Regex.Applicative (RE, (=~))
+import qualified Text.Regex.Applicative.Text as RE
+import Text.Regex.Applicative.Text (RE', (=~))
 import Utils (Options(..), UpdateEnv(..), Version)
 
 default (T.Text)
@@ -27,9 +27,9 @@ data BinaryCheck = BinaryCheck
   }
 
 -- | Construct regex: [^\.]*${version}\.*\s*
-versionRegex :: Text -> RE Char ()
+versionRegex :: Text -> RE' ()
 versionRegex version =
-  (\_ _ _ _ -> ()) <$> many (RE.psym (/= '.')) <*> RE.string (T.unpack version) <*>
+  (\_ _ _ _ -> ()) <$> many (RE.psym (/= '.')) <*> RE.string version <*>
   many (RE.sym '.') <*>
   many (RE.psym isSpace)
 
@@ -43,7 +43,7 @@ checkBinary argument expectedVersion program =
         stderr <- lastStderr
         let hasVersion =
               isJust $
-              (T.unpack . T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
+              (T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
               versionRegex expectedVersion
         return $ BinaryCheck program (code == 0) hasVersion)
     (\_ -> return $ BinaryCheck program False False)
