@@ -16,7 +16,7 @@ notElemOf o = not . flip elem o
 --
 -- Examples:
 --
--- > breakOn "::" "a::b::c"
+-- >>> clearBreakOn "::" "a::b::c"
 -- ("a","b::c")
 clearBreakOn :: Text -> Text -> (Text, Text)
 clearBreakOn boundary string =

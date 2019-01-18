@@ -1,4 +1,4 @@
 import Test.DocTest
 
 main :: IO ()
-main = doctest ["-isrc", "-XOverloadedStrings", "src/Utils.hs"]
+main = doctest ["-isrc", "-XOverloadedStrings", "src/Version.hs", "src/GH.hs"]
