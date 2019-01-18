@@ -56,7 +56,7 @@ main = do
   mode <- Opt.execParser programInfo
   options <- makeOptions
   updates <- T.readFile "packages-to-update.txt"
-  setupNixpkgs
+  setupNixpkgs options
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options updates

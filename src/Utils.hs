@@ -74,12 +74,15 @@ runtimeDir = do
     Right dir -> return dir
     Left e -> error $ T.unpack e
 
-setupNixpkgs :: IO ()
-setupNixpkgs = do
+setupNixpkgs :: Options -> IO ()
+setupNixpkgs o = do
   fp <- getUserCacheDir "nixpkgs"
   exists <- doesDirectoryExist fp
   unless exists $ do
-    _ <- shelly $ run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
+    _ <-
+      shelly $ do
+        setenv "GITHUB_TOKEN" (githubToken o)
+        run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
     setCurrentDirectory fp
     _ <-
       shelly $
