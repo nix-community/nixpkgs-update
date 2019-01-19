@@ -24,7 +24,7 @@ dependencies:
   - filepath
   - neat-interpolation >= 0.3 && < 0.4
   - optparse-applicative
-  - regex-applicative
+  - regex-applicative-text
   - shelly
   - text
   - time >= 1.8 && < 1.10

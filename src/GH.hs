@@ -14,6 +14,7 @@ module GH
 
 import OurPrelude
 
+import Control.Applicative (some)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
@@ -22,7 +23,11 @@ import GitHub.Data.Name (Name(..), untagName)
 import GitHub.Endpoints.GitData.References (references')
 import GitHub.Endpoints.Repos.Releases (releaseByTagName)
 import Shelly hiding (tag)
+import qualified Text.Regex.Applicative.Text as RE
+import Text.Regex.Applicative.Text ((=~))
 import Utils
+
+default (T.Text)
 
 gReleaseUrl :: MonadIO m => URLParts -> ExceptT Text m Text
 gReleaseUrl (URLParts o r t) =
@@ -42,22 +47,43 @@ data URLParts = URLParts
   { owner :: Name Owner
   , repo :: Name Repo
   , tag :: Text
-  }
+  } deriving (Show)
+
+-- | Parse owner-repo-branch triplet out of URL
+-- We accept URLs pointing to uploaded release assets
+-- that are usually obtained with fetchurl, as well
+-- as the generated archives that fetchFromGitHub downloads.
+--
+-- Examples:
+--
+-- >>> parseURLMaybe "https://github.com/blueman-project/blueman/releases/download/2.0.7/blueman-2.0.7.tar.xz"
+-- Just (URLParts {owner = N "blueman-project", repo = N "blueman", tag = "2.0.7"})
+--
+-- >>> parseURLMaybe "https://github.com/arvidn/libtorrent/archive/libtorrent_1_1_11.tar.gz"
+-- Just (URLParts {owner = N "arvidn", repo = N "libtorrent", tag = "libtorrent_1_1_11"})
+--
+-- >>> parseURLMaybe "https://gitlab.com/inkscape/lib2geom/-/archive/1.0/lib2geom-1.0.tar.gz"
+-- Nothing
+parseURLMaybe :: Text -> Maybe URLParts
+parseURLMaybe url =
+  let domain = RE.string "https://github.com/"
+      slash = RE.sym '/'
+      pathSegment = T.pack <$> some (RE.psym (/= '/'))
+      extension = RE.string ".zip" <|> RE.string ".tar.gz"
+      toParts n o t = URLParts (N n) (N o) t
+      regex =
+        (toParts <$> (domain *> pathSegment) <* slash <*> pathSegment <*>
+         (RE.string "/releases/download/" *> pathSegment) <*
+         slash <*
+         pathSegment) <|>
+        (toParts <$> (domain *> pathSegment) <* slash <*> pathSegment <*>
+         (RE.string "/archive/" *> pathSegment) <*
+         extension)
+   in url =~ regex
 
 parseURL :: MonadIO m => Text -> ExceptT Text m URLParts
-parseURL url = do
-  tryAssert
-    ("GitHub: " <> url <> " is not a GitHub URL.")
-    ("https://github.com/" `T.isPrefixOf` url)
-  let parts = T.splitOn "/" url
-  o <- N <$> tryAt ("GitHub: owner part missing from " <> url) parts 3
-  r <- N <$> tryAt ("GitHub: repo part missing from " <> url) parts 4
-  tagPart <- tryAt ("GitHub: tag part missing from " <> url) parts 6
-  t <-
-    tryJust
-      ("GitHub: tag part missing .tar.gz suffix " <> url)
-      (T.stripSuffix ".tar.gz" tagPart)
-  return $ URLParts o r t
+parseURL url =
+  tryJust ("GitHub: " <> url <> " is not a GitHub URL.") (parseURLMaybe url)
 
 compareUrl :: MonadIO m => Text -> Text -> ExceptT Text m Text
 compareUrl urlOld urlNew = do

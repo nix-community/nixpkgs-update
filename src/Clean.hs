@@ -14,16 +14,16 @@ import qualified File
 import Prelude hiding (FilePath)
 import qualified Shell
 import Shelly
-import qualified Text.Regex.Applicative as RE
-import Text.Regex.Applicative (RE, (=~))
+import qualified Text.Regex.Applicative.Text as RE
+import Text.Regex.Applicative.Text (RE', (=~))
 import Utils (UpdateEnv(..), Version)
 
 default (T.Text)
 
 -- | Construct regex: ${version}[^/]+\.(tar|zip)
-archiveRegex :: Version -> RE Char ()
+archiveRegex :: Version -> RE' ()
 archiveRegex version =
-  (\_ _ _ _ -> ()) <$> RE.string (T.unpack version) <*> some (RE.psym (/= '/')) <*>
+  (\_ _ _ _ -> ()) <$> RE.string version <*> some (RE.psym (/= '/')) <*>
   RE.sym '.' <*>
   (RE.string "tar" <|> RE.string "zip")
 
@@ -80,7 +80,7 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
         filter
           (\url ->
              newVersion updateEnv `T.isInfixOf` url &&
-             isNothing (T.unpack url =~ archiveRegex (newVersion updateEnv))) &
+             isNothing (url =~ archiveRegex (newVersion updateEnv))) &
         map (T.replace "\"" "")
   forResult <-
     runExceptT $

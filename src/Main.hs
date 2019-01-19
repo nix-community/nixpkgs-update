@@ -1,4 +1,5 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
@@ -23,6 +24,11 @@ data Mode
   | DeleteDone
   | UpdateMergeBase
 
+data Arguments = Arguments
+  { mode :: Mode
+  , dry :: Bool
+  }
+
 modeParser :: Opt.Parser Mode
 modeParser =
   Opt.flag'
@@ -37,26 +43,33 @@ modeParser =
     (Opt.long "update-merge-base" <>
      Opt.help "Updates the branch to use for updates")
 
-programInfo :: Opt.ParserInfo Mode
+argumentParser :: Opt.Parser Arguments
+argumentParser =
+  Arguments <$> modeParser <*>
+  Opt.switch
+    (Opt.long "dry-run" <>
+     Opt.help
+       "Do everything except actually pushing the updates to the remote repository")
+
+programInfo :: Opt.ParserInfo Arguments
 programInfo =
   Opt.info
-    (modeParser <**> Opt.helper)
+    (argumentParser <**> Opt.helper)
     (Opt.fullDesc <> Opt.progDesc "Update packages in nixpkgs repository" <>
      Opt.header "nixpkgs-update")
 
-makeOptions :: IO Options
-makeOptions = do
-  dry <- isJust <$> getEnv "DRY_RUN"
+makeOptions :: Arguments -> IO Options
+makeOptions (Arguments {dry}) = do
   homeDir <- T.pack <$> getHomeDirectory
   token <- T.strip <$> T.readFile "github_token.txt"
   return $ Options dry (homeDir <> "/.nixpkgs-update") token
 
 main :: IO ()
 main = do
-  mode <- Opt.execParser programInfo
-  options <- makeOptions
-  updates <- T.pack <$> readFile "packages-to-update.txt"
-  setupNixpkgs
+  arguments@Arguments {mode} <- Opt.execParser programInfo
+  options <- makeOptions arguments
+  updates <- T.readFile "packages-to-update.txt"
+  setupNixpkgs options
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options updates
