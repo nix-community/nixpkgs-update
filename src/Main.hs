@@ -13,7 +13,6 @@ import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
 import qualified Options.Applicative as Opt
 import System.Directory (getHomeDirectory)
-import System.Posix.Env (getEnv)
 import Update (updateAll)
 import Utils (Options(..), setupNixpkgs)
 
@@ -59,7 +58,7 @@ programInfo =
      Opt.header "nixpkgs-update")
 
 makeOptions :: Arguments -> IO Options
-makeOptions (Arguments {dry}) = do
+makeOptions Arguments {dry} = do
   homeDir <- T.pack <$> getHomeDirectory
   token <- T.strip <$> T.readFile "github_token.txt"
   return $ Options dry (homeDir <> "/.nixpkgs-update") token

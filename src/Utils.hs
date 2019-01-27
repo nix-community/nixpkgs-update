@@ -51,7 +51,7 @@ xdgRuntimeDir = do
   tryAssert ("XDG_RUNTIME_DIR " <> T.pack xDir <> " does not exist.") xDirExists
   let dir = xDir <> "/nixpkgs-update"
   dirExists <- liftIO $ fileExist dir
-  when (not dirExists) (liftIO $ createDirectory dir directoryMode)
+  unless dirExists (liftIO $ createDirectory dir directoryMode)
   return dir
 
 tmpRuntimeDir :: MonadIO m => ExceptT Text m FilePath

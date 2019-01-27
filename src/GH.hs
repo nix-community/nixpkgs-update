@@ -33,7 +33,7 @@ gReleaseUrl :: MonadIO m => URLParts -> ExceptT Text m Text
 gReleaseUrl (URLParts o r t) =
   ExceptT $
   bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$>
-  (liftIO $ releaseByTagName o r t)
+  liftIO (releaseByTagName o r t)
 
 releaseUrl :: MonadIO m => Text -> ExceptT Text m Text
 releaseUrl url = do
@@ -70,7 +70,7 @@ parseURLMaybe url =
       slash = RE.sym '/'
       pathSegment = T.pack <$> some (RE.psym (/= '/'))
       extension = RE.string ".zip" <|> RE.string ".tar.gz"
-      toParts n o t = URLParts (N n) (N o) t
+      toParts n o = URLParts (N n) (N o)
       regex =
         (toParts <$> (domain *> pathSegment) <* slash <*> pathSegment <*>
          (RE.string "/releases/download/" *> pathSegment) <*

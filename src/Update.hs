@@ -51,7 +51,7 @@ log' logFile msg = do
   appendfile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> Text -> IO ()
-updateAll o updates = do
+updateAll o updates =
   Shell.ourShell o $ do
     let logFile = fromText (workingDir o) </> "ups.log"
     mkdir_p (fromText (workingDir o))
@@ -148,7 +148,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
       Nix.getHashFromBuild attrPath -- <|>
                -- lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
                -- throwE "Could not get new hash."
-    tryAssert ("Hashes equal; no update necessary") (oldHash /= newHash)
+    tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
     lift $ File.replace Nix.sha256Zero newHash derivationFile
     editedOutpathSet <- ExceptT currentOutpathSet
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
