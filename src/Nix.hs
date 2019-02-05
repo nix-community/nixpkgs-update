@@ -29,7 +29,7 @@ import Control.Monad (void)
 import qualified Data.Text as T
 import qualified Shell
 import Shelly (cmd, run, setStdin, shelly)
-import Utils (UpdateEnv(..), overwriteErrorT)
+import Utils (UpdateEnv(..), overwriteErrorT, srcOrMain)
 
 data Raw
   = Raw
@@ -87,9 +87,9 @@ getDerivationFile attrPath =
   overwriteErrorT "Couldn't find derivation file."
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
-getHash attrPath =
-  nixEvalET Raw ("pkgs." <> attrPath <> ".src.drvAttrs.outputHash") <|>
-  nixEvalET Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash")
+getHash =
+  srcOrMain
+    (\attrPath -> nixEvalET Raw ("pkgs." <> attrPath <> ".drvAttrs.outputHash"))
 
 getOldHash :: MonadIO m => Text -> ExceptT Text m Text
 getOldHash attrPath =
@@ -133,20 +133,17 @@ getDescription attrPath =
   overwriteErrorT ("Could not get meta.description for attrpath " <> attrPath)
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
-getSrcUrl attrPath =
-  nixEvalET
-    Raw
-    ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-     ".src.drvAttrs.urls 0)") <|>
-  nixEvalET
-    Raw
-    ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-     ".drvAttrs.urls 0)")
+getSrcUrl =
+  srcOrMain
+    (\attrPath ->
+       nixEvalET
+         Raw
+         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
+          ".drvAttrs.urls 0)"))
 
 getSrcAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getSrcAttr attr attrPath =
-  nixEvalET NoRaw ("pkgs." <> attrPath <> ".src." <> attr) <|>
-  nixEvalET NoRaw ("pkgs." <> attrPath <> "." <> attr)
+getSrcAttr attr =
+  srcOrMain (\attrPath -> nixEvalET NoRaw ("pkgs." <> attrPath <> "." <> attr))
 
 getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrls = getSrcAttr "urls"
@@ -216,14 +213,17 @@ sha256Zero = "0000000000000000000000000000000000000000000000000000"
 
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
 getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
-getHashFromBuild attrPath = do
-  stderr <-
-    (ExceptT $ Shell.shRE (buildCmd attrPath)) <|>
-    throwE "Build succeeded unexpectedly"
-  let firstSplit = T.splitOn "with sha256 hash '" stderr
-  firstSplitSecondPart <- tryLast "stdout did not split as expected" firstSplit
-  let secondSplit =
-        T.splitOn
-          "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"
-          firstSplitSecondPart
-  tryHead "stdout did not split second part as expected" secondSplit
+getHashFromBuild =
+  srcOrMain
+    (\attrPath -> do
+       stderr <-
+         (ExceptT $ Shell.shRE (buildCmd attrPath)) <|>
+         throwE "Build succeeded unexpectedly"
+       let firstSplit = T.splitOn "with sha256 hash '" stderr
+       firstSplitSecondPart <-
+         tryLast "stdout did not split as expected" firstSplit
+       let secondSplit =
+             T.splitOn
+               "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"
+               firstSplitSecondPart
+       tryHead "stdout did not split second part as expected" secondSplit)

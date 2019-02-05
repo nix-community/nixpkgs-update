@@ -12,6 +12,7 @@ module Utils
   , overwriteErrorT
   , branchName
   , runtimeDir
+  , srcOrMain
   ) where
 
 import OurPrelude
@@ -105,3 +106,6 @@ parseUpdates = map (toTriple . T.words) . T.lines
 
 tRead :: Read a => Text -> a
 tRead = read . T.unpack
+
+srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
+srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath
