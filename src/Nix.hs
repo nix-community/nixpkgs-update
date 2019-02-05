@@ -27,9 +27,8 @@ import OurPrelude
 
 import Control.Monad (void)
 import qualified Data.Text as T
-import Prelude hiding (FilePath)
 import qualified Shell
-import Shelly (FilePath, Sh, cmd, fromText, run, setStdin, shelly, toTextIgnore)
+import Shelly (cmd, run, setStdin, shelly)
 import Utils (UpdateEnv(..), overwriteErrorT)
 
 data Raw
@@ -83,7 +82,7 @@ lookupAttrPath updateEnv =
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
   cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
-  fmap fromText &
+  fmap T.unpack &
   Shell.shellyET &
   overwriteErrorT "Couldn't find derivation file."
 
@@ -152,8 +151,9 @@ getSrcAttr attr attrPath =
 getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrls = getSrcAttr "urls"
 
-buildCmd :: Text -> Sh ()
-buildCmd =
+buildCmd :: MonadIO m => Text -> m ()
+buildCmd attrPath =
+  shelly $
   cmd
     "nix-build"
     "--option"
@@ -163,6 +163,7 @@ buildCmd =
     "restrict-eval"
     "true"
     "-A"
+    attrPath
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
@@ -179,7 +180,7 @@ build attrPath =
 cachix :: MonadIO m => FilePath -> m ()
 cachix resultPath =
   shelly $ do
-    setStdin (toTextIgnore resultPath)
+    setStdin (T.pack resultPath)
     void $ Shell.shE $ cmd "cachix" "push" "r-ryantm"
 
 numberOfFetchers :: Text -> Int
@@ -191,7 +192,7 @@ numberOfFetchers derivationContents =
 assertOneOrFewerFetcher :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
 assertOneOrFewerFetcher derivationContents derivationFile =
   tryAssert
-    ("More than one fetcher in " <> toTextIgnore derivationFile)
+    ("More than one fetcher in " <> T.pack derivationFile)
     (numberOfFetchers derivationContents <= 1)
 
 assertOldVersionOn ::
@@ -205,7 +206,7 @@ assertOldVersionOn updateEnv branchName contents =
 
 resultLink :: MonadIO m => ExceptT Text m FilePath
 resultLink =
-  (T.strip >>> fromText) <$> do
+  (T.strip >>> T.unpack) <$> do
     Shell.shellyET (cmd "readlink" "./result") <|>
       Shell.shellyET (cmd "readlink" "./result-bin") <|>
       throwE "Could not find result link."
@@ -214,7 +215,7 @@ sha256Zero :: Text
 sha256Zero = "0000000000000000000000000000000000000000000000000000"
 
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
-getHashFromBuild :: Text -> ExceptT Text Sh Text
+getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
 getHashFromBuild attrPath = do
   stderr <-
     (ExceptT $ Shell.shRE (buildCmd attrPath)) <|>

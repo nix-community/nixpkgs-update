@@ -75,8 +75,10 @@ in
   tweak (builtins.removeAttrs hydraJobs blacklist))
 |]
 
-outPath :: Sh Text
+outPath :: MonadIO m => m Text
 outPath =
+  shelly $
+  silently $
   sub $ do
     _ <-
       cmd
@@ -112,9 +114,9 @@ testInput :: Text
 testInput =
   "haskellPackages.amazonka-dynamodb-streams.x86_64-linux                        doc=/nix/store/m4rpsc9nx0qcflh9ni6qdlg6hbkwpicc-amazonka-dynamodb-streams-1.6.0-doc;/nix/store/rvd4zydr22a7j5kgnmg5x6695c7bgqbk-amazonka-dynamodb-streams-1.6.0\nhaskellPackages.agum.x86_64-darwin                                            doc=/nix/store/n526rc0pa5h0krdzsdni5agcpvcd3cb9-agum-2.7-doc;/nix/store/s59r75svbjm724q5iaprq4mln5k6wcr9-agum-2.7"
 
-currentOutpathSet :: Sh (Either Text (Set ResultLine))
+currentOutpathSet :: MonadIO m => m (Either Text (Set ResultLine))
 currentOutpathSet =
-  first (show >>> T.pack) . parse parseResults "outpath" <$> silently outPath
+  first (show >>> T.pack) . parse parseResults "outpath" <$> outPath
 
 parseResults :: CharParsing m => m (Set ResultLine)
 parseResults = S.fromList <$> parseResultLine `sepEndBy` newline

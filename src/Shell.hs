@@ -29,7 +29,7 @@ ourSilentShell o s =
     setUpEnvironment o
     s
 
-ourShell :: Options -> Sh a -> IO a
+ourShell :: MonadIO m => Options -> Sh a -> m a
 ourShell o s =
   shelly $
   verbosely $ do
@@ -46,14 +46,15 @@ shE s = do
 
 -- A shell cmd we are expecting to fail and want to look at the output
 -- of it.
-shRE :: Sh a -> Sh (Either Text Text)
-shRE s = do
-  _ <- canFail s
-  stderr <- lastStderr
-  status <- lastExitCode
-  case status of
-    0 -> return $ Left ""
-    _ -> return $ Right stderr
+shRE :: MonadIO m => Sh a -> m (Either Text Text)
+shRE s =
+  shelly $ do
+    _ <- canFail s
+    stderr <- lastStderr
+    status <- lastExitCode
+    case status of
+      0 -> return $ Left ""
+      _ -> return $ Right stderr
 
 shellyET :: MonadIO m => Sh a -> ExceptT Text m a
 shellyET = shE >>> shelly >>> ExceptT

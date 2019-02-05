@@ -13,20 +13,20 @@ import OurPrelude
 
 import qualified Blacklist
 import qualified Check
-import Control.Exception (SomeException)
-import Control.Exception.Lifted
 import Data.IORef
 import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import qualified File
 import qualified GH
 import qualified Git
 import qualified Nix
 import Outpaths
-import Prelude hiding (FilePath, log)
+import Prelude hiding (log)
 import qualified Shell
-import Shelly.Lifted
+import Shelly ((-|-), cmd, shelly, sleep)
+import System.Posix.Files (touchFile)
 import qualified Time
 import Utils
   ( Options(..)
@@ -34,6 +34,7 @@ import Utils
   , Version
   , branchName
   , parseUpdates
+  , runtimeDir
   , tRead
   )
 import qualified Version
@@ -45,31 +46,31 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
   , mergeBaseOutpaths :: Set ResultLine
   }
 
-log' :: (MonadIO m, MonadSh m) => FilePath -> Text -> m ()
+log' :: MonadIO m => FilePath -> Text -> m ()
 log' logFile msg = do
   runDate <- Time.runDate
-  appendfile logFile (runDate <> " " <> msg <> "\n")
+  liftIO $ T.appendFile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> Text -> IO ()
-updateAll o updates =
-  Shell.ourShell o $ do
-    let logFile = fromText (workingDir o) </> "ups.log"
-    mkdir_p (fromText (workingDir o))
-    touchfile logFile
-    let log = log' logFile
-    appendfile logFile "\n\n"
-    log "New run of ups.sh"
-    twoHoursAgo <- Time.twoHoursAgo
-    mergeBaseOutpathSet <-
-      liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
-    updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
+updateAll o updates = do
+  rDir <- runtimeDir
+  let logFile = rDir <> "/ups.log"
+  touchFile logFile
+  let log = log' logFile
+  T.appendFile logFile "\n\n"
+  log "New run of ups.sh"
+  twoHoursAgo <- Time.twoHoursAgo
+  mergeBaseOutpathSet <-
+    liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
+  updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
 
 updateLoop ::
-     Options
-  -> (Text -> Sh ())
+     MonadIO m
+  => Options
+  -> (Text -> m ())
   -> [Either Text (Text, Version, Version)]
   -> IORef MergeBaseOutpathsInfo
-  -> Sh ()
+  -> m ()
 updateLoop _ log [] _ = log "ups.sh finished"
 updateLoop o log (Left e:moreUpdates) mergeBaseOutpathsContext = do
   log e
@@ -99,13 +100,13 @@ updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsCo
 -- * the merge base context should be updated externally to this function
 -- * the commit for branches: master, staging, staging-next, python-unstable
 updatePackage ::
-     (Text -> Sh ())
+     MonadIO m
+  => (Text -> m ())
   -> UpdateEnv
   -> IORef MergeBaseOutpathsInfo
-  -> Sh (Either Text ())
+  -> m (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
-  runExceptT $
-  flip catches [Handler (\(ex :: SomeException) -> throwE (T.pack (show ex)))] $ do
+  runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
     Nix.assertNewerVersion updateEnv
     Git.fetchIfStale
@@ -133,7 +134,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
             writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
           return mbos
         else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
-    derivationContents <- lift $ readfile derivationFile
+    derivationContents <- liftIO $ T.readFile derivationFile
     Nix.assertOneOrFewerFetcher derivationContents derivationFile
     Blacklist.content derivationContents
     oldHash <- Nix.getOldHash attrPath
@@ -159,20 +160,21 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
-     (Text -> Sh ())
+     MonadIO m
+  => (Text -> m ())
   -> UpdateEnv
   -> Text
   -> Text
   -> Text
   -> FilePath
   -> Set ResultLine
-  -> ExceptT Text Sh ()
+  -> ExceptT Text m ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $ log ("cachix " <> (T.pack . show) result)
   lift $ Nix.cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
-      Right () -> lift $ sub (Check.result updateEnv result)
+      Right () -> lift $ Check.result updateEnv result
       Left msg -> pure msg
   d <- Nix.getDescription attrPath
   let metaDescription =
@@ -261,7 +263,7 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
       oV = oldVersion updateEnv
       nV = newVersion updateEnv
       repologyLink = repologyUrl updateEnv
-      result = toTextIgnore resultPath
+      result = T.pack resultPath
    in [interpolate|
        $attrPath: $oV -> $nV
 
@@ -321,19 +323,21 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
        $maintainersCc
     |]
 
-untilOfBorgFree :: Sh ()
-untilOfBorgFree = do
-  waiting :: Int <-
-    tRead <$>
-    Shell.canFail
-      (cmd "curl" "-s" "https://events.nix.ci/stats.php" -|-
-       cmd "jq" ".evaluator.messages.waiting")
-  when (waiting > 2) $ do
-    sleep 60
-    untilOfBorgFree
+untilOfBorgFree :: MonadIO m => m ()
+untilOfBorgFree =
+  shelly $ do
+    waiting :: Int <-
+      tRead <$>
+      Shell.canFail
+        (cmd "curl" "-s" "https://events.nix.ci/stats.php" -|-
+         cmd "jq" ".evaluator.messages.waiting")
+    when (waiting > 2) $ do
+      sleep 60
+      untilOfBorgFree
 
-assertNotUpdatedOn :: UpdateEnv -> FilePath -> Text -> ExceptT Text Sh ()
+assertNotUpdatedOn ::
+     MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
 assertNotUpdatedOn updateEnv derivationFile branch = do
   Git.cleanAndResetTo branch
-  derivationContents <- lift $ readfile derivationFile
+  derivationContents <- liftIO $ T.readFile derivationFile
   Nix.assertOldVersionOn updateEnv branch derivationContents

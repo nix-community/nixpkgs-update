@@ -11,9 +11,8 @@ import OurPrelude
 import Control.Applicative (some)
 import qualified Data.Text as T
 import qualified File
-import Prelude hiding (FilePath)
 import qualified Shell
-import Shelly
+import Shelly hiding (FilePath)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text (RE', (=~))
 import Utils (UpdateEnv(..), Version)
@@ -47,12 +46,17 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
        ".name).name)")
   whenM
     (Shell.succeeded $
-     cmd "grep" "-q" ("name = \"" <> newDerivationName <> "\"") derivationFile) $
+     cmd
+       "grep"
+       "-q"
+       ("name = \"" <> newDerivationName <> "\"")
+       (T.pack derivationFile)) $
     -- Separate name and version
    do
     let newName = name <> "-${version}"
     File.replace newDerivationName newName derivationFile
-    _ <- cmd "grep" "-q" ("name = \"" <> newName <> "\"") derivationFile
+    _ <-
+      cmd "grep" "-q" ("name = \"" <> newName <> "\"") (T.pack derivationFile)
     _ <-
       cmd
         "sed"
@@ -61,12 +65,12 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
          "-${version}\";\\)|\\1\\2\\n\\1version = \"" <>
          newVersion updateEnv <>
          "\";|")
-        derivationFile
+        (T.pack derivationFile)
     cmd
       "grep"
       "-q"
       ("version = \"" <> newVersion updateEnv <> "\";")
-      derivationFile
+      (T.pack derivationFile)
   -- Obtain download URLs from repology
   -- TODO: use repology-api package
   downloads <-
@@ -97,11 +101,13 @@ fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl = do
               "${version}"
               (T.replace newDerivationName "${name}" downloadUrl)
       lift $ File.replace oldUrl newUrl derivationFile
-      _ <- lift $ cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile
+      _ <-
+        lift $
+        cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") (T.pack derivationFile)
       whenM
         (lift $
          Shell.succeeded $
-         cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") derivationFile) $ do
+         cmd "grep" "-q" ("url = \"" <> newUrl <> "\";") (T.pack derivationFile)) $ do
         hash <-
           lift $
           Shell.canFail $ cmd "nix-prefetch-url" "-A" (attrPath <> ".src")

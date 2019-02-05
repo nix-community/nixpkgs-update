@@ -11,12 +11,11 @@ import OurPrelude
 import Control.Applicative (many)
 import Data.Char (isSpace)
 import qualified Data.Text as T
-import Prelude hiding (FilePath)
 import qualified Shell
-import Shelly
+import Shelly hiding (FilePath)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text (RE', (=~))
-import Utils (Options(..), UpdateEnv(..), Version)
+import Utils (UpdateEnv(..), Version, runtimeDir)
 
 default (T.Text)
 
@@ -38,7 +37,8 @@ versionRegex version =
 checkBinary :: Text -> Version -> FilePath -> Sh BinaryCheck
 checkBinary argument expectedVersion program =
   catchany_sh
-    (do stdout <- Shell.canFail $ cmd "timeout" "-k" "2" "1" program argument
+    (do stdout <-
+          Shell.canFail $ cmd "timeout" "-k" "2" "1" (T.pack program) argument
         code <- lastExitCode
         stderr <- lastStderr
         let hasVersion =
@@ -86,72 +86,81 @@ runChecks expectedVersion program =
 
 checkReport :: BinaryCheck -> Text
 checkReport (BinaryCheck p False False) =
-  "- Warning: no invocation of " <> toTextIgnore p <>
+  "- Warning: no invocation of " <> T.pack p <>
   " had a zero exit code or showed the expected version"
 checkReport (BinaryCheck p _ _) =
-  "- " <> toTextIgnore p <> " passed the binary check."
+  "- " <> T.pack p <> " passed the binary check."
 
-result :: UpdateEnv -> FilePath -> Sh Text
-result updateEnv resultPath = do
-  let expectedVersion = newVersion updateEnv
-  home <- get_env_text "HOME"
-  let logFile = workingDir (options updateEnv) </> "check-result-log.tmp"
-  setenv "EDITOR" "echo"
-  setenv "HOME" "/homeless-shelter"
-  let addToReport input = appendfile logFile (input <> "\n")
-  tempdir <- fromText . T.strip <$> cmd "mktemp" "-d"
-  chdir tempdir $ do
-    rm_f logFile
-    let binaryDir = resultPath </> "bin"
-    binExists <- test_d binaryDir
-    binaries <-
-      if binExists
-        then findWhen test_f (resultPath </> "bin")
-        else return []
-    checks' <- forM binaries $ \binary -> runChecks expectedVersion binary
-    addToReport (T.intercalate "\n" (map checkReport checks'))
-    let passedZeroExitCode =
-          (T.pack . show)
-            (foldl
-               (\acc c ->
-                  if zeroExitCode c
-                    then acc + 1
-                    else acc)
-               0
-               checks' :: Int)
-        passedVersionPresent =
-          (T.pack . show)
-            (foldl
-               (\acc c ->
-                  if versionPresent c
-                    then acc + 1
-                    else acc)
-               0
-               checks' :: Int)
-        numBinaries = (T.pack . show) (length binaries)
-    addToReport
-      ("- " <> passedZeroExitCode <> " of " <> numBinaries <>
-       " passed binary check by having a zero exit code.")
-    addToReport
-      ("- " <> passedVersionPresent <> " of " <> numBinaries <>
-       " passed binary check by having the new version present in output.")
-    _ <- Shell.canFail $ cmd "grep" "-r" expectedVersion resultPath
-    whenM ((== 0) <$> lastExitCode) $
-      addToReport $
-      "- found " <> expectedVersion <> " with grep in " <>
-      toTextIgnore resultPath
-    whenM
-      (null <$>
-       findWhen
-         (\p -> ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$> test_f p)
-         resultPath) $
-      addToReport $
-      "- found " <> expectedVersion <> " in filename of file in " <>
-      toTextIgnore resultPath
-    setenv "HOME" home
-    gist1 <- cmd "tree" resultPath -|- cmd "gist"
-    unless (T.null gist1) $
-      addToReport $ "- directory tree listing: " <> T.strip gist1
-    gist2 <- cmd "du" "-h" resultPath -|- cmd "gist"
-    unless (T.null gist2) $ addToReport $ "- du listing: " <> T.strip gist2
-  Shell.canFail $ readfile logFile
+result :: MonadIO m => UpdateEnv -> FilePath -> m Text
+result updateEnv resultPath =
+  let shellyResultPath = fromText . T.pack $ resultPath
+   in Shell.ourShell (options updateEnv) $ do
+        let expectedVersion = newVersion updateEnv
+        home <- get_env_text "HOME"
+        rDir <- liftIO runtimeDir
+        let logFile = rDir <> "/check-result-log.tmp"
+        let shellyLogFile = logFile & T.pack & fromText
+        setenv "EDITOR" "echo"
+        setenv "HOME" "/homeless-shelter"
+        let addToReport input = appendfile shellyLogFile (input <> "\n")
+        tempdir <- fromText . T.strip <$> cmd "mktemp" "-d"
+        chdir tempdir $ do
+          rm_f (shellyLogFile)
+          let binaryDir = shellyResultPath </> "/bin"
+          binExists <- test_d binaryDir
+          binaries <-
+            if binExists
+              then findWhen test_f binaryDir
+              else return []
+          checks' <-
+            forM binaries $ \binary ->
+              runChecks expectedVersion (T.unpack $ toTextIgnore binary)
+          addToReport (T.intercalate "\n" (map checkReport checks'))
+          let passedZeroExitCode =
+                (T.pack . show)
+                  (foldl
+                     (\acc c ->
+                        if zeroExitCode c
+                          then acc + 1
+                          else acc)
+                     0
+                     checks' :: Int)
+              passedVersionPresent =
+                (T.pack . show)
+                  (foldl
+                     (\acc c ->
+                        if versionPresent c
+                          then acc + 1
+                          else acc)
+                     0
+                     checks' :: Int)
+              numBinaries = (T.pack . show) (length binaries)
+          addToReport
+            ("- " <> passedZeroExitCode <> " of " <> numBinaries <>
+             " passed binary check by having a zero exit code.")
+          addToReport
+            ("- " <> passedVersionPresent <> " of " <> numBinaries <>
+             " passed binary check by having the new version present in output.")
+          _ <- Shell.canFail $ cmd "grep" "-r" expectedVersion shellyResultPath
+          whenM ((== 0) <$> lastExitCode) $
+            addToReport $
+            "- found " <> expectedVersion <> " with grep in " <>
+            T.pack resultPath
+          whenM
+            (null <$>
+             findWhen
+               (\p ->
+                  ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$>
+                  test_f p)
+               (fromText $ T.pack resultPath)) $
+            addToReport $
+            "- found " <> expectedVersion <> " in filename of file in " <>
+            toTextIgnore shellyResultPath
+          setenv "HOME" home
+          gist1 <- cmd "tree" shellyResultPath -|- cmd "gist"
+          unless (T.null gist1) $
+            addToReport $ "- directory tree listing: " <> T.strip gist1
+          gist2 <- cmd "du" "-h" shellyResultPath -|- cmd "gist"
+          unless (T.null gist2) $
+            addToReport $ "- du listing: " <> T.strip gist2
+        Shell.canFail (readfile shellyLogFile)

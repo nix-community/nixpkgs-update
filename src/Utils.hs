@@ -31,7 +31,6 @@ type Version = Text
 
 data Options = Options
   { dryRun :: Bool
-  , workingDir :: Text
   , githubToken :: Text
   } deriving (Show)
 

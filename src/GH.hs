@@ -40,8 +40,8 @@ releaseUrl url = do
   urlParts <- parseURL url
   gReleaseUrl urlParts
 
-pr :: Text -> Text -> Sh ()
-pr base = cmd "hub" "pull-request" "-b" base "-m"
+pr :: MonadIO m => Text -> Text -> m ()
+pr base msg = shelly $ cmd "hub" "pull-request" "-b" base "-m" msg
 
 data URLParts = URLParts
   { owner :: Name Owner
