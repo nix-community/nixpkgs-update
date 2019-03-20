@@ -60,6 +60,7 @@ attrPathList =
   , prefix
       "deepin"
       "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
+  , prefix "gnome" "don't update gnome during a release cycle"
   ]
 
 nameList :: Blacklist
@@ -72,7 +73,6 @@ nameList =
       "libxc"
       "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821"
   , infixOf "perl" "currently don't know how to update perl"
-  --, infixOf "python" "currently don't know how to update python" -- FRidh says lets' try python
   , infixOf "cdrtools" "We keep downgrading this by accident."
   , infixOf "gst" "gstreamer plugins are kept in lockstep."
   , infixOf "electron" "multi-platform srcs in file."
