@@ -26,7 +26,6 @@ import Outpaths
 import Prelude hiding (log)
 import qualified Shell
 import Shelly ((-|-), cmd, shelly, sleep)
-import System.Posix.Files (touchFile)
 import qualified Time
 import Utils
   ( Options(..)
@@ -55,7 +54,6 @@ updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
   rDir <- runtimeDir
   let logFile = rDir <> "/ups.log"
-  touchFile logFile
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of ups.sh"

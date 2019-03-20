@@ -17,14 +17,23 @@ module Utils
 
 import OurPrelude
 
+import Data.Bits ((.|.))
 import qualified Data.Text as T
 import Shelly.Lifted hiding (FilePath)
 import System.Directory (doesDirectoryExist, setCurrentDirectory)
 import System.Environment.XDG.BaseDir
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv, setEnv)
-import System.Posix.Files (directoryMode, fileExist)
+import System.Posix.Files
+  ( directoryMode
+  , fileExist
+  , groupModes
+  , otherExecuteMode
+  , otherReadMode
+  , ownerModes
+  )
 import System.Posix.Temp (mkdtemp)
+import System.Posix.Types (FileMode)
 
 default (T.Text)
 
@@ -42,6 +51,11 @@ data UpdateEnv = UpdateEnv
   , options :: Options
   }
 
+regDirMode :: FileMode
+regDirMode =
+  directoryMode .|. ownerModes .|. groupModes .|. otherReadMode .|.
+  otherExecuteMode
+
 xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
 xdgRuntimeDir = do
   xDir <-
@@ -51,7 +65,10 @@ xdgRuntimeDir = do
   tryAssert ("XDG_RUNTIME_DIR " <> T.pack xDir <> " does not exist.") xDirExists
   let dir = xDir <> "/nixpkgs-update"
   dirExists <- liftIO $ fileExist dir
-  unless dirExists (liftIO $ createDirectory dir directoryMode)
+  unless
+    dirExists
+    (liftIO $
+     putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode)
   return dir
 
 tmpRuntimeDir :: MonadIO m => ExceptT Text m FilePath
