@@ -28,7 +28,7 @@ import OurPrelude
 import Control.Monad (void)
 import qualified Data.Text as T
 import qualified Shell
-import Shelly (cmd, run, setStdin, shelly)
+import Shelly.Lifted (MonadSh, cmd, run, setStdin, shelly)
 import Utils (UpdateEnv(..), overwriteErrorT, srcOrMain)
 
 data Raw
@@ -148,9 +148,8 @@ getSrcAttr attr =
 getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrls = getSrcAttr "urls"
 
-buildCmd :: MonadIO m => Text -> m ()
+buildCmd :: MonadSh m => Text -> m ()
 buildCmd attrPath =
-  shelly $
   cmd
     "nix-build"
     "--option"
@@ -159,6 +158,9 @@ buildCmd attrPath =
     "--option"
     "restrict-eval"
     "true"
+    "--arg"
+    "config"
+    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
     "-A"
     attrPath
 
@@ -199,7 +201,7 @@ assertOldVersionOn updateEnv branchName contents =
     ("Old version not present in " <> branchName <> " derivation file.")
     (oldVersionPattern `T.isInfixOf` contents)
   where
-    oldVersionPattern = "\"" <> oldVersion updateEnv <> "\""
+    oldVersionPattern = oldVersion updateEnv <> "\""
 
 resultLink :: MonadIO m => ExceptT Text m FilePath
 resultLink =
@@ -221,7 +223,7 @@ getHashFromBuild =
          throwE "Build succeeded unexpectedly"
        let firstSplit = T.splitOn "with sha256 hash '" stderr
        firstSplitSecondPart <-
-         tryLast "stdout did not split as expected" firstSplit
+         tryAt "stdout did not split as expected" firstSplit 1
        let secondSplit =
              T.splitOn
                "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"

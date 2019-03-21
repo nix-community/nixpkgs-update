@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Shell
   ( shE
@@ -12,6 +13,8 @@ module Shell
 
 import OurPrelude
 
+import Control.Exception (SomeException)
+import Control.Exception.Lifted (handle)
 import qualified Data.Text as T
 import Shelly.Lifted
 import Utils
@@ -37,18 +40,23 @@ ourShell o s =
     s
 
 shE :: Sh a -> Sh (Either Text a)
-shE s = do
-  r <- canFail s
-  status <- lastExitCode
-  case status of
-    0 -> return $ Right r
-    c -> return $ Left ("Exit code: " <> T.pack (show c))
+shE s =
+  handle
+    (\(e :: SomeException) ->
+       return $ Left ("Shell exception: " <> T.pack (show e))) $ do
+    r <- canFail s
+    status <- lastExitCode
+    case status of
+      0 -> return $ Right r
+      c -> return $ Left ("Exit code: " <> T.pack (show c))
 
--- A shell cmd we are expecting to fail and want to look at the output
--- of it.
+-- A shell cmd we are expecting to fail to look at stderr
 shRE :: MonadIO m => Sh a -> m (Either Text Text)
 shRE s =
-  shelly $ do
+  shelly $
+  handle
+    (\(e :: SomeException) ->
+       return $ Left ("Shell exception: " <> T.pack (show e))) $ do
     _ <- canFail s
     stderr <- lastStderr
     status <- lastExitCode

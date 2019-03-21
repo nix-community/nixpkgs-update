@@ -12,6 +12,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
 import qualified Options.Applicative as Opt
+import System.Posix.Env (setEnv)
 import Update (updateAll)
 import Utils (Options(..), setupNixpkgs)
 
@@ -67,6 +68,8 @@ main = do
   options <- makeOptions arguments
   updates <- T.readFile "packages-to-update.txt"
   setupNixpkgs options
+  setEnv "PAGER" "" True
+  setEnv "GITHUB_TOKEN" (T.unpack (githubToken options)) True
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options updates
