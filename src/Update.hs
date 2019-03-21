@@ -335,5 +335,5 @@ assertNotUpdatedOn ::
      MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
 assertNotUpdatedOn updateEnv derivationFile branch = do
   Git.cleanAndResetTo branch
-  derivationContents <- liftIO $ T.readFile derivationFile
+  derivationContents <- fmapLT tshow $ tryIO $ T.readFile derivationFile
   Nix.assertOldVersionOn updateEnv branch derivationContents

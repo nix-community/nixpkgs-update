@@ -14,6 +14,7 @@ module OurPrelude
   , Text
   , Vector
   , interpolate
+  , tshow
   ) where
 
 import Control.Applicative ((<|>))
@@ -26,10 +27,13 @@ import Data.Bifunctor
 import Data.Function ((&))
 import Data.Semigroup ((<>))
 import Data.Set (Set)
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Data.Vector (Vector)
 import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
 
 interpolate :: QuasiQuoter
 interpolate = NeatInterpolation.text
+
+tshow :: Show a => a -> Text
+tshow = show >>> pack

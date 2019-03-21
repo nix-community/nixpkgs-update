@@ -169,8 +169,7 @@ armRebuilds = archRebuilds "aarch64-linux"
 
 outpathReport :: Set ResultLine -> Text
 outpathReport diff =
-  let tshow = show >>> T.pack
-      pkg = tshow $ V.length $ packageRebuilds diff
+  let pkg = tshow $ V.length $ packageRebuilds diff
       firstFifty = T.unlines $ V.toList $ V.take 50 $ packageRebuilds diff
       darwin = tshow $ darwinRebuilds diff
       linux = tshow $ linuxRebuilds diff
