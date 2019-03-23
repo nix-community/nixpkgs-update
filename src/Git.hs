@@ -23,26 +23,37 @@ import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Shell
 import Shelly
 import System.Directory (getHomeDirectory, getModificationTime)
+import System.Process.Typed
 import Utils (Options(..), UpdateEnv(..), branchName)
 
 default (T.Text)
 
 clean :: MonadIO m => m ()
-clean = shelly $ cmd "git" "clean" "-fdx"
+clean = runProcess_ "git clean -fdx"
+
+checkout :: MonadIO m => Text -> Text -> m ()
+checkout branch target =
+  runProcess_ (proc "git" ["checkout", "-B", T.unpack branch, T.unpack target])
+
+reset :: MonadIO m => Text -> m ()
+reset target = runProcess_ (proc "git" ["reset", "--hard", T.unpack target])
+
+delete :: Text -> ProcessConfig () () ()
+delete branch = proc "git" ["branch", "-D", T.unpack branch]
 
 cleanAndResetTo :: MonadIO m => Text -> m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
-   in do _ <- shelly $ cmd "git" "reset" "--hard"
+   in do runProcess_ "git reset --hard"
          clean
-         _ <- shelly $ cmd "git" "checkout" "-B" branch target
-         _ <- shelly $ cmd "git" "reset" "--hard" target
+         checkout branch target
+         reset target
          clean
 
 cleanup :: MonadIO m => Text -> m ()
 cleanup bName = do
   cleanAndResetTo "master"
-  shelly $ Shell.canFail $ cmd "git" "branch" "-D" bName
+  void $ runProcess (delete bName)
 
 showRef :: MonadIO m => Text -> m Text
 showRef ref = shelly $ cmd "git" "show-ref" ref
@@ -59,11 +70,10 @@ staleFetchHead =
 fetchIfStale :: MonadIO m => m ()
 fetchIfStale = whenM staleFetchHead fetch
 
+-- Using void and runProcess because if this fails we want to keep
+-- going
 fetch :: MonadIO m => m ()
-fetch =
-  shelly $
-  Shell.canFail $
-  cmd "git" "fetch" "-q" "--prune" "--multiple" "upstream" "origin"
+fetch = void $ runProcess "git fetch -q --prune --multiple upstream origin"
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =

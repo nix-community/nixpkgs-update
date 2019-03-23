@@ -79,8 +79,8 @@ updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsCo
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
-      liftIO $ Git.cleanup (branchName updateEnv)
       log $ "FAIL " <> failure
+      liftIO $ Git.cleanup (branchName updateEnv)
       if ".0" `T.isSuffixOf` newVer
         then let Just newNewVersion = ".0" `T.stripSuffix` newVer
               in updateLoop
