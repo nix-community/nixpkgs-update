@@ -55,7 +55,8 @@ deleteOrigin branch =
 cleanAndResetTo :: MonadIO m => Text -> m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
-   in do runProcess_ $
+   in do waitForNoLock
+         runProcess_ $
            setStdin closed $
            setStdout closed $ setStderr closed $ "git reset --hard"
          waitForNoLock
