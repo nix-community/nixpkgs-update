@@ -224,9 +224,9 @@ getHashFromBuild =
          throwE "Build succeeded unexpectedly. "
        let firstSplit = T.splitOn "with sha256 hash '" stderr
        firstSplitSecondPart <-
-         tryAt "stdout did not split as expected" firstSplit 1
+         tryAt "stdout did not split as expected " firstSplit 1
        let secondSplit =
              T.splitOn
                "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"
                firstSplitSecondPart
-       tryHead "stdout did not split second part as expected" secondSplit)
+       tryHead "stdout did not split second part as expected " secondSplit)
