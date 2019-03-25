@@ -70,6 +70,7 @@ main = do
   setupNixpkgs options
   setEnv "PAGER" "" True
   setEnv "GITHUB_TOKEN" (T.unpack (githubToken options)) True
+  setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options updates

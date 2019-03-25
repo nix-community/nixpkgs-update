@@ -37,7 +37,7 @@ import qualified Data.Text.Encoding as T
 import Data.Vector (Vector)
 import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
-import System.Process.Typed
+import System.Process.Typed hiding (setEnv)
 
 interpolate :: QuasiQuoter
 interpolate = NeatInterpolation.text
@@ -46,7 +46,7 @@ tshow :: Show a => a -> Text
 tshow = show >>> pack
 
 tryIOTextET :: MonadIO m => IO a -> ExceptT Text m a
-tryIOTextET = tryIO >>> fmapLT tshow
+tryIOTextET = syncIO >>> fmapLT tshow
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM c a = c >>= \res -> when res a

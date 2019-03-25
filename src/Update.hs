@@ -126,7 +126,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     mergeBaseOutpathSet <-
       if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
         then do
-          mbos <- ExceptT currentOutpathSet
+          mbos <- currentOutpathSet
           now <- liftIO getCurrentTime
           liftIO $
             writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
@@ -147,7 +147,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
                -- throwE "Could not get new hash. "
     tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
     lift $ File.replace Nix.sha256Zero newHash derivationFile
-    editedOutpathSet <- ExceptT currentOutpathSet
+    editedOutpathSet <- currentOutpathSet
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
     Blacklist.python numPRebuilds derivationContents
