@@ -23,4 +23,5 @@ deleteDone o = do
   case result of
     Left e -> T.putStrLn e
     Right refs ->
-      V.sequence_ (fmap (\r -> Git.deleteBranch ("auto-update/" <> r)) refs)
+      V.sequence_
+        (fmap (\r -> Git.deleteBranchEverywhere ("auto-update/" <> r)) refs)

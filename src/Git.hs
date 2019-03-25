@@ -1,6 +1,4 @@
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Git
   ( cleanAndResetTo
@@ -12,51 +10,68 @@ module Git
   , checkAutoUpdateBranchDoesntExist
   , commit
   , headHash
-  , deleteBranch
-  , showRef
+  , deleteBranchEverywhere
   ) where
 
 import OurPrelude
 
+import Control.Concurrent
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
-import qualified Shell
-import Shelly
 import System.Directory (getHomeDirectory, getModificationTime)
+import System.Posix.Files (fileExist)
 import System.Process.Typed
 import Utils (Options(..), UpdateEnv(..), branchName)
 
-default (T.Text)
+clean :: ProcessConfig () () ()
+clean = setStdin closed $ setStdout closed $ setStderr closed $ "git clean -fdx"
 
-clean :: MonadIO m => m ()
-clean = runProcess_ "git clean -fdx"
-
-checkout :: MonadIO m => Text -> Text -> m ()
+checkout :: Text -> Text -> ProcessConfig () () ()
 checkout branch target =
-  runProcess_ (proc "git" ["checkout", "-B", T.unpack branch, T.unpack target])
+  setStdin closed $
+  setStdout closed $
+  setStderr closed $
+  proc "git" ["checkout", "-B", T.unpack branch, T.unpack target]
 
-reset :: MonadIO m => Text -> m ()
-reset target = runProcess_ (proc "git" ["reset", "--hard", T.unpack target])
+reset :: Text -> ProcessConfig () () ()
+reset target =
+  setStdin closed $
+  setStdout closed $
+  setStderr closed $ proc "git" ["reset", "--hard", T.unpack target]
 
 delete :: Text -> ProcessConfig () () ()
-delete branch = proc "git" ["branch", "-D", T.unpack branch]
+delete branch =
+  setStdin closed $
+  setStdout closed $
+  setStderr closed $ proc "git" ["branch", "-D", T.unpack branch]
+
+deleteOrigin :: Text -> ProcessConfig () () ()
+deleteOrigin branch =
+  setStdin closed $
+  setStdout closed $
+  setStderr closed $ proc "git" ["push", "origin", T.unpack (":" <> branch)]
 
 cleanAndResetTo :: MonadIO m => Text -> m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
-   in do runProcess_ "git reset --hard"
-         clean
-         checkout branch target
-         reset target
-         clean
+   in do runProcess_ $
+           setStdin closed $
+           setStdout closed $ setStderr closed $ "git reset --hard"
+         waitForNoLock
+         runProcess_ clean
+         waitForNoLock
+         runProcess_ $ checkout branch target
+         waitForNoLock
+         runProcess_ $ reset target
+         waitForNoLock
+         runProcess_ clean
 
 cleanup :: MonadIO m => Text -> m ()
 cleanup bName = do
+  liftIO $ T.putStrLn ("Cleaning up " <> bName)
   cleanAndResetTo "master"
   void $ runProcess (delete bName)
-
-showRef :: MonadIO m => Text -> m Text
-showRef ref = shelly $ cmd "git" "show-ref" ref
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -73,41 +88,60 @@ fetchIfStale = whenM staleFetchHead fetch
 -- Using void and runProcess because if this fails we want to keep
 -- going
 fetch :: MonadIO m => m ()
-fetch = void $ runProcess "git fetch -q --prune --multiple upstream origin"
+fetch =
+  void $
+  runProcess $
+  setStdin closed $
+  setStdout closed $
+  setStderr closed $ "git fetch -q --prune --multiple upstream origin"
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
-  Shell.shellyET $
-  run_
-    "git"
-    (["push", "--force", "--set-upstream", "origin", branchName updateEnv] ++
-     ["--dry-run" | dryRun (options updateEnv)])
+  runProcess_
+    (proc
+       "git"
+       ([ "push"
+        , "--force"
+        , "--set-upstream"
+        , "origin"
+        , T.unpack (branchName updateEnv)
+        ] ++
+        ["--dry-run" | dryRun (options updateEnv)])) &
+  tryIOTextET
 
 checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
 checkoutAtMergeBase bName = do
+  waitForNoLock
   base <-
-    T.strip <$>
-    Shell.shellyET (cmd "git" "merge-base" "upstream/master" "upstream/staging")
-  Shell.shellyET $ cmd "git" "checkout" "-B" bName base
+    ourReadProcessInterleaved_ "git merge-base upstream/master upstream/staging" &
+    fmapRT T.strip
+  waitForNoLock
+  runProcess_ (checkout bName base) & tryIOTextET
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do
   remoteBranches <-
-    lift $
-    map T.strip . T.lines <$> shelly (silently $ cmd "git" "branch" "--remote")
+    ourReadProcessInterleaved_ "git branch --remote" &
+    fmapRT (T.lines >>> fmap T.strip)
   when
     (("origin/auto-update/" <> pName) `elem` remoteBranches)
-    (throwE "Update branch already on origin.")
+    (throwE "Update branch already on origin. ")
 
 commit :: MonadIO m => Text -> ExceptT Text m ()
-commit ref = Shell.shellyET $ cmd "git" "commit" "-am" ref
+commit ref =
+  (runProcess_ (proc "git" ["commit", "-am", T.unpack ref])) & tryIOTextET
 
 headHash :: MonadIO m => ExceptT Text m Text
-headHash = Shell.shellyET $ cmd "git" "rev-parse" "HEAD"
+headHash = ourReadProcessInterleaved_ "git rev-parse HEAD"
 
-deleteBranch :: MonadIO m => Text -> m ()
-deleteBranch bName =
-  shelly $
-  Shell.canFail $ do
-    _ <- cmd "git" "branch" "-D" bName
-    cmd "git" "push" "origin" (":" <> bName)
+deleteBranchEverywhere :: MonadIO m => Text -> m ()
+deleteBranchEverywhere bName = do
+  void $ runProcess (delete bName)
+  void $ runProcess (deleteOrigin bName)
+
+waitForNoLock :: MonadIO m => m ()
+waitForNoLock = do
+  liftIO $
+    whenM (fileExist ".git/index.lock") $ do
+      threadDelay 10000
+      waitForNoLock

@@ -28,6 +28,7 @@ dependencies:
   - shelly
   - typed-process
   - text
+  - bytestring
   - time >= 1.8 && < 1.10
   - errors
   - mtl

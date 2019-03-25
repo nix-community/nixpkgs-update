@@ -43,7 +43,7 @@ nixEvalET :: MonadIO m => Raw -> Text -> ExceptT Text m Text
 nixEvalET raw expr =
   run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) & fmap T.strip &
   Shell.shellyET &
-  overwriteErrorT ("nix eval failed for " <> expr)
+  overwriteErrorT ("nix eval failed for " <> expr <> " ")
 
 -- Error if the "new version" is actually newer according to nix
 assertNewerVersion :: MonadIO m => UpdateEnv -> ExceptT Text m ()
@@ -60,7 +60,8 @@ assertNewerVersion updateEnv = do
       throwE
         (newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
          " according to Nix; versionComparison: " <>
-         a)
+         a <>
+         " ")
 
 -- This is extremely slow but gives us the best results we know of
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
@@ -77,14 +78,14 @@ lookupAttrPath updateEnv =
     "{ allowBroken = true; allowUnfree = true; allowAliases = false; }" &
   fmap (T.lines >>> head >>> T.words >>> head) &
   Shell.shellyET &
-  overwriteErrorT "nix-env -q failed to find package name with old version"
+  overwriteErrorT "nix-env -q failed to find package name with old version "
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
   cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
   fmap T.unpack &
   Shell.shellyET &
-  overwriteErrorT "Couldn't find derivation file."
+  overwriteErrorT "Couldn't find derivation file. "
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash =
@@ -113,7 +114,7 @@ readNixBool t = do
   case text of
     "true" -> return True
     "false" -> return False
-    a -> throwE ("Failed to read expected nix boolean " <> a)
+    a -> throwE ("Failed to read expected nix boolean " <> a <> " ")
 
 getIsBroken :: MonadIO m => Text -> ExceptT Text m Bool
 getIsBroken attrPath =
@@ -168,13 +169,13 @@ build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
   (buildCmd attrPath & Shell.shellyET) <|>
   (do _ <- buildFailedLog
-      throwE "nix log failed trying to get build logs")
+      throwE "nix log failed trying to get build logs ")
   where
     buildFailedLog = do
       buildLog <-
         cmd "nix" "log" "-f" "." attrPath & Shell.shellyET &
         fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
-      throwE ("nix build failed.\n" <> buildLog)
+      throwE ("nix build failed.\n" <> buildLog <> " ")
 
 cachix :: MonadIO m => FilePath -> m ()
 cachix resultPath =
@@ -208,7 +209,7 @@ resultLink =
   (T.strip >>> T.unpack) <$> do
     Shell.shellyET (cmd "readlink" "./result") <|>
       Shell.shellyET (cmd "readlink" "./result-bin") <|>
-      throwE "Could not find result link."
+      throwE "Could not find result link. "
 
 sha256Zero :: Text
 sha256Zero = "0000000000000000000000000000000000000000000000000000"
@@ -220,7 +221,7 @@ getHashFromBuild =
     (\attrPath -> do
        stderr <-
          (ExceptT $ Shell.shRE (buildCmd attrPath)) <|>
-         throwE "Build succeeded unexpectedly"
+         throwE "Build succeeded unexpectedly. "
        let firstSplit = T.splitOn "with sha256 hash '" stderr
        firstSplitSecondPart <-
          tryAt "stdout did not split as expected" firstSplit 1

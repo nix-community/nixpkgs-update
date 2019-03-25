@@ -12,7 +12,7 @@ import Control.Applicative (some)
 import qualified Data.Text as T
 import qualified File
 import qualified Shell
-import Shelly hiding (FilePath)
+import Shelly hiding (FilePath, whenM)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text (RE', (=~))
 import Utils (UpdateEnv(..), Version)
