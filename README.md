@@ -69,18 +69,23 @@ test a package with one command.
 
 # Instructions
 
-1. Clone this repo and build the tool:
+1. Clone this repo:
     ```
     git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
-    nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --shell . > shell.nix && nix-build shell.nix
     ```
 2. Get a list of oudated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
     ```
     git clone https://github.com/ryantm/repology-api.git && cd repology-api
     nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > ../packages-to-update.txt
     ```
-3. Return back `cd ..` and run the tool `nix run -f '<nixpkgs>' gitAndTools.hub gist jq tree -c result/bin/nixpkgs-update --update`
+3. Return back `cd ..` and run the tool `nix-shell --run "nixpkgs-update --update"`
 
+
+# Adding new dependencies / updating Cabal file
+
+```
+nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
+```
 
 # Prior work
 
