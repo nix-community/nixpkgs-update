@@ -87,6 +87,15 @@ test a package with one command.
 nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
 ```
 
+# Development tips
+
+Run a type checker in the background for quicker type checking feedback:
+
+```
+nix-shell --run ghcid
+```
+
+
 # Prior work
 
 * https://github.com/NixOS/nixpkgs/blob/master/pkgs/common-updater/scripts/update-source-version
