@@ -60,7 +60,7 @@ cleanup bName = do
   liftIO $ T.putStrLn ("Cleaning up " <> bName)
   cleanAndResetTo "master"
   runProcessNoIndexIssue_ (delete bName) <|>
-    (liftIO $ T.putStrLn ("Couldn't delete " <> bName))
+    liftIO (T.putStrLn ("Couldn't delete " <> bName))
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -80,7 +80,7 @@ fetch =
   silently "git fetch -q --prune --multiple upstream origin"
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
-push updateEnv = do
+push updateEnv =
   runProcessNoIndexIssue_
     (proc
        "git"
@@ -129,7 +129,7 @@ runProcessNoIndexIssue_ config = tryIOTextET go
       (code, out, e) <- readProcess config
       case code of
         ExitFailure 128
-          | "index.lock" `BS.isInfixOf` (BSL.toStrict e) -> do
+          | "index.lock" `BS.isInfixOf` BSL.toStrict e -> do
             threadDelay 100000
             go
         ExitSuccess -> return ()
@@ -143,7 +143,7 @@ readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
       (code, out) <- readProcessInterleaved config
       case code of
         ExitFailure 128
-          | "index.lock" `BS.isInfixOf` (BSL.toStrict out) -> do
+          | "index.lock" `BS.isInfixOf` BSL.toStrict out -> do
             threadDelay 100000
             go
         ExitSuccess -> return $ (BSL.toStrict >>> T.decodeUtf8) out
