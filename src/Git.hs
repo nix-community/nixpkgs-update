@@ -16,63 +16,51 @@ module Git
 import OurPrelude
 
 import Control.Concurrent
+
+import Control.Exception
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import System.Directory (getHomeDirectory, getModificationTime)
-import System.Posix.Files (fileExist)
+import System.Exit
 import System.Process.Typed
 import Utils (Options(..), UpdateEnv(..), branchName)
 
 clean :: ProcessConfig () () ()
-clean = setStdin closed $ setStdout closed $ setStderr closed $ "git clean -fdx"
+clean = silently "git clean -fdx"
 
 checkout :: Text -> Text -> ProcessConfig () () ()
 checkout branch target =
-  setStdin closed $
-  setStdout closed $
-  setStderr closed $
-  proc "git" ["checkout", "-B", T.unpack branch, T.unpack target]
+  silently $ proc "git" ["checkout", "-B", T.unpack branch, T.unpack target]
 
 reset :: Text -> ProcessConfig () () ()
-reset target =
-  setStdin closed $
-  setStdout closed $
-  setStderr closed $ proc "git" ["reset", "--hard", T.unpack target]
+reset target = silently $ proc "git" ["reset", "--hard", T.unpack target]
 
 delete :: Text -> ProcessConfig () () ()
-delete branch =
-  setStdin closed $
-  setStdout closed $
-  setStderr closed $ proc "git" ["branch", "-D", T.unpack branch]
+delete branch = silently $ proc "git" ["branch", "-D", T.unpack branch]
 
 deleteOrigin :: Text -> ProcessConfig () () ()
 deleteOrigin branch =
-  setStdin closed $
-  setStdout closed $
-  setStderr closed $ proc "git" ["push", "origin", T.unpack (":" <> branch)]
+  silently $ proc "git" ["push", "origin", T.unpack (":" <> branch)]
 
-cleanAndResetTo :: MonadIO m => Text -> m ()
+cleanAndResetTo :: MonadIO m => Text -> ExceptT Text m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
-   in do waitForNoLock
-         runProcess_ $
-           setStdin closed $
-           setStdout closed $ setStderr closed $ "git reset --hard"
-         waitForNoLock
-         runProcess_ clean
-         waitForNoLock
-         runProcess_ $ checkout branch target
-         waitForNoLock
-         runProcess_ $ reset target
-         waitForNoLock
-         runProcess_ clean
+   in do runProcessNoIndexIssue_ $ silently "git reset --hard"
+         runProcessNoIndexIssue_ clean
+         runProcessNoIndexIssue_ $ checkout branch target
+         runProcessNoIndexIssue_ $ reset target
+         runProcessNoIndexIssue_ clean
 
-cleanup :: MonadIO m => Text -> m ()
+cleanup :: MonadIO m => Text -> ExceptT Text m ()
 cleanup bName = do
   liftIO $ T.putStrLn ("Cleaning up " <> bName)
   cleanAndResetTo "master"
-  void $ runProcess (delete bName)
+  runProcessNoIndexIssue_ (delete bName) <|>
+    (liftIO $ T.putStrLn ("Couldn't delete " <> bName))
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -83,22 +71,17 @@ staleFetchHead =
     fetchedLast <- getModificationTime fetchHead
     return (fetchedLast < oneHourAgo)
 
-fetchIfStale :: MonadIO m => m ()
+fetchIfStale :: MonadIO m => ExceptT Text m ()
 fetchIfStale = whenM staleFetchHead fetch
 
--- Using void and runProcess because if this fails we want to keep
--- going
-fetch :: MonadIO m => m ()
+fetch :: MonadIO m => ExceptT Text m ()
 fetch =
-  void $
-  runProcess $
-  setStdin closed $
-  setStdout closed $
-  setStderr closed $ "git fetch -q --prune --multiple upstream origin"
+  runProcessNoIndexIssue_ $
+  silently "git fetch -q --prune --multiple upstream origin"
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
-push updateEnv =
-  runProcess_
+push updateEnv = do
+  runProcessNoIndexIssue_
     (proc
        "git"
        ([ "push"
@@ -107,22 +90,20 @@ push updateEnv =
         , "origin"
         , T.unpack (branchName updateEnv)
         ] ++
-        ["--dry-run" | dryRun (options updateEnv)])) &
-  tryIOTextET
+        ["--dry-run" | dryRun (options updateEnv)]))
 
 checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
 checkoutAtMergeBase bName = do
-  waitForNoLock
   base <-
-    ourReadProcessInterleaved_ "git merge-base upstream/master upstream/staging" &
+    readProcessInterleavedNoIndexIssue_
+      "git merge-base upstream/master upstream/staging" &
     fmapRT T.strip
-  waitForNoLock
-  runProcess_ (checkout bName base) & tryIOTextET
+  runProcessNoIndexIssue_ (checkout bName base)
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do
   remoteBranches <-
-    ourReadProcessInterleaved_ "git branch --remote" &
+    readProcessInterleavedNoIndexIssue_ "git branch --remote" &
     fmapRT (T.lines >>> fmap T.strip)
   when
     (("origin/auto-update/" <> pName) `elem` remoteBranches)
@@ -130,19 +111,40 @@ checkAutoUpdateBranchDoesntExist pName = do
 
 commit :: MonadIO m => Text -> ExceptT Text m ()
 commit ref =
-  (runProcess_ (proc "git" ["commit", "-am", T.unpack ref])) & tryIOTextET
+  runProcessNoIndexIssue_ (proc "git" ["commit", "-am", T.unpack ref])
 
 headHash :: MonadIO m => ExceptT Text m Text
-headHash = ourReadProcessInterleaved_ "git rev-parse HEAD"
+headHash = readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
 
-deleteBranchEverywhere :: MonadIO m => Text -> m ()
+deleteBranchEverywhere :: MonadIO m => Text -> ExceptT Text m ()
 deleteBranchEverywhere bName = do
-  void $ runProcess (delete bName)
-  void $ runProcess (deleteOrigin bName)
+  runProcessNoIndexIssue_ $ delete bName
+  runProcessNoIndexIssue_ $ deleteOrigin bName
 
-waitForNoLock :: MonadIO m => m ()
-waitForNoLock = do
-  liftIO $
-    whenM (fileExist ".git/index.lock") $ do
-      threadDelay 10000
-      waitForNoLock
+runProcessNoIndexIssue_ ::
+     MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
+runProcessNoIndexIssue_ config = tryIOTextET go
+  where
+    go = do
+      (code, out, e) <- readProcess config
+      case code of
+        ExitFailure 128
+          | "index.lock" `BS.isInfixOf` (BSL.toStrict e) -> do
+            threadDelay 100000
+            go
+        ExitSuccess -> return ()
+        ExitFailure _ -> throw $ ExitCodeException code config out e
+
+readProcessInterleavedNoIndexIssue_ ::
+     MonadIO m => ProcessConfig () () () -> ExceptT Text m Text
+readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
+  where
+    go = do
+      (code, out) <- readProcessInterleaved config
+      case code of
+        ExitFailure 128
+          | "index.lock" `BS.isInfixOf` (BSL.toStrict out) -> do
+            threadDelay 100000
+            go
+        ExitSuccess -> return $ (BSL.toStrict >>> T.decodeUtf8) out
+        ExitFailure _ -> throw $ ExitCodeException code config out out

@@ -1,8 +1,5 @@
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Outpaths
   ( currentOutpathSet
@@ -21,8 +18,6 @@ import System.Process.Typed
 import Text.Parsec (parse)
 import Text.Parser.Char
 import Text.Parser.Combinators
-
-default (Text)
 
 -- outPathsExpr :: Text
 -- outPathsExpr =
@@ -75,11 +70,9 @@ default (Text)
 outPath :: MonadIO m => ExceptT Text m Text
 outPath = do
   liftIO $ putStrLn "Fetching outpaths.nix..."
-  (runProcess_ $
-   setStdin closed $
-   setStdout closed $
-   setStderr closed $
-   "curl -o outpaths.nix https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix") &
+  runProcess_
+    (silently
+       "curl -o outpaths.nix https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix") &
     tryIOTextET
   liftIO $ putStrLn "Evaluating outpaths..."
   ourReadProcessInterleaved_

@@ -19,25 +19,11 @@ import qualified Data.Text as T
 import Shelly.Lifted
 import Utils
 
--- | Set environment variables needed by various programs
-setUpEnvironment :: Options -> Sh ()
-setUpEnvironment o = do
-  setenv "PAGER" ""
-  setenv "GITHUB_TOKEN" (githubToken o)
-
 ourSilentShell :: Options -> Sh a -> IO a
-ourSilentShell o s =
-  shelly $
-  silently $ do
-    setUpEnvironment o
-    s
+ourSilentShell _ s = shelly $ Shelly.Lifted.silently s
 
 ourShell :: MonadIO m => Options -> Sh a -> m a
-ourShell o s =
-  shelly $
-  verbosely $ do
-    setUpEnvironment o
-    s
+ourShell _ s = shelly $ verbosely s
 
 shE :: Sh a -> Sh (Either Text a)
 shE s =

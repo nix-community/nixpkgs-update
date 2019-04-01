@@ -28,21 +28,23 @@ import OurPrelude
 import Control.Monad (void)
 import qualified Data.Text as T
 import qualified Shell
-import Shelly.Lifted (MonadSh, cmd, run, setStdin, shelly)
+import Shelly.Lifted (MonadSh, cmd, setStdin, shelly)
+import System.Process.Typed
 import Utils (UpdateEnv(..), overwriteErrorT, srcOrMain)
 
 data Raw
   = Raw
   | NoRaw
 
-rawOpt :: Raw -> [Text]
+rawOpt :: Raw -> [String]
 rawOpt Raw = ["--raw"]
 rawOpt NoRaw = []
 
 nixEvalET :: MonadIO m => Raw -> Text -> ExceptT Text m Text
 nixEvalET raw expr =
-  run "nix" (["eval", "-f", "."] <> rawOpt raw <> [expr]) & fmap T.strip &
-  Shell.shellyET &
+  ourReadProcessInterleaved_
+    (proc "nix" (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])) &
+  fmapRT T.strip &
   overwriteErrorT ("nix eval failed for " <> expr <> " ")
 
 -- Error if the "new version" is actually newer according to nix
@@ -180,7 +182,7 @@ build attrPath =
 cachix :: MonadIO m => FilePath -> m ()
 cachix resultPath =
   shelly $ do
-    setStdin (T.pack resultPath)
+    Shelly.Lifted.setStdin (T.pack resultPath)
     void $ Shell.shE $ cmd "cachix" "push" "r-ryantm"
 
 numberOfFetchers :: Text -> Int

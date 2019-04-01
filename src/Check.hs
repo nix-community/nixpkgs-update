@@ -105,7 +105,7 @@ result updateEnv resultPath =
         let addToReport input = appendfile shellyLogFile (input <> "\n")
         tempdir <- fromText . T.strip <$> cmd "mktemp" "-d"
         chdir tempdir $ do
-          rm_f (shellyLogFile)
+          rm_f shellyLogFile
           let binaryDir = shellyResultPath </> "/bin"
           binExists <- test_d binaryDir
           binaries <-

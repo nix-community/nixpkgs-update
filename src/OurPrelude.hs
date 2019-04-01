@@ -19,6 +19,7 @@ module OurPrelude
   , whenM
   , ourReadProcessInterleaved_
   , runProcess
+  , silently
   ) where
 
 import Control.Applicative ((<|>))
@@ -58,3 +59,6 @@ ourReadProcessInterleaved_ ::
 ourReadProcessInterleaved_ processConfig =
   readProcessInterleaved_ processConfig & tryIOTextET &
   fmapRT (BSL.toStrict >>> T.decodeUtf8)
+
+silently :: ProcessConfig stdin stdout stderr -> ProcessConfig () () ()
+silently t = setStdin closed $ setStdout closed $ setStderr closed t

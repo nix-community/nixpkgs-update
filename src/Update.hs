@@ -80,15 +80,18 @@ updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsCo
   case updated of
     Left failure -> do
       log $ "FAIL " <> failure
-      liftIO $ Git.cleanup (branchName updateEnv)
-      if ".0" `T.isSuffixOf` newVer
-        then let Just newNewVersion = ".0" `T.stripSuffix` newVer
-              in updateLoop
-                   o
-                   log
-                   (Right (pName, oldVer, newNewVersion) : moreUpdates)
-                   mergeBaseOutpathsContext
-        else updateLoop o log moreUpdates mergeBaseOutpathsContext
+      cleanupResult <- runExceptT $ Git.cleanup (branchName updateEnv)
+      case cleanupResult of
+        Left e -> liftIO $ print e
+        _ ->
+          if ".0" `T.isSuffixOf` newVer
+            then let Just newNewVersion = ".0" `T.stripSuffix` newVer
+                  in updateLoop
+                       o
+                       log
+                       (Right (pName, oldVer, newNewVersion) : moreUpdates)
+                       mergeBaseOutpathsContext
+            else updateLoop o log moreUpdates mergeBaseOutpathsContext
     Right _ -> do
       log "SUCCESS"
       updateLoop o log moreUpdates mergeBaseOutpathsContext
@@ -107,7 +110,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
     Nix.assertNewerVersion updateEnv
-    Git.fetchIfStale
+    Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
     attrPath <- Nix.lookupAttrPath updateEnv
@@ -214,7 +217,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
          maintainersCc
          result
          (outpathReport opDiff))
-  liftIO $ Git.cleanAndResetTo "master"
+  Git.cleanAndResetTo "master"
 
 repologyUrl :: UpdateEnv -> Text
 repologyUrl updateEnv =
