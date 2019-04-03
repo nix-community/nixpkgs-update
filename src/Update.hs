@@ -154,6 +154,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
     Blacklist.python numPRebuilds derivationContents
+    when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
     result <- Nix.resultLink
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
