@@ -88,9 +88,6 @@ nameList =
   , eq "isl" "multi-version long building package"
   , infixOf "qscintilla" "https://github.com/ryantm/nixpkgs-update/issues/51"
   , eq "itstool" "https://github.com/NixOS/nixpkgs/pull/41339"
-  , eq
-      "wire-desktop"
-      "nixpkgs-update cannot handle this derivation https://github.com/NixOS/nixpkgs/pull/42936#issuecomment-402282692"
   , infixOf
       "virtualbox"
       "nixpkgs-update cannot handle updating the guest additions https://github.com/NixOS/nixpkgs/pull/42934"
