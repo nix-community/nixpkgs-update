@@ -118,8 +118,10 @@ headHash = readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
 
 deleteBranchEverywhere :: MonadIO m => Text -> ExceptT Text m ()
 deleteBranchEverywhere bName = do
-  runProcessNoIndexIssue_ $ delete bName
-  runProcessNoIndexIssue_ $ deleteOrigin bName
+  (runProcessNoIndexIssue_ $ delete bName) <|>
+    liftIO (T.putStrLn ("Couldn't delete " <> bName))
+  (runProcessNoIndexIssue_ $ deleteOrigin bName) <|>
+    liftIO (T.putStrLn ("Couldn't delete " <> bName <> " on origin"))
 
 runProcessNoIndexIssue_ ::
      MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
