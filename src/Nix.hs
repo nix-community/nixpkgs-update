@@ -13,6 +13,8 @@ module Nix
   , getSrcUrl
   , getSrcUrls
   , getIsBroken
+  , getOutpaths
+  , parseStringList
   , build
   , getDescription
   , cachix
@@ -27,9 +29,13 @@ import OurPrelude
 
 import Control.Monad (void)
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import qualified Shell
 import Shelly.Lifted (MonadSh, cmd, setStdin, shelly)
 import System.Process.Typed
+import Text.Parsec (parse)
+import Text.Parser.Combinators
+import Text.Parser.Token
 import Utils (UpdateEnv(..), overwriteErrorT, srcOrMain)
 
 data Raw
@@ -110,6 +116,20 @@ getMaintainers attrPath =
      ".meta.maintainers or []))))") &
   overwriteErrorT ("Could not fetch maintainers for" <> attrPath)
 
+parseStringList :: MonadIO m => Text -> ExceptT Text m (Vector Text)
+parseStringList list =
+  parse nixStringList ("nix list " ++ T.unpack list) list & fmapL tshow &
+  hoistEither
+
+nixStringList :: TokenParsing m => m (Vector Text)
+nixStringList = V.fromList <$> brackets (many stringLiteral)
+
+getOutpaths :: MonadIO m => Text -> ExceptT Text m (Vector Text)
+getOutpaths attrPath = do
+  list <- nixEvalET NoRaw (attrPath <> ".outputs")
+  outputs <- parseStringList list
+  V.sequence $ fmap (\o -> nixEvalET Raw (attrPath <> "." <> o)) outputs
+
 readNixBool :: MonadIO m => ExceptT Text m Text -> ExceptT Text m Bool
 readNixBool t = do
   text <- t
@@ -187,9 +207,9 @@ cachix resultPath =
 
 numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =
-  count "fetchurl {" + count "fetchgit {" + count "fetchFromGitHub {"
+  countUp "fetchurl {" + countUp "fetchgit {" + countUp "fetchFromGitHub {"
   where
-    count x = T.count x derivationContents
+    countUp x = T.count x derivationContents
 
 assertOneOrFewerFetcher :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
 assertOneOrFewerFetcher derivationContents derivationFile =
