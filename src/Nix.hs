@@ -31,7 +31,8 @@ import Control.Monad (void)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Shell
-import Shelly.Lifted (MonadSh, cmd, setStdin, shelly)
+import Shelly.Lifted (cmd, setStdin, shelly)
+import System.Exit
 import System.Process.Typed
 import Text.Parsec (parse)
 import Text.Parser.Combinators
@@ -74,25 +75,26 @@ assertNewerVersion updateEnv = do
 -- This is extremely slow but gives us the best results we know of
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
-  cmd
+  proc
     "nix-env"
-    "-qa"
-    (packageName updateEnv <> "-" <> oldVersion updateEnv)
-    "-f"
-    "."
-    "--attr-path"
-    "--arg"
-    "config"
-    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }" &
-  fmap (T.lines >>> head >>> T.words >>> head) &
-  Shell.shellyET &
+    [ "-qa"
+    , (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack
+    , "-f"
+    , "."
+    , "--attr-path"
+    , "--arg"
+    , "config"
+    , "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
+    ] &
+  ourReadProcessInterleaved_ &
+  fmapRT (T.lines >>> head >>> T.words >>> head) &
   overwriteErrorT "nix-env -q failed to find package name with old version "
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
-  cmd "env" "EDITOR=echo" "nix" "edit" attrPath "-f" "." & fmap T.strip &
-  fmap T.unpack &
-  Shell.shellyET &
+  proc "env" ["EDITOR=echo", "nix", "edit", attrPath & T.unpack, "-f", "."] &
+  ourReadProcessInterleaved_ &
+  fmapRT (T.strip >>> T.unpack) &
   overwriteErrorT "Couldn't find derivation file. "
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
@@ -171,25 +173,27 @@ getSrcAttr attr =
 getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrls = getSrcAttr "urls"
 
-buildCmd :: MonadSh m => Text -> m ()
+buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
-  cmd
+  silently $
+  proc
     "nix-build"
-    "--option"
-    "sandbox"
-    "true"
-    "--option"
-    "restrict-eval"
-    "true"
-    "--arg"
-    "config"
-    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
-    "-A"
-    attrPath
+    [ "--option"
+    , "sandbox"
+    , "true"
+    , "--option"
+    , "restrict-eval"
+    , "true"
+    , "--arg"
+    , "config"
+    , "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
+    , "-A"
+    , attrPath & T.unpack
+    ]
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
-  (buildCmd attrPath & Shell.shellyET) <|>
+  (buildCmd attrPath & runProcess_ & tryIOTextET) <|>
   (do _ <- buildFailedLog
       throwE "nix log failed trying to get build logs ")
   where
@@ -241,14 +245,13 @@ getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
 getHashFromBuild =
   srcOrMain
     (\attrPath -> do
-       stderr <-
-         (ExceptT $ Shell.shRE (buildCmd attrPath)) <|>
-         throwE "Build succeeded unexpectedly. "
-       let firstSplit = T.splitOn "with sha256 hash '" stderr
+       (exitCode, _, stderr) <- buildCmd attrPath & readProcess
+       when (exitCode == ExitSuccess) $ throwE "build succeeded unexpectedly"
+       let firstSplit = T.splitOn "with sha256 hash '" (bytestringToText stderr)
        firstSplitSecondPart <-
-         tryAt "stdout did not split as expected " firstSplit 1
+         tryAt "stderr did not split as expected " firstSplit 1
        let secondSplit =
              T.splitOn
                "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"
                firstSplitSecondPart
-       tryHead "stdout did not split second part as expected " secondSplit)
+       tryHead "stderr did not split second part as expected " secondSplit)

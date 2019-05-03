@@ -20,6 +20,7 @@ module OurPrelude
   , ourReadProcessInterleaved_
   , runProcess
   , silently
+  , bytestringToText
   ) where
 
 import Control.Applicative ((<|>))
@@ -52,13 +53,15 @@ tryIOTextET = syncIO >>> fmapLT tshow
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM c a = c >>= \res -> when res a
 
+bytestringToText :: BSL.ByteString -> Text
+bytestringToText = BSL.toStrict >>> T.decodeUtf8
+
 ourReadProcessInterleaved_ ::
      MonadIO m
   => ProcessConfig stdin stdoutIgnored stderrIgnored
   -> ExceptT Text m Text
 ourReadProcessInterleaved_ processConfig =
-  readProcessInterleaved_ processConfig & tryIOTextET &
-  fmapRT (BSL.toStrict >>> T.decodeUtf8)
+  readProcessInterleaved_ processConfig & tryIOTextET & fmapRT bytestringToText
 
 silently :: ProcessConfig stdin stdout stderr -> ProcessConfig () () ()
 silently t = setStdin closed $ setStdout closed $ setStderr closed t
