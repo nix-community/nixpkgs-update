@@ -112,6 +112,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Nix.assertNewerVersion updateEnv
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
+    GH.checkExistingUpdatePR updateEnv
     Git.cleanAndResetTo "master"
     attrPath <- Nix.lookupAttrPath updateEnv
     Blacklist.attrPath attrPath

@@ -1,4 +1,5 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -10,6 +11,7 @@ module GH
   , closedAutoUpdateRefs
   , openPullRequests
   , openAutoUpdatePR
+  , checkExistingUpdatePR
   ) where
 
 import OurPrelude
@@ -22,6 +24,7 @@ import GitHub
 import GitHub.Data.Name (Name(..), untagName)
 import GitHub.Endpoints.GitData.References (references')
 import GitHub.Endpoints.Repos.Releases (releaseByTagName)
+import GitHub.Endpoints.Search (searchIssues')
 import Shelly hiding (tag)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
@@ -129,6 +132,7 @@ closedAutoUpdateRefs o =
     aur :: Vector Text <- ExceptT $ autoUpdateRefs o
     ExceptT (Right <$> V.filterM (refShouldBeDeleted o) aur)
 
+-- This is too slow
 openPullRequests :: Options -> IO (Either Text (Vector SimplePullRequest))
 openPullRequests o =
   executeRequest
@@ -137,10 +141,32 @@ openPullRequests o =
   fmap (first (T.pack . show))
 
 openAutoUpdatePR :: UpdateEnv -> Vector SimplePullRequest -> Bool
-openAutoUpdatePR updateEnv openPRs = openPRs & (V.find isThisPkg >>> isJust)
+openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
   where
     isThisPkg simplePullRequest =
       let title = simplePullRequestTitle simplePullRequest
           titleHasName = (packageName updateEnv <> ":") `T.isPrefixOf` title
           titleHasNewVersion = newVersion updateEnv `T.isSuffixOf` title
        in titleHasName && titleHasNewVersion
+
+checkExistingUpdatePR :: MonadIO m => UpdateEnv -> ExceptT Text m ()
+checkExistingUpdatePR ue = do
+  searchResult <-
+    ExceptT $
+    liftIO $
+    searchIssues'
+      (Just (OAuth (T.encodeUtf8 (githubToken (options ue)))))
+      search &
+    fmap (first (T.pack . show))
+  when
+    (anyOpen searchResult)
+    (throwE "There is already an open PR for this update")
+  where
+    pn = packageName ue
+    ov = oldVersion ue
+    nv = newVersion ue
+    search = [interpolate|repo:nixos/nixpkgs $pn $ov -> $nv |]
+    anyOpen searchResult =
+      any
+        (\issue -> isNothing (issueClosedAt issue))
+        (searchResultResults searchResult)
