@@ -32,8 +32,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
-import qualified Shell
-import Shelly.Lifted (cmd)
 import System.Exit
 import System.Process.Typed
 import Text.Parsec (parse)
@@ -240,10 +238,9 @@ assertOldVersionOn updateEnv branchName contents =
 
 resultLink :: MonadIO m => ExceptT Text m Text
 resultLink =
-  T.strip <$> do
-    Shell.shellyET (cmd "readlink" "./result") <|>
-      Shell.shellyET (cmd "readlink" "./result-bin") <|>
-      throwE "Could not find result link. "
+  T.strip <$> ourReadProcessInterleaved_ "readlink ./result" <|>
+  ourReadProcessInterleaved_ "readlink ./result-bin" <|>
+  throwE "Could not find result link. "
 
 sha256Zero :: Text
 sha256Zero = "0000000000000000000000000000000000000000000000000000"
