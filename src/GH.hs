@@ -25,7 +25,6 @@ import GitHub.Data.Name (Name(..), untagName)
 import GitHub.Endpoints.GitData.References (references')
 import GitHub.Endpoints.Repos.Releases (releaseByTagName)
 import GitHub.Endpoints.Search (searchIssues')
-import Shelly hiding (tag)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
 import Utils
@@ -44,7 +43,9 @@ releaseUrl url = do
   gReleaseUrl urlParts
 
 pr :: MonadIO m => Text -> Text -> m ()
-pr base msg = shelly $ cmd "hub" "pull-request" "-b" base "-m" msg
+pr base msg =
+  runProcess_ $
+  proc "hub" ["pull-request", "-b", T.unpack base, "-m", T.unpack msg]
 
 data URLParts = URLParts
   { owner :: Name Owner
