@@ -55,8 +55,8 @@ is made against staging.
 ## Logs
 
 [Logs from r-ryantm's
-runs](https://github.com/ryantm/nixpkgs-update/issues/62) are
-available on GitHub. There are a lot of packages `nixpkgs-update`
+runs](https://discourse.nixos.org/t/nixpkgs-update-r-ryantm-logs) are
+available on Discourse. There are a lot of packages `nixpkgs-update`
 currently has no hope of updating. Please dredge the logs to find out
 why your pet package is not receiving updates.
 
