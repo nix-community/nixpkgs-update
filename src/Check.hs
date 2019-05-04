@@ -93,7 +93,7 @@ checkReport (BinaryCheck p _ _) =
 
 result :: MonadIO m => UpdateEnv -> Text -> m Text
 result updateEnv resultPath =
-  let shellyResultPath = fromText $ resultPath
+  let shellyResultPath = fromText resultPath
    in Shell.ourShell (options updateEnv) $ do
         let expectedVersion = newVersion updateEnv
         home <- get_env_text "HOME"
@@ -153,7 +153,7 @@ result updateEnv resultPath =
                   (\p ->
                      ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$>
                      test_f p)
-                  (shellyResultPath)) $
+                  shellyResultPath) $
              addToReport $
              "- found " <> expectedVersion <> " in filename of file in " <>
              toTextIgnore shellyResultPath)

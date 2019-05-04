@@ -149,8 +149,8 @@ openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
           titleHasNewVersion = newVersion updateEnv `T.isSuffixOf` title
        in titleHasName && titleHasNewVersion
 
-checkExistingUpdatePR :: MonadIO m => UpdateEnv -> ExceptT Text m ()
-checkExistingUpdatePR ue = do
+checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
+checkExistingUpdatePR ue attrPath = do
   searchResult <-
     ExceptT $
     liftIO $
@@ -162,11 +162,7 @@ checkExistingUpdatePR ue = do
     (anyOpen searchResult)
     (throwE "There is already an open PR for this update")
   where
-    pn = packageName ue
-    ov = oldVersion ue
-    nv = newVersion ue
-    search = [interpolate|repo:nixos/nixpkgs $pn $ov -> $nv |]
+    title = prTitle ue attrPath
+    search = [interpolate|repo:nixos/nixpkgs $title |]
     anyOpen searchResult =
-      any
-        (\issue -> isNothing (issueClosedAt issue))
-        (searchResultResults searchResult)
+      any (issueClosedAt >>> isNothing) (searchResultResults searchResult)

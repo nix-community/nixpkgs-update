@@ -1,5 +1,6 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Utils
@@ -13,6 +14,7 @@ module Utils
   , branchName
   , runtimeDir
   , srcOrMain
+  , prTitle
   ) where
 
 import OurPrelude
@@ -50,6 +52,12 @@ data UpdateEnv = UpdateEnv
   , newVersion :: Version
   , options :: Options
   }
+
+prTitle :: UpdateEnv -> Text -> Text
+prTitle updateEnv attrPath =
+  let oV = oldVersion updateEnv
+      nV = newVersion updateEnv
+   in [interpolate| $attrPath: $oV -> $nV |]
 
 regDirMode :: FileMode
 regDirMode =
