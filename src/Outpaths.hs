@@ -13,67 +13,78 @@ import OurPrelude
 import Data.List (sort)
 import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Data.Vector as V
-import System.Process.Typed
 import Text.Parsec (parse)
 import Text.Parser.Char
 import Text.Parser.Combinators
 
--- outPathsExpr :: Text
--- outPathsExpr =
---   [interpolate|
--- (let
---   lib = import ./lib;
---   hydraJobs = import ./pkgs/top-level/release.nix
---     # Compromise: accuracy vs. resources needed for evaluation.
---     {
---       supportedSystems = [
---         "aarch64-linux"
---         "i686-linux"
---         "x86_64-linux"
---         "x86_64-darwin"
---       ];
---       nixpkgsArgs = {
---         config = {
---           allowBroken = true;
---           allowUnfree = true;
---           allowInsecurePredicate = x: true;
---           checkMeta = true;
---           handleEvalIssue = reason: errormsg:
---             if reason == "unknown-meta"
---               then abort errormsg
---               else true;
---           inHydra = true;
---         };
---       };
---     };
---   recurseIntoAttrs = attrs: attrs // { recurseForDerivations = true; };
---   # hydraJobs leaves recurseForDerivations as empty attrmaps;
---   # that would break nix-env and we also need to recurse everywhere.
---   tweak = lib.mapAttrs
---     (name: val:
---       if name == "recurseForDerivations" then true
---       else if lib.isAttrs val && val.type or null != "derivation"
---               then recurseIntoAttrs (tweak val)
---       else val
---     );
---   # Some of these contain explicit references to platform(s) we want to avoid;
---   # some even (transitively) depend on ~/.nixpkgs/config.nix (!)
---   blacklist = [
---     "tarball" "metrics" "manual"
---     "darwin-tested" "unstable" "stdenvBootstrapTools"
---     "moduleSystem" "lib-tests" # these just confuse the output
---   ];
--- in
---   tweak (builtins.removeAttrs hydraJobs blacklist))
--- |]
+outPathsExpr :: Text
+outPathsExpr =
+  [interpolate|
+{ checkMeta
+, path ? ./.
+}:
+let
+  lib = import (path + "/lib");
+  hydraJobs = import (path + "/pkgs/top-level/release.nix")
+    # Compromise: accuracy vs. resources needed for evaluation.
+    {
+      supportedSystems = [
+        "aarch64-linux"
+        "i686-linux"
+        "x86_64-linux"
+        "x86_64-darwin"
+      ];
+
+      nixpkgsArgs = {
+        config = {
+          allowBroken = true;
+          allowUnfree = true;
+          allowInsecurePredicate = x: true;
+          checkMeta = checkMeta;
+
+          handleEvalIssue = reason: errormsg:
+            let
+              fatalErrors = [
+                "unknown-meta" "broken-outputs"
+              ];
+            in if builtins.elem reason fatalErrors
+              then abort errormsg
+              else true;
+
+          inHydra = true;
+        };
+      };
+    };
+  recurseIntoAttrs = attrs: attrs // { recurseForDerivations = true; };
+
+  # hydraJobs leaves recurseForDerivations as empty attrmaps;
+  # that would break nix-env and we also need to recurse everywhere.
+  tweak = lib.mapAttrs
+    (name: val:
+      if name == "recurseForDerivations" then true
+      else if lib.isAttrs val && val.type or null != "derivation"
+              then recurseIntoAttrs (tweak val)
+      else val
+    );
+
+  # Some of these contain explicit references to platform(s) we want to avoid;
+  # some even (transitively) depend on ~/.nixpkgs/config.nix (!)
+  blacklist = [
+    "tarball" "metrics" "manual"
+    "darwin-tested" "unstable" "stdenvBootstrapTools"
+    "moduleSystem" "lib-tests" # these just confuse the output
+  ];
+
+in
+  tweak (builtins.removeAttrs hydraJobs blacklist)
+|]
+
 outPath :: MonadIO m => ExceptT Text m Text
 outPath = do
-  liftIO $ putStrLn "Fetching outpaths.nix..."
-  runProcess_
-    (silently
-       "curl -o outpaths.nix https://raw.githubusercontent.com/NixOS/ofborg/released/ofborg/src/outpaths.nix") &
-    tryIOTextET
+  liftIO $ putStrLn "Writing outpaths.nix..."
+  liftIO $ T.writeFile "./outpaths.nix" outPathsExpr
   liftIO $ putStrLn "Evaluating outpaths..."
   ourReadProcessInterleaved_
     "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true"
