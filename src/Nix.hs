@@ -33,7 +33,6 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
 import System.Exit
-import System.Process.Typed
 import Text.Parsec (parse)
 import Text.Parser.Combinators
 import Text.Parser.Token

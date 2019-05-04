@@ -10,6 +10,7 @@ module OurPrelude
   , module Control.Monad.Trans.Class
   , module Control.Monad.IO.Class
   , module Data.Bifunctor
+  , module System.Process.Typed
   , Set
   , Text
   , Vector
@@ -18,7 +19,6 @@ module OurPrelude
   , tryIOTextET
   , whenM
   , ourReadProcessInterleaved_
-  , runProcess
   , silently
   , bytestringToText
   ) where

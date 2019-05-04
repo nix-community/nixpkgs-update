@@ -26,7 +26,6 @@ import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import System.Directory (getHomeDirectory, getModificationTime)
 import System.Exit
-import System.Process.Typed
 import Utils (Options(..), UpdateEnv(..), branchName)
 
 clean :: ProcessConfig () () ()
