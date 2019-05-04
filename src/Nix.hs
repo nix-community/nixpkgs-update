@@ -26,12 +26,14 @@ module Nix
   ) where
 
 import OurPrelude
+import Prelude hiding (log)
 
-import Control.Monad (void)
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
 import qualified Shell
-import Shelly.Lifted (cmd, setStdin, shelly)
+import Shelly.Lifted (cmd)
 import System.Exit
 import System.Process.Typed
 import Text.Parsec (parse)
@@ -191,6 +193,9 @@ buildCmd attrPath =
     , attrPath & T.unpack
     ]
 
+log :: Text -> ProcessConfig () () ()
+log attrPath = proc "nix" ["log", "-f", ".", attrPath & T.unpack]
+
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
   (buildCmd attrPath & runProcess_ & tryIOTextET) <|>
@@ -199,15 +204,18 @@ build attrPath =
   where
     buildFailedLog = do
       buildLog <-
-        cmd "nix" "log" "-f" "." attrPath & Shell.shellyET &
+        ourReadProcessInterleaved_ (log attrPath) &
         fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog <> " ")
 
-cachix :: MonadIO m => FilePath -> m ()
+cachix :: MonadIO m => Text -> ExceptT Text m ()
 cachix resultPath =
-  shelly $ do
-    Shelly.Lifted.setStdin (T.pack resultPath)
-    void $ Shell.shE $ cmd "cachix" "push" "r-ryantm"
+  (setStdin
+     (byteStringInput (TL.encodeUtf8 (TL.fromStrict resultPath)))
+     (shell "cachix push r-ryantm") &
+   runProcess_ &
+   tryIOTextET) <|>
+  throwE "pushing to cachix failed"
 
 numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =
@@ -230,9 +238,9 @@ assertOldVersionOn updateEnv branchName contents =
   where
     oldVersionPattern = oldVersion updateEnv <> "\""
 
-resultLink :: MonadIO m => ExceptT Text m FilePath
+resultLink :: MonadIO m => ExceptT Text m Text
 resultLink =
-  (T.strip >>> T.unpack) <$> do
+  T.strip <$> do
     Shell.shellyET (cmd "readlink" "./result") <|>
       Shell.shellyET (cmd "readlink" "./result-bin") <|>
       throwE "Could not find result link. "

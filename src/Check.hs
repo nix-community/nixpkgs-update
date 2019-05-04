@@ -91,9 +91,9 @@ checkReport (BinaryCheck p False False) =
 checkReport (BinaryCheck p _ _) =
   "- " <> T.pack p <> " passed the binary check."
 
-result :: MonadIO m => UpdateEnv -> FilePath -> m Text
+result :: MonadIO m => UpdateEnv -> Text -> m Text
 result updateEnv resultPath =
-  let shellyResultPath = fromText . T.pack $ resultPath
+  let shellyResultPath = fromText $ resultPath
    in Shell.ourShell (options updateEnv) $ do
         let expectedVersion = newVersion updateEnv
         home <- get_env_text "HOME"
@@ -144,8 +144,7 @@ result updateEnv resultPath =
           _ <- Shell.canFail $ cmd "grep" "-r" expectedVersion shellyResultPath
           whenM ((== 0) <$> lastExitCode) $
             addToReport $
-            "- found " <> expectedVersion <> " with grep in " <>
-            T.pack resultPath
+            "- found " <> expectedVersion <> " with grep in " <> resultPath
           whenM
             (test_d shellyResultPath)
             (whenM

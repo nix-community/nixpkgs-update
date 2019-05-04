@@ -167,12 +167,12 @@ publishPackage ::
   -> Text
   -> Text
   -> Text
-  -> FilePath
+  -> Text
   -> Set ResultLine
   -> ExceptT Text m ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $ log ("cachix " <> (T.pack . show) result)
-  lift $ Nix.cachix result
+  Nix.cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
       Right () -> lift $ Check.result updateEnv result
@@ -256,7 +256,7 @@ prMessage ::
   -> Text
   -> Text
   -> Text
-  -> FilePath
+  -> Text
   -> Text
   -> Text
 prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport =
@@ -264,7 +264,6 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
       oV = oldVersion updateEnv
       nV = newVersion updateEnv
       repologyLink = repologyUrl updateEnv
-      result = T.pack resultPath
    in [interpolate|
        $attrPath: $oV -> $nV
 
@@ -298,7 +297,7 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
 
        Either download from Cachix:
        ```
-       nix-store -r $result \
+       nix-store -r $resultPath \
          --option binary-caches 'https://cache.nixos.org/ https://r-ryantm.cachix.org/' \
          --option trusted-public-keys '
          r-ryantm.cachix.org-1:gkUbLkouDAyvBdpBX0JOdIiD2/DP1ldF3Z3Y6Gqcc4c=
@@ -314,8 +313,8 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
 
        After you've downloaded or built it, look at the files and if there are any, run the binaries:
        ```
-       ls -la $result
-       ls -la $result/bin
+       ls -la $resultPath
+       ls -la $resultPath/bin
        ```
 
 
