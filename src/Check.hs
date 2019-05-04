@@ -147,15 +147,17 @@ result updateEnv resultPath =
             "- found " <> expectedVersion <> " with grep in " <>
             T.pack resultPath
           whenM
-            (null <$>
-             findWhen
-               (\p ->
-                  ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$>
-                  test_f p)
-               (fromText $ T.pack resultPath)) $
-            addToReport $
-            "- found " <> expectedVersion <> " in filename of file in " <>
-            toTextIgnore shellyResultPath
+            (test_d shellyResultPath)
+            (whenM
+               (null <$>
+                findWhen
+                  (\p ->
+                     ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$>
+                     test_f p)
+                  (shellyResultPath)) $
+             addToReport $
+             "- found " <> expectedVersion <> " in filename of file in " <>
+             toTextIgnore shellyResultPath)
           setenv "HOME" home
           gist1 <- cmd "tree" shellyResultPath -|- cmd "gist"
           unless (T.null gist1) $
