@@ -1,6 +1,7 @@
 # nixpkgs-update
 
 [![Build Status](https://travis-ci.org/ryantm/nixpkgs-update.svg?branch=master)](https://travis-ci.org/ryantm/nixpkgs-update)
+<a href="https://www.patreon.com/bePatron?u=9977270" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
 
 > The future is here; let's evenly distribute it!
 
