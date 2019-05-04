@@ -21,7 +21,6 @@ import OurPrelude
 
 import Data.Bits ((.|.))
 import qualified Data.Text as T
-import Shelly.Lifted hiding (FilePath)
 import System.Directory (doesDirectoryExist, setCurrentDirectory)
 import System.Environment.XDG.BaseDir
 import System.Posix.Directory (createDirectory)
@@ -36,6 +35,7 @@ import System.Posix.Files
   )
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
+import qualified System.Process.Typed
 
 default (T.Text)
 
@@ -104,15 +104,14 @@ setupNixpkgs o = do
   fp <- getUserCacheDir "nixpkgs"
   exists <- doesDirectoryExist fp
   unless exists $ do
-    _ <-
-      shelly $ do
-        setenv "GITHUB_TOKEN" (githubToken o)
-        run "hub" ["clone", "nixpkgs", T.pack fp] -- requires that user has forked nixpkgs
+    proc "hub" ["clone", "nixpkgs", fp] & -- requires that user has forked nixpkgs
+      System.Process.Typed.setEnv
+        [("GITHUB_TOKEN" :: String, githubToken o & T.unpack)] &
+      runProcess_
     setCurrentDirectory fp
-    _ <-
-      shelly $
-      cmd "git" "remote" "add" "upstream" "https://github.com/NixOS/nixpkgs"
-    shelly $ cmd "git" "fetch" "upstream"
+    shell "git remote add upstream https://github.com/NixOS/nixpkgs" &
+      runProcess_
+    shell "git fetch upstream" & runProcess_
   setCurrentDirectory fp
   setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
