@@ -13,6 +13,8 @@ import OurPrelude
 
 import qualified Blacklist
 import qualified Check
+import Control.Concurrent
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -24,8 +26,6 @@ import qualified Git
 import qualified Nix
 import Outpaths
 import Prelude hiding (log)
-import qualified Shell
-import Shelly ((-|-), cmd, shelly, sleep)
 import qualified Time
 import Utils
   ( Options(..)
@@ -35,7 +35,6 @@ import Utils
   , parseUpdates
   , prTitle
   , runtimeDir
-  , tRead
   )
 import qualified Version
 
@@ -323,16 +322,18 @@ prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage
     |]
 
 untilOfBorgFree :: MonadIO m => m ()
-untilOfBorgFree =
-  shelly $ do
-    waiting :: Int <-
-      tRead <$>
-      Shell.canFail
-        (cmd "curl" "-s" "https://events.nix.ci/stats.php" -|-
-         cmd "jq" ".evaluator.messages.waiting")
-    when (waiting > 2) $ do
-      sleep 60
+untilOfBorgFree = do
+  stats <-
+    shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
+  waiting <-
+    shell "jq .evaluator.messages.waiting" & setStdin (byteStringInput stats) &
+    readProcessInterleaved_ &
+    fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
+  if (waiting > 2)
+    then do
+      liftIO $ threadDelay 60000000
       untilOfBorgFree
+    else return ()
 
 assertNotUpdatedOn ::
      MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
