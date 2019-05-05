@@ -178,8 +178,11 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
       Right () -> lift $ Check.result updateEnv result
       Left msg -> pure msg
   d <- Nix.getDescription attrPath
+  u <- Nix.getHomepage attrPath
   let metaDescription =
         "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
+  let metaHomepage =
+        "\n\nmeta.homepage for " <> attrPath <> " is: '" <> u
   releaseUrlMessage <-
     (do msg <- GH.releaseUrl newSrcUrl
         return ("\n[Release on GitHub](" <> msg <> ")\n\n")) <|>
@@ -211,6 +214,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
          updateEnv
          isBroken
          metaDescription
+         metaHomepage
          releaseUrlMessage
          compareUrlMessage
          resultCheckReport
@@ -258,7 +262,8 @@ prMessage ::
   -> Text
   -> Text
   -> Text
-prMessage updateEnv isBroken metaDescription releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport =
+  -> Text
+prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
       repologyLink = repologyUrl updateEnv
