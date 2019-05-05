@@ -17,6 +17,7 @@ module Nix
   , parseStringList
   , build
   , getDescription
+  , getHomepage
   , cachix
   , assertOneOrFewerFetcher
   , getHashFromBuild
@@ -156,6 +157,14 @@ getDescription attrPath =
     ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
      ".meta.description or \"\")") &
   overwriteErrorT ("Could not get meta.description for attrpath " <> attrPath)
+
+getHomepage :: MonadIO m => Text -> ExceptT Text m Text
+getHomepage attrPath =
+  nixEvalET
+    NoRaw
+    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
+     ".meta.homepage or \"\")") &
+  overwriteErrorT ("Could not get meta.homepage for attrpath " <> attrPath)
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrl =
