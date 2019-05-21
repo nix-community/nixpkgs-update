@@ -246,8 +246,9 @@ assertOldVersionOn updateEnv branchName contents =
 
 resultLink :: MonadIO m => ExceptT Text m Text
 resultLink =
-  T.strip <$> ourReadProcessInterleaved_ "readlink ./result" <|>
-  ourReadProcessInterleaved_ "readlink ./result-bin" <|>
+  T.strip <$>
+  (ourReadProcessInterleaved_ "readlink ./result" <|>
+   ourReadProcessInterleaved_ "readlink ./result-bin") <|>
   throwE "Could not find result link. "
 
 sha256Zero :: Text
