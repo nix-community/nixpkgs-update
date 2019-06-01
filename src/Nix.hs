@@ -261,11 +261,17 @@ getHashFromBuild =
     (\attrPath -> do
        (exitCode, _, stderr) <- buildCmd attrPath & readProcess
        when (exitCode == ExitSuccess) $ throwE "build succeeded unexpectedly"
-       let firstSplit = T.splitOn "with sha256 hash '" (bytestringToText stderr)
+       let stdErrText = bytestringToText stderr
+       let firstSplit = T.splitOn "got:    sha256:" stdErrText
        firstSplitSecondPart <-
-         tryAt "stderr did not split as expected " firstSplit 1
-       let secondSplit =
-             T.splitOn
-               "' instead of the expected hash '0000000000000000000000000000000000000000000000000000'"
-               firstSplitSecondPart
-       tryHead "stderr did not split second part as expected " secondSplit)
+         tryAt
+           ("stderr did not split as expected full stderr was: \n" <> stdErrText)
+           firstSplit
+           1
+       let secondSplit = T.splitOn "\n" firstSplitSecondPart
+       tryHead
+         ("stderr did not split second part as expected full stderr was: \n" <>
+          stdErrText <>
+          "\nfirstSplitSecondPart:\n" <>
+          firstSplitSecondPart)
+         secondSplit)
