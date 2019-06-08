@@ -1,7 +1,7 @@
 { nixpkgs-tarball ? builtins.fetchTarball {
   name = "nixpkgs-unstable";
-  url = "https://releases.nixos.org/nixpkgs/nixpkgs-19.09pre173445.796a8764ab8/nixexprs.tar.xz";
-  sha256 = "04frhzc74xx2zsq7gbbnnh2d24hnl58i2sd24hdbwx8kyyh386xd";
+  url = "https://releases.nixos.org/nixos/unstable/nixos-19.09pre182062.1dc26c32edf/nixexprs.tar.xz";
+  sha256 = "1rdci8ghq0vi404m2qnd45bacx3sgym30whvlm23w7hr6hzyhh9x";
 }, pkgs ? import nixpkgs-tarball {} }:
 
 let

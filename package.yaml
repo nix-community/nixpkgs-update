@@ -32,6 +32,7 @@ dependencies:
   - optparse-applicative
   - parsec
   - parsers
+  - polysemy
   - regex-applicative-text
   - shelly
   - template-haskell
