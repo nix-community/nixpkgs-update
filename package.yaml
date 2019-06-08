@@ -20,28 +20,28 @@ ghc-options: -Wall
 
 dependencies:
   - base >= 4.7 && < 5
+  - bytestring
+  - containers
   - directory >= 1.3 && < 1.4
+  - errors
   - filepath
+  - github
+  - lifted-base
+  - mtl
   - neat-interpolation >= 0.3 && < 0.4
   - optparse-applicative
-  - regex-applicative-text
-  - shelly
-  - typed-process
-  - text
-  - bytestring
-  - time >= 1.8 && < 1.10
-  - errors
-  - mtl
-  - github
-  - unix
-  - vector
-  - containers
   - parsec
   - parsers
-  - transformers
-  - lifted-base
-  - xdg-basedir
+  - regex-applicative-text
+  - shelly
   - template-haskell
+  - text
+  - time >= 1.8 && < 1.10
+  - transformers
+  - typed-process
+  - unix
+  - vector
+  - xdg-basedir
 
 executables:
   nixpkgs-update:
