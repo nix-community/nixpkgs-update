@@ -30,6 +30,7 @@ twoHoursAgo :: Member Time r => Sem r UTCTime
 twoHoursAgo = now <&> addUTCTime (fromInteger $ -60 * 60 * 2)
 
 -- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
+-- unix depends on an earlier version currently https://github.com/haskell/unix/issues/131
 runDate :: Member Time r => Sem r Text
 runDate =
   now <&> formatTime defaultTimeLocale (iso8601DateFormat (Just "%H:%M:%S")) <&>
