@@ -339,11 +339,9 @@ untilOfBorgFree = do
     shell "jq .evaluator.messages.waiting" & setStdin (byteStringInput stats) &
     readProcessInterleaved_ &
     fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
-  if (waiting > 2)
-    then do
-      liftIO $ threadDelay 60000000
-      untilOfBorgFree
-    else return ()
+  when (waiting > 2) $ do
+    liftIO $ threadDelay 60000000
+    untilOfBorgFree
 
 assertNotUpdatedOn ::
      MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
