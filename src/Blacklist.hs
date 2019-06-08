@@ -158,7 +158,7 @@ infixOf part reason = ((part `T.isInfixOf`), reason)
 eq :: Text -> Text -> (Text -> Bool, Text)
 eq part reason = ((part ==), reason)
 
-python :: MonadIO m => Int -> Text -> ExceptT Text m ()
+python :: Monad m => Int -> Text -> ExceptT Text m ()
 python numPackageRebuilds derivationContents =
   tryAssert
     ("Python package with too many package rebuilds " <>
