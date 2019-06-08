@@ -4,6 +4,7 @@ module OurPrelude
   ( (>>>)
   , (<|>)
   , (<>)
+  , (<&>)
   , (&)
   , module Control.Error
   , module Control.Monad.Except
@@ -11,6 +12,7 @@ module OurPrelude
   , module Control.Monad.IO.Class
   , module Data.Bifunctor
   , module System.Process.Typed
+  , module Polysemy
   , Set
   , Text
   , Vector
@@ -32,6 +34,7 @@ import Control.Monad.Trans.Class
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as BSL
 import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.Semigroup ((<>))
 import Data.Set (Set)
 import Data.Text (Text, pack)
@@ -39,6 +42,7 @@ import qualified Data.Text.Encoding as T
 import Data.Vector (Vector)
 import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
+import Polysemy
 import System.Process.Typed hiding (setEnv)
 
 interpolate :: QuasiQuoter

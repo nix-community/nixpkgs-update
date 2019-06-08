@@ -47,7 +47,7 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
 
 log' :: MonadIO m => FilePath -> Text -> m ()
 log' logFile msg = do
-  runDate <- Time.runDate
+  runDate <- liftIO $ runM $ Time.runIO Time.runDate
   liftIO $ T.appendFile logFile (runDate <> " " <> msg <> "\n")
 
 updateAll :: Options -> Text -> IO ()
@@ -57,7 +57,7 @@ updateAll o updates = do
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of ups.sh"
-  twoHoursAgo <- Time.twoHoursAgo
+  twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
   mergeBaseOutpathSet <-
     liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
   updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
@@ -125,7 +125,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     assertNotUpdatedOn updateEnv derivationFile "staging-next"
     assertNotUpdatedOn updateEnv derivationFile "python-unstable"
     Git.checkoutAtMergeBase (branchName updateEnv)
-    oneHourAgo <- Time.oneHourAgo
+    oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
     mergeBaseOutpathSet <-
       if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
