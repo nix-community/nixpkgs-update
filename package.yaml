@@ -6,10 +6,10 @@ description: nixpkgs-update provides tools for updating of nixpkgs
   bot @r-ryantm, but the underlying update mechanisms should be
   generally useful and in a later version should be exposed as a
   command-line tool.
-license: PublicDomain
-author: Ryan Mulligan
+license: CC0-1.0
+author: Ryan Mulligan et al.
 maintainer: ryan@ryantm.com
-copyright: 2018 Ryan Mulligan
+copyright: 2018-2019 Ryan Mulligan et al.
 category: Web
 extra-source-files:
 - README.md
