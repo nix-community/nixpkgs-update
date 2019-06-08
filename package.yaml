@@ -16,7 +16,19 @@ extra-source-files:
 
 github: ryantm/nixpkgs-update
 
-ghc-options: -Wall
+ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively
+
+default-extensions:
+  - DataKinds
+  - FlexibleContexts
+  - GADTs
+  - LambdaCase
+  - PolyKinds
+  - RankNTypes
+  - ScopedTypeVariables
+  - TypeApplications
+  - TypeFamilies
+  - TypeOperators
 
 dependencies:
   - base >= 4.7 && < 5
