@@ -37,7 +37,7 @@ import System.Exit
 import Text.Parsec (parse)
 import Text.Parser.Combinators
 import Text.Parser.Token
-import Utils (UpdateEnv(..), overwriteErrorT, srcOrMain)
+import Utils (UpdateEnv(..), nixBuildOptions, overwriteErrorT, srcOrMain)
 
 data Raw
   = Raw
@@ -184,20 +184,7 @@ getSrcUrls = getSrcAttr "urls"
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
   silently $
-  proc
-    "nix-build"
-    [ "--option"
-    , "sandbox"
-    , "true"
-    , "--option"
-    , "restrict-eval"
-    , "true"
-    , "--arg"
-    , "config"
-    , "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
-    , "-A"
-    , attrPath & T.unpack
-    ]
+  proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
 log attrPath = proc "nix" ["log", "-f", ".", attrPath & T.unpack]
