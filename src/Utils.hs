@@ -15,6 +15,7 @@ module Utils
   , runtimeDir
   , srcOrMain
   , prTitle
+  , nixBuildOptions
   ) where
 
 import OurPrelude
@@ -133,3 +134,16 @@ tRead = read . T.unpack
 
 srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
 srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath
+
+nixBuildOptions :: [String]
+nixBuildOptions =
+  [ "--option"
+  , "sandbox"
+  , "true"
+  , "--option"
+  , "restrict-eval"
+  , "true"
+  , "--arg"
+  , "config"
+  , "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
+  ]

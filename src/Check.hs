@@ -15,7 +15,7 @@ import qualified Shell
 import Shelly hiding (FilePath, whenM)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text (RE', (=~))
-import Utils (UpdateEnv(..), Version, runtimeDir)
+import Utils (UpdateEnv(..), Version, nixBuildOptions, runtimeDir)
 
 default (T.Text)
 
@@ -31,6 +31,21 @@ versionRegex version =
   (\_ _ _ _ -> ()) <$> many (RE.psym (/= '.')) <*> RE.string version <*>
   many (RE.sym '.') <*>
   many (RE.psym isSpace)
+
+checkTestsBuild :: Text -> Sh Bool
+checkTestsBuild attrPath =
+  let nixBuildCmd =
+        nixBuildOptions ++
+        [ "-E"
+        , "{ config }: (import ./. { inherit config; })." ++
+            (T.unpack attrPath) ++ ".tests or {}"
+        ]
+  in
+  catchany_sh
+    (do Shell.canFail $ Shelly.run "nix-build" (map T.pack nixBuildCmd)
+        code <- lastExitCode
+        return $ code == 0)
+    (\_ -> return False)
 
 -- | Run a program with provided argument and report whether the output
 -- mentions the expected version
@@ -84,6 +99,12 @@ runChecks expectedVersion program =
   where
     checks' = map (\c -> c expectedVersion program) checks
 
+checkTestsBuildReport :: Bool -> Text
+checkTestsBuildReport False =
+  "- Warning: a test defined in `passthru.tests` did not pass"
+checkTestsBuildReport True =
+  "- The tests defined in `passthru.tests`, if any, passed"
+
 checkReport :: BinaryCheck -> Text
 checkReport (BinaryCheck p False False) =
   "- Warning: no invocation of " <> T.pack p <>
@@ -112,6 +133,8 @@ result updateEnv resultPath =
             if binExists
               then findWhen test_f binaryDir
               else return []
+          testsBuild <- checkTestsBuild (packageName updateEnv)
+          addToReport $ checkTestsBuildReport testsBuild
           checks' <-
             forM binaries $ \binary ->
               runChecks expectedVersion (T.unpack $ toTextIgnore binary)
