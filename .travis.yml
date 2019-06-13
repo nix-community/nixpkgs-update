@@ -1,3 +1,3 @@
 sudo: true
 language: nix
-script:  hpack && nix-build
+script:  nix-shell --run hpack && nix-build
