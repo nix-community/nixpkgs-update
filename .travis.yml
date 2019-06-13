@@ -1,3 +1,3 @@
 sudo: true
 language: nix
-script:  nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix
+script:  hpack && nix-build
