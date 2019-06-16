@@ -36,7 +36,9 @@ checkTestsBuild :: Text -> Sh Bool
 checkTestsBuild attrPath =
   let nixBuildCmd =
         nixBuildOptions ++
-        [ "-E"
+        [ "-I"
+        , "allow-here-access=."
+        , "-E"
         , "{ config }: (import ./. { inherit config; })." ++
             (T.unpack attrPath) ++ ".tests or {}"
         ]
