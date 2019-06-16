@@ -38,14 +38,13 @@ checkTestsBuild attrPath =
         nixBuildOptions ++
         [ "-E"
         , "{ config }: (import ./. { inherit config; })." ++
-            (T.unpack attrPath) ++ ".tests or {}"
+          (T.unpack attrPath) ++ ".tests or {}"
         ]
-  in
-  catchany_sh
-    (do Shell.canFail $ Shelly.run "nix-build" (map T.pack nixBuildCmd)
-        code <- lastExitCode
-        return $ code == 0)
-    (\_ -> return False)
+   in catchany_sh
+        (do Shell.canFail $ Shelly.run "nix-build" (map T.pack nixBuildCmd)
+            code <- lastExitCode
+            return $ code == 0)
+        (\_ -> return False)
 
 -- | Run a program with provided argument and report whether the output
 -- mentions the expected version
@@ -124,17 +123,17 @@ result updateEnv resultPath =
         setenv "EDITOR" "echo"
         setenv "HOME" "/homeless-shelter"
         let addToReport input = appendfile shellyLogFile (input <> "\n")
+        rm_f shellyLogFile
+        testsBuild <- checkTestsBuild (packageName updateEnv)
+        addToReport $ checkTestsBuildReport testsBuild
         tempdir <- fromText . T.strip <$> cmd "mktemp" "-d"
         chdir tempdir $ do
-          rm_f shellyLogFile
           let binaryDir = shellyResultPath </> "/bin"
           binExists <- test_d binaryDir
           binaries <-
             if binExists
               then findWhen test_f binaryDir
               else return []
-          testsBuild <- checkTestsBuild (packageName updateEnv)
-          addToReport $ checkTestsBuildReport testsBuild
           checks' <-
             forM binaries $ \binary ->
               runChecks expectedVersion (T.unpack $ toTextIgnore binary)
