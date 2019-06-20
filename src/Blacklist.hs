@@ -60,7 +60,6 @@ attrPathList =
   , prefix
       "deepin"
       "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
-  , prefix "gnome" "don't update gnome during a release cycle"
   ]
 
 nameList :: Blacklist
