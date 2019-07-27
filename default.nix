@@ -10,7 +10,7 @@ let
     nixpkgs-update = ./.;
   });
 
-  runtimeDeps = with pkgs; [ gitAndTools.hub jq tree gist ];
+  runtimeDeps = with pkgs; [ gitAndTools.hub jq tree gist getent ];
 
   drv = pkgs.buildEnv {
     name = "nixpkgs-update-env";
