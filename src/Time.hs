@@ -6,13 +6,10 @@ import OurPrelude
 
 import qualified Data.Text as T
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
-import Data.Time.Format
-  ( defaultTimeLocale
-  , formatTime
-  , iso8601DateFormat
-  , parseTimeOrError
-  )
+import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 
+-- $setup
+-- import Data.Time.Format (parseTimeOrError)
 data Time m a where
   Now :: Time m UTCTime
 
