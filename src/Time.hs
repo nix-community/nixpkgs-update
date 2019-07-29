@@ -8,8 +8,6 @@ import qualified Data.Text as T
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
 
--- $setup
--- import Data.Time.Format (parseTimeOrError)
 data Time m a where
   Now :: Time m UTCTime
 
@@ -28,6 +26,7 @@ runPure t =
 -- | Return the UTC time 1 hour ago
 --
 -- $setup
+-- >>> import Data.Time.Format (parseTimeOrError)
 -- >>> let exampleCurrentTime = parseTimeOrError False defaultTimeLocale "%Y-%-m-%-d" "2019-06-06" :: UTCTime
 --
 -- Examples:

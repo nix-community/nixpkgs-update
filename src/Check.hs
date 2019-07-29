@@ -19,11 +19,12 @@ import Utils (UpdateEnv(..), Version, nixBuildOptions, runtimeDir)
 
 default (T.Text)
 
-data BinaryCheck = BinaryCheck
-  { filePath :: FilePath
-  , zeroExitCode :: Bool
-  , versionPresent :: Bool
-  }
+data BinaryCheck =
+  BinaryCheck
+    { filePath :: FilePath
+    , zeroExitCode :: Bool
+    , versionPresent :: Bool
+    }
 
 -- | Construct regex: [^\.]*${version}\.*\s*
 versionRegex :: Text -> RE' ()
@@ -41,7 +42,7 @@ checkTestsBuild attrPath =
           (T.unpack attrPath) ++ ".tests or {}"
         ]
    in catchany_sh
-        (do Shell.canFail $ Shelly.run "nix-build" (map T.pack nixBuildCmd)
+        (do _ <- Shell.canFail $ Shelly.run "nix-build" (map T.pack nixBuildCmd)
             code <- lastExitCode
             return $ code == 0)
         (\_ -> return False)
