@@ -2,7 +2,7 @@
   name = "nixpkgs-unstable";
   url = "https://releases.nixos.org/nixos/unstable/nixos-19.09pre186563.b5f5c97f7d6/nixexprs.tar.xz";
   sha256 = "175jkhcfdyq0ddvc0188dzpm9lgmrplvgxx5gzmbzy86jywhhqs2";
-}, pkgs ? import nixpkgs-tarball {} }:
+}, pkgs ? import nixpkgs-tarball { config = { allowBroken = true; }; } }:
 
 let
 
