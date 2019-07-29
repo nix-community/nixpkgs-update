@@ -1,26 +1,35 @@
 { nixpkgs-tarball ? builtins.fetchTarball {
   name = "nixpkgs-unstable";
-  url = "https://releases.nixos.org/nixos/unstable/nixos-19.09pre182062.1dc26c32edf/nixexprs.tar.xz";
-  sha256 = "1rdci8ghq0vi404m2qnd45bacx3sgym30whvlm23w7hr6hzyhh9x";
+  url = "https://releases.nixos.org/nixos/unstable/nixos-19.09pre186563.b5f5c97f7d6/nixexprs.tar.xz";
+  sha256 = "175jkhcfdyq0ddvc0188dzpm9lgmrplvgxx5gzmbzy86jywhhqs2";
 }, pkgs ? import nixpkgs-tarball {} }:
 
 let
 
-  hp = pkgs.haskellPackages.extend (pkgs.haskellPackages.packageSourceOverrides {
-    nixpkgs-update = ./.;
-  });
+  compiler = pkgs.haskell.packages."ghc865";
 
-  runtimeDeps = with pkgs; [ gitAndTools.hub jq tree gist getent ];
+  inherit (pkgs.haskell.lib) dontCheck doJailbreak;
 
-  drv = pkgs.buildEnv {
-    name = "nixpkgs-update-env";
-    paths = [ hp.nixpkgs-update ] ++ runtimeDeps;
+  pkg = compiler.developPackage {
+    root = ./.;
+    overrides = self: super: {
+      time-compat = dontCheck super.time-compat;
+      binary-orphans = dontCheck super.binary-orphans;
+      binary-instances = dontCheck super.binary-instances;
+      hpack = dontCheck super.hpack;
+    };
+    source-overrides = {
+      aeson = "1.4.3.0";
+      time-compat = "1.9.2.2";
+      binary-orphans = "1.0.1";
+      first-class-families = "0.5.0.0";
+      th-abstraction = "0.3.1.0";
+      th-lift = "0.8.0.1";
+    };
   };
 
-  sh = hp.shellFor {
-    packages = p: [p.nixpkgs-update];
-    buildInputs = [ hp.ghcid ] ++ runtimeDeps;
-  };
+  buildInputs = with pkgs; [ gitAndTools.hub jq tree gist getent ];
 
-in
-  if pkgs.lib.inNixShell then sh else drv
+in pkg.overrideAttrs (attrs: {
+  buildInputs = attrs.buildInputs ++ buildInputs;
+  })
