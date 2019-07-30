@@ -47,11 +47,13 @@ pr base msg =
   runProcess_ $
   proc "hub" ["pull-request", "-b", T.unpack base, "-m", T.unpack msg]
 
-data URLParts = URLParts
-  { owner :: Name Owner
-  , repo :: Name Repo
-  , tag :: Text
-  } deriving (Show)
+data URLParts =
+  URLParts
+    { owner :: Name Owner
+    , repo :: Name Repo
+    , tag :: Text
+    }
+  deriving (Show)
 
 -- | Parse owner-repo-branch triplet out of URL
 -- We accept URLs pointing to uploaded release assets
@@ -119,7 +121,7 @@ openPRWithAutoUpdateRefFromRRyanTM o ref =
     (pullRequestsForR
        "nixos"
        "nixpkgs"
-       (optionsHead ("r-ryantm:auto-update/" <> ref) <> stateOpen)
+       (optionsHead ("r-ryantm:" <> branchPrefix <> ref) <> stateOpen)
        FetchAll) &
   fmap (first (T.pack . show) >>> second (not . V.null))
 

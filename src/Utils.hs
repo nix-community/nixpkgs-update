@@ -12,6 +12,7 @@ module Utils
   , parseUpdates
   , overwriteErrorT
   , branchName
+  , branchPrefix
   , runtimeDir
   , srcOrMain
   , prTitle
@@ -42,17 +43,20 @@ default (T.Text)
 
 type Version = Text
 
-data Options = Options
-  { dryRun :: Bool
-  , githubToken :: Text
-  } deriving (Show)
+data Options =
+  Options
+    { dryRun :: Bool
+    , githubToken :: Text
+    }
+  deriving (Show)
 
-data UpdateEnv = UpdateEnv
-  { packageName :: Text
-  , oldVersion :: Version
-  , newVersion :: Version
-  , options :: Options
-  }
+data UpdateEnv =
+  UpdateEnv
+    { packageName :: Text
+    , oldVersion :: Version
+    , newVersion :: Version
+    , options :: Options
+    }
 
 prTitle :: UpdateEnv -> Text -> Text
 prTitle updateEnv attrPath =
@@ -119,8 +123,11 @@ setupNixpkgs o = do
 overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
 overwriteErrorT t = fmapLT (const t)
 
+branchPrefix :: Text
+branchPrefix = "auto-update/"
+
 branchName :: UpdateEnv -> Text
-branchName ue = "auto-update/" <> packageName ue
+branchName ue = branchPrefix <> packageName ue
 
 parseUpdates :: Text -> [Either Text (Text, Version, Version)]
 parseUpdates = map (toTriple . T.words) . T.lines

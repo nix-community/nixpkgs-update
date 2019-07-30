@@ -26,7 +26,7 @@ import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import System.Directory (getHomeDirectory, getModificationTime)
 import System.Exit
-import Utils (Options(..), UpdateEnv(..), branchName)
+import Utils (Options(..), UpdateEnv(..), branchName, branchPrefix)
 
 clean :: ProcessConfig () () ()
 clean = silently "git clean -fdx"
@@ -105,7 +105,7 @@ checkAutoUpdateBranchDoesntExist pName = do
     readProcessInterleavedNoIndexIssue_ "git branch --remote" &
     fmapRT (T.lines >>> fmap T.strip)
   when
-    (("origin/auto-update/" <> pName) `elem` remoteBranches)
+    (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
     (throwE "Update branch already on origin. ")
 
 commit :: MonadIO m => Text -> ExceptT Text m ()
