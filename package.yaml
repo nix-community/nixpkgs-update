@@ -55,6 +55,7 @@ dependencies:
   - unix
   - vector
   - xdg-basedir
+  - temporary
 
 executables:
   nixpkgs-update:

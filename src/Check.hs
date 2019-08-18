@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -11,11 +12,13 @@ import OurPrelude
 import Control.Applicative (many)
 import Data.Char (isSpace)
 import qualified Data.Text as T
-import qualified Shell
-import Shelly hiding (FilePath, whenM)
+import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
+import System.Exit
+import System.IO.Temp (withSystemTempDirectory)
+import System.Process.Typed (setEnv, setStdin, setWorkingDir)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text (RE', (=~))
-import Utils (UpdateEnv(..), Version, nixBuildOptions, runtimeDir)
+import Utils (UpdateEnv(..), Version, nixBuildOptions)
 
 default (T.Text)
 
@@ -33,37 +36,36 @@ versionRegex version =
   many (RE.sym '.') <*>
   many (RE.psym isSpace)
 
-checkTestsBuild :: Text -> Sh Bool
+checkTestsBuild :: Text -> IO Bool
 checkTestsBuild attrPath =
-  let nixBuildCmd =
+  let args =
         nixBuildOptions ++
         [ "-E"
         , "{ config }: (import ./. { inherit config; })." ++
           (T.unpack attrPath) ++ ".tests or {}"
         ]
-   in catchany_sh
-        (do _ <- Shell.canFail $ Shelly.run "nix-build" (map T.pack nixBuildCmd)
-            code <- lastExitCode
-            return $ code == 0)
-        (\_ -> return False)
+   in do r <- runExceptT $ ourReadProcessInterleaved $ proc "nix-build" args
+         case r of
+           Right (ExitSuccess, _) -> return True
+           _ -> return False
 
 -- | Run a program with provided argument and report whether the output
 -- mentions the expected version
-checkBinary :: Text -> Version -> FilePath -> Sh BinaryCheck
-checkBinary argument expectedVersion program =
-  catchany_sh
-    (do stdout <-
-          Shell.canFail $ cmd "timeout" "-k" "2" "1" (T.pack program) argument
-        code <- lastExitCode
-        stderr <- lastStderr
-        let hasVersion =
-              isJust $
-              (T.unwords . T.lines $ stdout <> "\n" <> stderr) =~
-              versionRegex expectedVersion
-        return $ BinaryCheck program (code == 0) hasVersion)
-    (\_ -> return $ BinaryCheck program False False)
+checkBinary :: Text -> Version -> FilePath -> IO BinaryCheck
+checkBinary argument expectedVersion program = do
+  eResult <-
+    runExceptT $
+    withSystemTempDirectory
+      ("nixpkgs-update-" <> program)
+      (ourLockedDownReadProcessInterleaved $
+       shell ("timeout -k 2 1 " <> program <> " " <> T.unpack argument))
+  case eResult of
+    Left (_ :: Text) -> return $ BinaryCheck program False False
+    Right (exitCode, contents) -> do
+      let hasVersion = isJust $ contents =~ versionRegex expectedVersion
+      return $ BinaryCheck program (exitCode == ExitSuccess) hasVersion
 
-checks :: [Version -> FilePath -> Sh BinaryCheck]
+checks :: [Version -> FilePath -> IO BinaryCheck]
 checks =
   [ checkBinary ""
   , checkBinary "-V"
@@ -75,7 +77,7 @@ checks =
   , checkBinary "help"
   ]
 
-someChecks :: BinaryCheck -> [Sh BinaryCheck] -> Sh BinaryCheck
+someChecks :: BinaryCheck -> [IO BinaryCheck] -> IO BinaryCheck
 someChecks best [] = return best
 someChecks best (c:rest) = do
   current <- c
@@ -93,7 +95,7 @@ someChecks best (c:rest) = do
 
 -- | Run a program with various version or help flags and report
 -- when they succeded
-runChecks :: Version -> FilePath -> Sh BinaryCheck
+runChecks :: Version -> FilePath -> IO BinaryCheck
 runChecks expectedVersion program =
   someChecks (BinaryCheck program False False) checks'
   where
@@ -112,79 +114,113 @@ checkReport (BinaryCheck p False False) =
 checkReport (BinaryCheck p _ _) =
   "- " <> T.pack p <> " passed the binary check."
 
-result :: MonadIO m => UpdateEnv -> Text -> m Text
+ourLockedDownReadProcessInterleaved ::
+     MonadIO m
+  => ProcessConfig stdin stdoutIgnored stderrIgnored
+  -> FilePath
+  -> ExceptT Text m (ExitCode, Text)
+ourLockedDownReadProcessInterleaved processConfig tempDir =
+  processConfig & setWorkingDir tempDir &
+  setEnv [("EDITOR", "echo"), ("HOME", "/we-dont-write-to-home")] &
+  ourReadProcessInterleaved
+
+foundVersionInOutputs :: Text -> String -> IO (Maybe Text)
+foundVersionInOutputs expectedVersion resultPath =
+  hush <$>
+  (runExceptT $ do
+     (exitCode, _) <-
+       proc "grep" ["-r", T.unpack expectedVersion, resultPath] &
+       ourReadProcessInterleaved
+     case exitCode of
+       ExitSuccess ->
+         return $
+         "- found " <> expectedVersion <> " with grep in " <> T.pack resultPath <>
+         "\n"
+       _ -> throwE "grep did not find version in file names")
+
+foundVersionInFileNames :: Text -> String -> IO (Maybe Text)
+foundVersionInFileNames expectedVersion resultPath =
+  hush <$>
+  (runExceptT $ do
+     (_, contents) <- shell ("find " <> resultPath) & ourReadProcessInterleaved
+     (contents =~ versionRegex expectedVersion) & hoistMaybe &
+       noteT (T.pack "Expected version not found")
+     return $
+       "- found " <> expectedVersion <> " in filename of file in " <>
+       T.pack resultPath <>
+       "\n")
+
+treeGist :: String -> IO (Maybe Text)
+treeGist resultPath =
+  hush <$>
+  (runExceptT $
+   (do contents <- proc "tree" [resultPath] & ourReadProcessInterleavedBS_
+       g <-
+         shell "gist" & setStdin (byteStringInput contents) &
+         ourReadProcessInterleaved_
+       return $ "- directory tree listing: " <> g <> "\n"))
+
+duGist :: String -> IO (Maybe Text)
+duGist resultPath =
+  hush <$>
+  (runExceptT $
+   (do contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
+       g <-
+         shell "gist" & setStdin (byteStringInput contents) &
+         ourReadProcessInterleaved_
+       return $ "- du listing: " <> g <> "\n"))
+
+result :: MonadIO m => UpdateEnv -> String -> m Text
 result updateEnv resultPath =
-  let shellyResultPath = fromText resultPath
-   in Shell.ourShell (options updateEnv) $ do
-        let expectedVersion = newVersion updateEnv
-        home <- get_env_text "HOME"
-        rDir <- liftIO runtimeDir
-        let logFile = rDir <> "/check-result-log.tmp"
-        let shellyLogFile = logFile & T.pack & fromText
-        setenv "EDITOR" "echo"
-        setenv "HOME" "/homeless-shelter"
-        let addToReport input = appendfile shellyLogFile (input <> "\n")
-        rm_f shellyLogFile
-        testsBuild <- checkTestsBuild (packageName updateEnv)
-        addToReport $ checkTestsBuildReport testsBuild
-        tempdir <- fromText . T.strip <$> cmd "mktemp" "-d"
-        chdir tempdir $ do
-          let binaryDir = shellyResultPath </> "/bin"
-          binExists <- test_d binaryDir
-          binaries <-
-            if binExists
-              then findWhen test_f binaryDir
-              else return []
-          checks' <-
-            forM binaries $ \binary ->
-              runChecks expectedVersion (T.unpack $ toTextIgnore binary)
-          addToReport (T.intercalate "\n" (map checkReport checks'))
-          let passedZeroExitCode =
-                (T.pack . show)
-                  (foldl
-                     (\acc c ->
-                        if zeroExitCode c
-                          then acc + 1
-                          else acc)
-                     0
-                     checks' :: Int)
-              passedVersionPresent =
-                (T.pack . show)
-                  (foldl
-                     (\acc c ->
-                        if versionPresent c
-                          then acc + 1
-                          else acc)
-                     0
-                     checks' :: Int)
-              numBinaries = (T.pack . show) (length binaries)
-          addToReport
-            ("- " <> passedZeroExitCode <> " of " <> numBinaries <>
-             " passed binary check by having a zero exit code.")
-          addToReport
-            ("- " <> passedVersionPresent <> " of " <> numBinaries <>
-             " passed binary check by having the new version present in output.")
-          _ <- Shell.canFail $ cmd "grep" "-r" expectedVersion shellyResultPath
-          whenM ((== 0) <$> lastExitCode) $
-            addToReport $
-            "- found " <> expectedVersion <> " with grep in " <> resultPath
-          whenM
-            (test_d shellyResultPath)
-            (whenM
-               (null <$>
-                findWhen
-                  (\p ->
-                     ((expectedVersion `T.isInfixOf` toTextIgnore p) &&) <$>
-                     test_f p)
-                  shellyResultPath) $
-             addToReport $
-             "- found " <> expectedVersion <> " in filename of file in " <>
-             toTextIgnore shellyResultPath)
-          setenv "HOME" home
-          gist1 <- cmd "tree" shellyResultPath -|- cmd "gist"
-          unless (T.null gist1) $
-            addToReport $ "- directory tree listing: " <> T.strip gist1
-          gist2 <- cmd "du" "-h" shellyResultPath -|- cmd "gist"
-          unless (T.null gist2) $
-            addToReport $ "- du listing: " <> T.strip gist2
-        Shell.canFail (readfile shellyLogFile)
+  liftIO $ do
+    let expectedVersion = newVersion updateEnv
+        binaryDir = resultPath <> "/bin"
+    testsBuild <- checkTestsBuild (packageName updateEnv)
+    binExists <- doesDirectoryExist binaryDir
+    binaries <-
+      if binExists
+        then (do fs <- listDirectory binaryDir
+                 filterM doesFileExist fs)
+        else return []
+    checks' <- forM binaries $ \binary -> runChecks expectedVersion binary
+    let passedZeroExitCode =
+          (T.pack . show)
+            (foldl
+               (\acc c ->
+                  if zeroExitCode c
+                    then acc + 1
+                    else acc)
+               0
+               checks' :: Int)
+        passedVersionPresent =
+          (T.pack . show)
+            (foldl
+               (\acc c ->
+                  if versionPresent c
+                    then acc + 1
+                    else acc)
+               0
+               checks' :: Int)
+        numBinaries = (T.pack . show) (length binaries)
+    someReports <-
+      fromMaybe "" <$>
+      foundVersionInOutputs expectedVersion resultPath <>
+      foundVersionInFileNames expectedVersion resultPath <>
+      treeGist resultPath <>
+      duGist resultPath
+    return $
+      let testsBuildSummary = checkTestsBuildReport testsBuild
+          c = T.intercalate "\n" (map checkReport checks')
+          binaryCheckSummary =
+            "- " <> passedZeroExitCode <> " of " <> numBinaries <>
+            " passed binary check by having a zero exit code."
+          versionPresentSummary =
+            "- " <> passedVersionPresent <> " of " <> numBinaries <>
+            " passed binary check by having the new version present in output."
+       in [interpolate|
+              $testsBuildSummary
+              $c
+              $binaryCheckSummary
+              $versionPresentSummary
+              $someReports
+            |]

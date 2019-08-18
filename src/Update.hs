@@ -40,10 +40,11 @@ import qualified Version
 
 default (T.Text)
 
-data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
-  { lastUpdated :: UTCTime
-  , mergeBaseOutpaths :: Set ResultLine
-  }
+data MergeBaseOutpathsInfo =
+  MergeBaseOutpathsInfo
+    { lastUpdated :: UTCTime
+    , mergeBaseOutpaths :: Set ResultLine
+    }
 
 log' :: MonadIO m => FilePath -> Text -> m ()
 log' logFile msg = do
@@ -175,7 +176,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   Nix.cachix result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
-      Right () -> lift $ Check.result updateEnv result
+      Right () -> lift $ Check.result updateEnv (T.unpack result)
       Left msg -> pure msg
   d <- Nix.getDescription attrPath <|> return T.empty
   u <- Nix.getHomepage attrPath <|> return T.empty
