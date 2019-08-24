@@ -21,12 +21,12 @@ default (T.Text)
 data Mode
   = Update
   | DeleteDone
-  | UpdateMergeBase
 
-data Arguments = Arguments
-  { mode :: Mode
-  , dry :: Bool
-  }
+data Arguments =
+  Arguments
+    { mode :: Mode
+    , dry :: Bool
+    }
 
 modeParser :: Opt.Parser Mode
 modeParser =
@@ -36,11 +36,7 @@ modeParser =
   Opt.flag'
     DeleteDone
     (Opt.long "delete-done" <>
-     Opt.help "Delete branches from PRs that were merged or closed") <|>
-  Opt.flag'
-    UpdateMergeBase
-    (Opt.long "update-merge-base" <>
-     Opt.help "Updates the branch to use for updates")
+     Opt.help "Delete branches from PRs that were merged or closed")
 
 argumentParser :: Opt.Parser Arguments
 argumentParser =
@@ -74,4 +70,3 @@ main = do
   case mode of
     DeleteDone -> deleteDone options
     Update -> updateAll options updates
-    UpdateMergeBase -> return ()
