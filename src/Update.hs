@@ -147,9 +147,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     newSrcUrl <- Nix.getSrcUrl attrPath
     when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
     lift $ File.replace oldHash Nix.sha256Zero derivationFile
-    newHash <- Nix.getHashFromBuild attrPath -- <|>
-               -- lift (fixSrcUrl updateEnv derivationFile attrPath oldSrcUrl) <|>
-               -- throwE "Could not get new hash. "
+    newHash <- Nix.getHashFromBuild attrPath
     tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
     lift $ File.replace Nix.sha256Zero newHash derivationFile
     editedOutpathSet <- currentOutpathSet
