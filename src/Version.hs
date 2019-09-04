@@ -2,11 +2,14 @@
 
 module Version
   ( assertCompatibleWithPathPin
+  , matchVersion
   ) where
 
 import OurPrelude
 
+import Data.List (unfoldr)
 import qualified Data.Text as T
+import Data.Text.Read (decimal)
 import Utils
 
 notElemOf :: (Eq a, Foldable t) => t a -> a -> Bool
@@ -86,3 +89,31 @@ assertCompatibleWithPathPin ue attrPath =
     (not
        (versionCompatibleWithPathPin attrPath (oldVersion ue) &&
         versionIncompatibleWithPathPin attrPath (newVersion ue)))
+
+-- | Split a version in a list of dot-separated numbers and drop the unparsable
+-- part at the end.
+versionSplit :: Version -> [Int]
+versionSplit = unfoldr getVersionPart
+  where
+    getVersionPart t0 = do
+      (i, t1) <- hush $ decimal t0
+      t2 <- T.stripPrefix "." t1
+      return (i, t2)
+
+matchUpperBound :: Boundary Version -> Version -> Bool
+matchUpperBound Unbounded     _ = True
+matchUpperBound (Including b) v = versionSplit v <= versionSplit b
+matchUpperBound (Excluding b) v = versionSplit v <  versionSplit b
+
+matchLowerBound :: Boundary Version -> Version -> Bool
+matchLowerBound Unbounded     _ = True
+matchLowerBound (Including b) v = versionSplit b <= versionSplit v
+matchLowerBound (Excluding b) v = versionSplit b <  versionSplit v
+
+-- | A basic method of matching versions with CVE version matchers. Can be
+-- improved upon if there are too many false positives.
+matchVersion :: VersionMatcher -> Version -> Bool
+matchVersion (ExactMatcher v) v' = v == v'
+matchVersion (FuzzyMatcher v) v' = versionSplit v == versionSplit v'
+matchVersion (RangeMatcher lowerBound upperBound) v
+  = matchLowerBound lowerBound v && matchUpperBound upperBound v

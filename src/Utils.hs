@@ -5,7 +5,10 @@
 
 module Utils
   ( Options(..)
+  , ProductID
   , Version
+  , Boundary(..)
+  , VersionMatcher(..)
   , UpdateEnv(..)
   , setupNixpkgs
   , tRead
@@ -28,20 +31,33 @@ import System.Environment.XDG.BaseDir
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv, setEnv)
 import System.Posix.Files
-  ( directoryMode
-  , fileExist
-  , groupModes
-  , otherExecuteMode
-  , otherReadMode
-  , ownerModes
-  )
+  (directoryMode, fileExist, groupModes, otherExecuteMode, otherReadMode,
+  ownerModes)
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
 import qualified System.Process.Typed
 
 default (T.Text)
 
+type ProductID = Text
 type Version = Text
+
+-- | The Ord instance is used to sort lists of matchers in order to compare them
+-- as a set, it is not useful for comparing bounds since the ordering of bounds
+-- depends on whether it is a start or end bound.
+data Boundary a
+  = Unbounded
+  | Including a
+  | Excluding a
+  deriving (Eq, Ord, Show)
+
+-- | The Ord instance is used to sort lists of matchers in order to compare them
+-- as a set, it is not useful for comparing versions.
+data VersionMatcher
+  = ExactMatcher Version
+  | FuzzyMatcher Version
+  | RangeMatcher (Boundary Version) (Boundary Version)
+  deriving (Eq, Ord, Show)
 
 data Options =
   Options
