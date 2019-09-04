@@ -31,13 +31,19 @@ default-extensions:
   - TypeOperators
 
 dependencies:
+  - aeson
   - base >= 4.7 && < 5
   - bytestring
+  - conduit
   - containers
+  - cryptohash-sha256
   - directory >= 1.3 && < 1.4
   - errors
   - filepath
   - github
+  - hex
+  - http-conduit
+  - iso8601-time
   - lifted-base
   - mtl
   - neat-interpolation >= 0.3 && < 0.4
@@ -55,6 +61,7 @@ dependencies:
   - unix
   - vector
   - xdg-basedir
+  - zlib
 
 executables:
   nixpkgs-update:

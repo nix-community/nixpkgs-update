@@ -1,8 +1,10 @@
-{ mkDerivation, base, bytestring, containers, directory, doctest
-, errors, filepath, github, hpack, lifted-base, mtl
+{ mkDerivation, aeson, base, bytestring, conduit, containers
+, cryptohash-sha256, directory, doctest, errors, filepath, github
+, hex, hpack, http-conduit, iso8601-time, lifted-base, mtl
 , neat-interpolation, optparse-applicative, parsec, parsers
-, regex-applicative-text, shelly, stdenv, template-haskell, text
-, time, transformers, typed-process, unix, vector, xdg-basedir
+, polysemy, regex-applicative-text, shelly, stdenv
+, template-haskell, text, time, transformers, typed-process, unix
+, vector, xdg-basedir, zlib
 }:
 mkDerivation {
   pname = "nixpkgs-update";
@@ -12,19 +14,22 @@ mkDerivation {
   isExecutable = true;
   libraryToolDepends = [ hpack ];
   executableHaskellDepends = [
-    base bytestring containers directory errors filepath github
+    aeson base bytestring conduit containers cryptohash-sha256
+    directory errors filepath github hex http-conduit iso8601-time
     lifted-base mtl neat-interpolation optparse-applicative parsec
-    parsers regex-applicative-text shelly template-haskell text time
-    transformers typed-process unix vector xdg-basedir
+    parsers polysemy regex-applicative-text shelly template-haskell
+    text time transformers typed-process unix vector xdg-basedir zlib
   ];
   testHaskellDepends = [
-    base bytestring containers directory doctest errors filepath github
-    lifted-base mtl neat-interpolation optparse-applicative parsec
-    parsers regex-applicative-text shelly template-haskell text time
-    transformers typed-process unix vector xdg-basedir
+    aeson base bytestring conduit containers cryptohash-sha256
+    directory doctest errors filepath github hex http-conduit
+    iso8601-time lifted-base mtl neat-interpolation
+    optparse-applicative parsec parsers polysemy regex-applicative-text
+    shelly template-haskell text time transformers typed-process unix
+    vector xdg-basedir zlib
   ];
-  preConfigure = "hpack";
+  prePatch = "hpack";
   homepage = "https://github.com/ryantm/nixpkgs-update#readme";
   description = "Tool for semi-automatic updating of nixpkgs repository";
-  license = stdenv.lib.licenses.publicDomain;
+  license = stdenv.lib.licenses.cc0;
 }
