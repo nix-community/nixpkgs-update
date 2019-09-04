@@ -8,6 +8,7 @@ module Main where
 import OurPrelude
 
 import Control.Applicative ((<**>))
+import CVE (updateVulnDB)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
@@ -64,14 +65,17 @@ makeOptions Arguments {dry} = do
 
 main :: IO ()
 main = do
-  arguments@Arguments {mode} <- Opt.execParser programInfo
-  options <- makeOptions arguments
-  updates <- T.readFile "packages-to-update.txt"
-  setupNixpkgs options
-  setEnv "PAGER" "" True
-  setEnv "GITHUB_TOKEN" (T.unpack (githubToken options)) True
-  setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
-  case mode of
-    DeleteDone -> deleteDone options
-    Update -> updateAll options updates
-    UpdateMergeBase -> return ()
+  -- This makes it easier to test until the feature is complete. The regular
+  -- main needs a bunch of configuration to exist before it works.
+  updateVulnDB
+  -- arguments@Arguments {mode} <- Opt.execParser programInfo
+  -- options <- makeOptions arguments
+  -- updates <- T.readFile "packages-to-update.txt"
+  -- setupNixpkgs options
+  -- setEnv "PAGER" "" True
+  -- setEnv "GITHUB_TOKEN" (T.unpack (githubToken options)) True
+  -- setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
+  -- case mode of
+  --   DeleteDone -> deleteDone options
+  --   Update -> updateAll options updates
+  --   UpdateMergeBase -> return ()
