@@ -8,10 +8,10 @@ module Main where
 import OurPrelude
 
 import Control.Applicative ((<**>))
-import CVE (updateVulnDB)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
+import NVD (updateVulnDB)
 import qualified Options.Applicative as Opt
 import System.Posix.Env (setEnv)
 import Update (updateAll)
