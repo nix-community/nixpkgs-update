@@ -11,6 +11,7 @@ import Control.Applicative ((<**>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
+import NVD (updateVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
 import System.Posix.Env (setEnv)
@@ -28,6 +29,7 @@ data Command
   = Update UpdateOptions
   | DeleteDone
   | Version
+  | UpdateVulnDB
 
 updateOptionsParser :: O.Parser Command
 updateOptionsParser =
@@ -53,7 +55,12 @@ commandParser =
         (O.info
            (pure Version)
            (O.progDesc
-              "Displays version information for nixpkgs-update and dependencies"))))
+              "Displays version information for nixpkgs-update and dependencies"))) <>
+     (O.command
+        "update-vulnerability-db"
+        (O.info
+           (pure UpdateVulnDB)
+           (O.progDesc "Updates the vulnerability database"))))
 
 programInfo :: O.ParserInfo Command
 programInfo =
@@ -87,3 +94,4 @@ main = do
       case v of
         Left t -> T.putStrLn ("error:" <> t)
         Right t -> T.putStrLn t
+    UpdateVulnDB -> updateVulnDB
