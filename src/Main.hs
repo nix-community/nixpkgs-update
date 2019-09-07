@@ -11,62 +11,79 @@ import Control.Applicative ((<**>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
-import qualified Options.Applicative as Opt
+import qualified Nix
+import qualified Options.Applicative as O
 import System.Posix.Env (setEnv)
 import Update (updateAll)
 import Utils (Options(..), setupNixpkgs)
 
 default (T.Text)
 
-data Mode
-  = Update
-  | DeleteDone
-
-data Arguments =
-  Arguments
-    { mode :: Mode
-    , dry :: Bool
+data UpdateOptions =
+  UpdateOptions
+    { dry :: Bool
     }
 
-modeParser :: Opt.Parser Mode
-modeParser =
-  Opt.flag'
-    Update
-    (Opt.long "update" <> Opt.help "Update packages (default mode)") <|>
-  Opt.flag'
-    DeleteDone
-    (Opt.long "delete-done" <>
-     Opt.help "Delete branches from PRs that were merged or closed")
+data Command
+  = Update UpdateOptions
+  | DeleteDone
+  | Version
 
-argumentParser :: Opt.Parser Arguments
-argumentParser =
-  Arguments <$> modeParser <*>
-  Opt.switch
-    (Opt.long "dry-run" <>
-     Opt.help
+updateOptionsParser :: O.Parser Command
+updateOptionsParser =
+  Update <$> UpdateOptions <$>
+  O.switch
+    (O.long "dry-run" <>
+     O.help
        "Do everything except actually pushing the updates to the remote repository")
 
-programInfo :: Opt.ParserInfo Arguments
-programInfo =
-  Opt.info
-    (argumentParser <**> Opt.helper)
-    (Opt.fullDesc <> Opt.progDesc "Update packages in nixpkgs repository" <>
-     Opt.header "nixpkgs-update")
+commandParser :: O.Parser Command
+commandParser =
+  O.hsubparser
+    ((O.command
+        "update"
+        (O.info updateOptionsParser (O.progDesc "Update packages"))) <>
+     (O.command
+        "delete-done"
+        (O.info
+           (pure DeleteDone)
+           (O.progDesc "Deletes branches from PRs that were merged or closed"))) <>
+     (O.command
+        "version"
+        (O.info
+           (pure Version)
+           (O.progDesc
+              "Displays version information for nixpkgs-update and dependencies"))))
 
-makeOptions :: Arguments -> IO Options
-makeOptions Arguments {dry} = do
-  token <- T.strip <$> T.readFile "github_token.txt"
-  return $ Options dry token
+programInfo :: O.ParserInfo Command
+programInfo =
+  O.info
+    (commandParser <**> O.helper)
+    (O.fullDesc <> O.progDesc "Update packages in the Nixpkgs repository" <>
+     O.header "nixpkgs-update")
+
+getGithubToken :: IO Text
+getGithubToken = T.strip <$> T.readFile "github_token.txt"
 
 main :: IO ()
 main = do
-  arguments@Arguments {mode} <- Opt.execParser programInfo
-  options <- makeOptions arguments
-  updates <- T.readFile "packages-to-update.txt"
-  setupNixpkgs options
-  setEnv "PAGER" "" True
-  setEnv "GITHUB_TOKEN" (T.unpack (githubToken options)) True
-  setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
-  case mode of
-    DeleteDone -> deleteDone options
-    Update -> updateAll options updates
+  command <- O.execParser programInfo
+  case command of
+    DeleteDone -> do
+      token <- getGithubToken
+      setupNixpkgs token
+      setEnv "GITHUB_TOKEN" (T.unpack token) True
+      deleteDone token
+    Update (UpdateOptions {dry}) -> do
+      token <- getGithubToken
+      updates <- T.readFile "packages-to-update.txt"
+      setupNixpkgs token
+      setEnv "PAGER" "" True
+      setEnv "GITHUB_TOKEN" (T.unpack token) True
+      setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
+      updateAll (Options dry token) updates
+    Version -> do
+      v <- runExceptT $ Nix.version
+      case v of
+        Left t -> T.putStrLn ("error:" <> t)
+        Right t -> T.putStrLn t

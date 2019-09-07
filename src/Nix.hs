@@ -24,6 +24,7 @@ module Nix
   , assertOldVersionOn
   , resultLink
   , sha256Zero
+  , version
   ) where
 
 import OurPrelude
@@ -261,3 +262,6 @@ getHashFromBuild =
           "\nfirstSplitSecondPart:\n" <>
           firstSplitSecondPart)
          secondSplit)
+
+version :: MonadIO m => ExceptT Text m Text
+version = ourReadProcessInterleaved_ "nix --version"

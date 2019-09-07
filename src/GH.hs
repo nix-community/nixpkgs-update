@@ -27,7 +27,8 @@ import GitHub.Endpoints.Repos.Releases (releaseByTagName)
 import GitHub.Endpoints.Search (searchIssues')
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
-import Utils
+import Utils (UpdateEnv(..))
+import qualified Utils as U
 
 default (T.Text)
 
@@ -105,41 +106,42 @@ compareUrl urlOld urlNew = do
 
 --deleteDoneBranches :: IO ()
 --deleteDoneBranches = do
-autoUpdateRefs :: Options -> IO (Either Text (Vector Text))
-autoUpdateRefs o =
-  references' (Just (OAuth (T.encodeUtf8 (githubToken o)))) "r-ryantm" "nixpkgs" &
+autoUpdateRefs :: Text -> IO (Either Text (Vector Text))
+autoUpdateRefs githubToken =
+  references' (Just (OAuth (T.encodeUtf8 githubToken))) "r-ryantm" "nixpkgs" &
   fmap
     (first (T.pack . show) >>>
      second (fmap gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix)))
   where
     prefix = "refs/heads/auto-update/"
 
-openPRWithAutoUpdateRefFromRRyanTM :: Options -> Text -> IO (Either Text Bool)
-openPRWithAutoUpdateRefFromRRyanTM o ref =
+openPRWithAutoUpdateRefFromRRyanTM :: Text -> Text -> IO (Either Text Bool)
+openPRWithAutoUpdateRefFromRRyanTM githubToken ref =
   executeRequest
-    (OAuth (T.encodeUtf8 (githubToken o)))
+    (OAuth (T.encodeUtf8 githubToken))
     (pullRequestsForR
        "nixos"
        "nixpkgs"
-       (optionsHead ("r-ryantm:" <> branchPrefix <> ref) <> stateOpen)
+       (optionsHead ("r-ryantm:" <> U.branchPrefix <> ref) <> stateOpen)
        FetchAll) &
   fmap (first (T.pack . show) >>> second (not . V.null))
 
-refShouldBeDeleted :: Options -> Text -> IO Bool
-refShouldBeDeleted o ref =
-  not . either (const True) id <$> openPRWithAutoUpdateRefFromRRyanTM o ref
+refShouldBeDeleted :: Text -> Text -> IO Bool
+refShouldBeDeleted githubToken ref =
+  not . either (const True) id <$>
+  openPRWithAutoUpdateRefFromRRyanTM githubToken ref
 
-closedAutoUpdateRefs :: Options -> IO (Either Text (Vector Text))
-closedAutoUpdateRefs o =
+closedAutoUpdateRefs :: Text -> IO (Either Text (Vector Text))
+closedAutoUpdateRefs githubToken =
   runExceptT $ do
-    aur :: Vector Text <- ExceptT $ autoUpdateRefs o
-    ExceptT (Right <$> V.filterM (refShouldBeDeleted o) aur)
+    aur :: Vector Text <- ExceptT $ autoUpdateRefs githubToken
+    ExceptT (Right <$> V.filterM (refShouldBeDeleted githubToken) aur)
 
 -- This is too slow
-openPullRequests :: Options -> IO (Either Text (Vector SimplePullRequest))
-openPullRequests o =
+openPullRequests :: Text -> IO (Either Text (Vector SimplePullRequest))
+openPullRequests githubToken =
   executeRequest
-    (OAuth (T.encodeUtf8 (githubToken o)))
+    (OAuth (T.encodeUtf8 githubToken))
     (pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll) &
   fmap (first (T.pack . show))
 
@@ -158,14 +160,14 @@ checkExistingUpdatePR ue attrPath = do
     ExceptT $
     liftIO $
     searchIssues'
-      (Just (OAuth (T.encodeUtf8 (githubToken (options ue)))))
+      (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
       search &
     fmap (first (T.pack . show))
   when
     (anyOpen searchResult)
     (throwE "There is already an open PR for this update")
   where
-    title = prTitle ue attrPath
+    title = U.prTitle ue attrPath
     search = [interpolate|repo:nixos/nixpkgs $title |]
     anyOpen searchResult =
       any (issueClosedAt >>> isNothing) (searchResultResults searchResult)

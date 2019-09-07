@@ -79,7 +79,7 @@ test a package with one command.
     git clone https://github.com/ryantm/repology-api.git && cd repology-api
     nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > ../packages-to-update.txt
     ```
-3. Return back `cd ..` and run the tool `nix shell --run "nixpkgs-update --update"`
+3. Return back `cd ..` and run the tool `nix run -c nixpkgs-update --update`
 
 
 # Adding new dependencies / updating Cabal file

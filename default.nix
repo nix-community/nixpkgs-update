@@ -28,8 +28,6 @@ let
     };
   };
 
-  buildInputs = with pkgs; [ nix gitAndTools.hub jq tree gist getent ];
-
 in pkg.overrideAttrs (attrs: {
-  buildInputs = attrs.buildInputs ++ buildInputs;
+  propagatedBuildInputs = with pkgs; [ nix gitAndTools.hub jq tree gist ];
   })

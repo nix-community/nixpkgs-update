@@ -104,14 +104,14 @@ runtimeDir = do
     Right dir -> return dir
     Left e -> error $ T.unpack e
 
-setupNixpkgs :: Options -> IO ()
-setupNixpkgs o = do
+setupNixpkgs :: Text -> IO ()
+setupNixpkgs githubt = do
   fp <- getUserCacheDir "nixpkgs"
   exists <- doesDirectoryExist fp
   unless exists $ do
     proc "hub" ["clone", "nixpkgs", fp] & -- requires that user has forked nixpkgs
       System.Process.Typed.setEnv
-        [("GITHUB_TOKEN" :: String, githubToken o & T.unpack)] &
+        [("GITHUB_TOKEN" :: String, githubt & T.unpack)] &
       runProcess_
     setCurrentDirectory fp
     shell "git remote add upstream https://github.com/NixOS/nixpkgs" &
