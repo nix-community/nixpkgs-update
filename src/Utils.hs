@@ -26,6 +26,16 @@ import OurPrelude
 
 import Data.Bits ((.|.))
 import qualified Data.Text as T
+import Database.SQLite.Simple (ResultError(..), SQLData(..))
+import Database.SQLite.Simple.FromField
+  ( FieldParser
+  , FromField
+  , fromField
+  , returnError
+  )
+import Database.SQLite.Simple.Internal (Field(..))
+import Database.SQLite.Simple.Ok (Ok(..))
+import Database.SQLite.Simple.ToField (ToField, toField)
 import System.Directory (doesDirectoryExist, setCurrentDirectory)
 import System.Environment.XDG.BaseDir
 import System.Posix.Directory (createDirectory)
@@ -41,6 +51,8 @@ import System.Posix.Files
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
 import qualified System.Process.Typed
+import Text.Read (readEither)
+import Type.Reflection (Typeable)
 
 default (T.Text)
 
@@ -55,7 +67,7 @@ data Boundary a
   = Unbounded
   | Including a
   | Excluding a
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read)
 
 -- | The Ord instance is used to sort lists of matchers in order to compare them
 -- as a set, it is not useful for comparing versions.
@@ -63,7 +75,23 @@ data VersionMatcher
   = ExactMatcher Version
   | FuzzyMatcher Version
   | RangeMatcher (Boundary Version) (Boundary Version)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read)
+
+readField :: (Read a, Typeable a) => FieldParser a
+readField f@(Field (SQLText t) _) =
+  case readEither (T.unpack t) of
+    Right x -> Ok x
+    Left e -> returnError ConversionFailed f $ "read error: " <> e
+readField f = returnError ConversionFailed f "expecting SQLText column type"
+
+showField :: Show a => a -> SQLData
+showField = toField . show
+
+instance FromField VersionMatcher where
+  fromField = readField
+
+instance ToField VersionMatcher where
+  toField = showField
 
 data Options =
   Options

@@ -4,7 +4,7 @@ module NVD where
 
 import OurPrelude
 
-import CVE (CVE, parseFeed)
+import CVE (CVE(..), cveMatcherList, parseFeed)
 import Codec.Compression.GZip (decompress)
 import Control.Exception (ioError, try)
 import Crypto.Hash.SHA256 (hashlazy)
@@ -22,6 +22,7 @@ import Data.Time.Clock
   , utctDay
   )
 import Data.Time.ISO8601 (parseISO8601)
+import Database.SQLite.Simple as DB
 import Network.HTTP.Conduit (simpleHttp)
 import System.Directory
   ( XdgDirectory(..)
@@ -48,6 +49,36 @@ type MaxAge = NominalDiffTime
 
 data Meta =
   Meta Timestamp Checksum
+
+withDB :: (DB.Connection -> IO a) -> IO a
+withDB action = do
+  cacheDir <- liftIO $ getXdgDirectory XdgCache "nixpkgs-update/nvd"
+  createDirectoryIfMissing True cacheDir
+  DB.withConnection (cacheDir </> "db.sqlite3") $ \conn -> do
+    execute_ conn $
+      Query $
+      T.unlines
+        [ "CREATE TABLE IF NOT EXISTS cves ("
+        , "  cve_id text PRIMARY KEY,"
+        , "  description text,"
+        , "  published text,"
+        , "  modified text)"
+        ]
+    execute_ conn $
+      Query $
+      T.unlines
+        [ "CREATE TABLE IF NOT EXISTS matchers ("
+        , "  cve_id text,"
+        , "  product_id text,"
+        , "  matcher text)"
+        ]
+    execute_ conn $
+      Query $
+      T.unlines
+        [ "CREATE INDEX IF NOT EXISTS matchers_by_product_id"
+        , "ON matchers(product_id)"
+        ]
+    action conn
 
 feedURL :: FeedID -> Extension -> String
 feedURL feed ext =
@@ -84,23 +115,43 @@ getMeta feed = do
   either throwText pure $ parseMeta raw
 
 getCVEs :: (ProductID, Version) -> IO [CVE]
-getCVEs (_product, _) = do
+getCVEs (product, version) = do
   years <- allYears
-  _feeds <- sequence $ map (cacheFeed (7 * nominalDay)) years
+  feeds <- sequence $ map (cacheFeed (7 * nominalDay)) years
   return []
 
 updateVulnDB :: IO ()
-updateVulnDB
-  -- This will be enough to develop with.
- = do
-  feed <- cacheFeed (99 * nominalDay) "2019"
-  putStrLn $ "loading data"
-  parsed <- either throwText pure $ parseFeed feed
-  print $ head parsed
-  -- putStrLn $ "checking feed cache"
+updateVulnDB =
+  withDB $ \conn -> do
+    putStrLn $ "checking feed cache"
   -- years <- allYears
   -- feeds <- sequence $ map (cacheFeed (7 * nominalDay)) years
-  return ()
+    feeds <- sequence $ map (cacheFeed (99 * nominalDay)) ["2019"]
+    putStrLn $ "loading data"
+    parsed <- sequence $ map (either throwText pure . parseFeed) feeds
+    let cves = take 10 $ head parsed
+    executeMany
+      conn
+      (Query $
+       T.unlines
+         [ "REPLACE INTO cves(cve_id, description, published, modified)"
+         , "VALUES (?, ?, ?, ?)"
+         ])
+      cves
+    executeMany
+      conn
+      (Query $ T.unlines ["DELETE FROM matchers", "WHERE cve_id = ?"])
+      (map (Only . cveID) cves)
+    executeMany
+      conn
+      (Query $
+       T.unlines
+         [ "INSERT INTO matchers(cve_id, product_id, matcher)"
+         , "VALUES (?, ?, ?)"
+         ])
+      (concatMap cveMatcherList cves)
+    print $ head $ head parsed
+    return ()
 
 getCacheFile :: MonadIO m => FeedID -> m FilePath
 getCacheFile feed = do
@@ -112,22 +163,23 @@ cacheFeed :: MonadIO m => MaxAge -> FeedID -> m BSL.ByteString
 cacheFeed maxAge feed = do
   cacheFile <- getCacheFile feed
   cacheTime <- liftIO $ try $ getModificationTime cacheFile
-  Meta newestTime expectedChecksum <- getMeta feed
+  currentTime <- liftIO getCurrentTime
   let needsUpdate =
         case cacheTime of
           Left (_ :: IOError) -> True
-          Right t -> diffUTCTime newestTime t > maxAge
+          Right t -> diffUTCTime currentTime t > maxAge
   if needsUpdate
     then do
-      liftIO $ putStrLn $ "updating feed: " <> feed
+      liftIO $ putStrLn $ "updating feed " <> feed
+      Meta _ expectedChecksum <- getMeta feed
       compressed <- simpleHttp $ feedURL feed ".json.gz"
       let raw = decompress compressed
       let actualChecksum = BSL.fromStrict $ hashlazy raw
       when (actualChecksum /= expectedChecksum) $
         throwString $
-        "wrong hash, expected: " <>
-        BSL.unpack (hex expectedChecksum) <>
-        " got: " <> BSL.unpack (hex actualChecksum)
+        "wrong hash, expected: " <> BSL.unpack (hex expectedChecksum) <>
+        " got: " <>
+        BSL.unpack (hex actualChecksum)
       liftIO $ BSL.writeFile cacheFile raw
       return raw
     else do

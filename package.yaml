@@ -53,6 +53,7 @@ dependencies:
   - polysemy
   - polysemy-plugin
   - regex-applicative-text
+  - sqlite-simple
   - template-haskell
   - text
   - time >= 1.8 && < 1.10
