@@ -184,7 +184,8 @@ getSrcUrls = getSrcAttr "urls"
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
-  silently $ proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
+  silently $
+  proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
 log attrPath = proc "nix" ["log", "-f", ".", attrPath & T.unpack]
@@ -249,13 +250,13 @@ getHashFromBuild =
        (exitCode, _, stderr) <- buildCmd attrPath & readProcess
        when (exitCode == ExitSuccess) $ throwE "build succeeded unexpectedly"
        let stdErrText = bytestringToText stderr
-       let firstSplit = T.splitOn "sha256 hash '" stdErrText
+       let firstSplit = T.splitOn "got:    sha256:" stdErrText
        firstSplitSecondPart <-
          tryAt
            ("stderr did not split as expected full stderr was: \n" <> stdErrText)
            firstSplit
            1
-       let secondSplit = T.splitOn "'" firstSplitSecondPart
+       let secondSplit = T.splitOn "\n" firstSplitSecondPart
        tryHead
          ("stderr did not split second part as expected full stderr was: \n" <>
           stdErrText <>
