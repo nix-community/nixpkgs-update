@@ -72,8 +72,7 @@ data Boundary a
 -- | The Ord instance is used to sort lists of matchers in order to compare them
 -- as a set, it is not useful for comparing versions.
 data VersionMatcher
-  = ExactMatcher Version
-  | FuzzyMatcher Version
+  = SingleMatcher Version
   | RangeMatcher (Boundary Version) (Boundary Version)
   deriving (Eq, Ord, Show, Read)
 

@@ -61,6 +61,7 @@ dependencies:
   - typed-process
   - unix
   - vector
+  - versions
   - xdg-basedir
   - temporary
   - zlib

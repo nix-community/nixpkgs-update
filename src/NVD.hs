@@ -1,17 +1,20 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module NVD where
 
 import OurPrelude
 
-import CVE (CVE(..), cveMatcherList, parseFeed)
+import CVE (CVE(..), CVEID, cveMatcherList, parseFeed)
 import Codec.Compression.GZip (decompress)
-import Control.Exception (ioError, try)
+import Control.Exception (SomeException, ioError, try)
 import Crypto.Hash.SHA256 (hashlazy)
 import Data.Bifunctor (second)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Hex (hex, unhex)
+import Data.List (group)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock
   ( NominalDiffTime
@@ -22,17 +25,28 @@ import Data.Time.Clock
   , utctDay
   )
 import Data.Time.ISO8601 (parseISO8601)
-import Database.SQLite.Simple as DB
+import Database.SQLite.Simple
+  ( Connection
+  , Only(..)
+  , Query(..)
+  , executeMany
+  , execute_
+  , query
+  , withConnection
+  , withTransaction
+  )
 import Network.HTTP.Conduit (simpleHttp)
 import System.Directory
   ( XdgDirectory(..)
   , createDirectoryIfMissing
   , getModificationTime
   , getXdgDirectory
+  , removeFile
   )
 import System.FilePath ((<.>), (</>))
 import System.IO.Error (userError)
 import Utils (ProductID, Version)
+import Version (matchVersion)
 
 -- | Either @recent@, @modified@, or any year since @2002@.
 type FeedID = String
@@ -50,15 +64,27 @@ type MaxAge = NominalDiffTime
 data Meta =
   Meta Timestamp Checksum
 
-withDB :: (DB.Connection -> IO a) -> IO a
-withDB action = do
-  cacheDir <- liftIO $ getXdgDirectory XdgCache "nixpkgs-update/nvd"
+getDBPath :: IO FilePath
+getDBPath = do
+  cacheDir <- getXdgDirectory XdgCache "nixpkgs-update"
   createDirectoryIfMissing True cacheDir
-  DB.withConnection (cacheDir </> "db.sqlite3") $ \conn -> do
+  pure $ cacheDir </> "nvd.sqlite3"
+
+withDB :: (Connection -> IO a) -> IO a
+withDB action = do
+  dbPath <- getDBPath
+  withConnection dbPath action
+
+-- | Rebuild the entire database, redownloading all data.
+rebuildDB :: IO ()
+rebuildDB = do
+  dbPath <- getDBPath
+  removeFile dbPath
+  withConnection dbPath $ \conn -> do
     execute_ conn $
       Query $
       T.unlines
-        [ "CREATE TABLE IF NOT EXISTS cves ("
+        [ "CREATE TABLE cves ("
         , "  cve_id text PRIMARY KEY,"
         , "  description text,"
         , "  published text,"
@@ -67,27 +93,27 @@ withDB action = do
     execute_ conn $
       Query $
       T.unlines
-        [ "CREATE TABLE IF NOT EXISTS matchers ("
-        , "  cve_id text,"
+        [ "CREATE TABLE matchers ("
+        , "  cve_id text REFERENCES cve,"
         , "  product_id text,"
-        , "  matcher text)"
+        , "  matcher text,"
+        , "  UNIQUE(cve_id, product_id, matcher))"
         ]
     execute_ conn $
       Query $
       T.unlines
-        [ "CREATE INDEX IF NOT EXISTS matchers_by_product_id"
-        , "ON matchers(product_id)"
-        ]
-    action conn
+        ["CREATE INDEX matchers_by_product_id", "ON matchers(product_id)"]
+    years <- allYears
+    forM_ years $ downloadFeed conn (7.5 * nominalDay)
 
 feedURL :: FeedID -> Extension -> String
 feedURL feed ext =
-  "https://nvd.nist.gov/feeds/json/cve/1.0/nvdcve-1.0-" <> feed <> ext
+  "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-" <> feed <> ext
 
-throwString :: MonadIO m => String -> m a
-throwString = liftIO . ioError . userError
+throwString :: String -> IO a
+throwString = ioError . userError
 
-throwText :: MonadIO m => Text -> m a
+throwText :: Text -> IO a
 throwText = throwString . T.unpack
 
 allYears :: IO [FeedID]
@@ -109,27 +135,53 @@ parseMeta raw = do
   checksum <- note "invalid sha256 in meta" $ unhex sha256
   return $ Meta timestamp checksum
 
-getMeta :: MonadIO m => FeedID -> m Meta
+getMeta :: FeedID -> IO Meta
 getMeta feed = do
   raw <- simpleHttp $ feedURL feed ".meta"
   either throwText pure $ parseMeta raw
 
-getCVEs :: (ProductID, Version) -> IO [CVE]
-getCVEs (product, version) = do
-  years <- allYears
-  feeds <- sequence $ map (cacheFeed (7 * nominalDay)) years
-  return []
+getCVE :: Connection -> CVEID -> IO CVE
+getCVE conn cveID_ = do
+  cves <-
+    query
+      conn
+      (Query $
+       T.unlines
+         [ "SELECT cve_id, description, published, modified"
+         , "FROM cves"
+         , "WHERE cve_id = ?"
+         ])
+      (Only cveID_)
+  case cves of
+    [cve] -> pure cve
+    [] -> fail $ "no cve with id " <> (T.unpack cveID_)
+    _ -> fail $ "multiple cves with id " <> (T.unpack cveID_)
 
-updateVulnDB :: IO ()
-updateVulnDB =
-  withDB $ \conn -> do
-    putStrLn $ "checking feed cache"
-  -- years <- allYears
-  -- feeds <- sequence $ map (cacheFeed (7 * nominalDay)) years
-    feeds <- sequence $ map (cacheFeed (99 * nominalDay)) ["2019"]
-    putStrLn $ "loading data"
-    parsed <- sequence $ map (either throwText pure . parseFeed) feeds
-    let cves = take 10 $ head parsed
+getCVEs :: Connection -> ProductID -> Version -> IO [CVE]
+getCVEs conn productID version = do
+  rows <-
+    query
+      conn
+      (Query $
+       T.unlines
+         [ "SELECT cve_id, matcher"
+         , "FROM matchers"
+         , "WHERE product_id = ?"
+         , "ORDER BY cve_id"
+         ])
+      (Only productID)
+  let cveIDs =
+        map head $
+        group $
+        flip mapMaybe rows $ \(cveID_, matcher) ->
+          if matchVersion matcher version
+            then Just cveID_
+            else Nothing
+  forM cveIDs $ getCVE conn
+
+putCVEs :: Connection -> [CVE] -> IO ()
+putCVEs conn cves =
+  withTransaction conn $ do
     executeMany
       conn
       (Query $
@@ -146,31 +198,60 @@ updateVulnDB =
       conn
       (Query $
        T.unlines
-         [ "INSERT INTO matchers(cve_id, product_id, matcher)"
+         [ "REPLACE INTO matchers(cve_id, product_id, matcher)"
          , "VALUES (?, ?, ?)"
          ])
       (concatMap cveMatcherList cves)
-    print $ head $ head parsed
-    return ()
 
-getCacheFile :: MonadIO m => FeedID -> m FilePath
-getCacheFile feed = do
-  cacheDir <- liftIO $ getXdgDirectory XdgCache "nixpkgs-update/nvd"
-  liftIO $ createDirectoryIfMissing True cacheDir
-  return $ cacheDir </> feed <.> "json"
+lastModification :: Connection -> IO UTCTime
+lastModification conn = do
+  rows <- query conn "SELECT max(modified) FROM cves" ()
+  case rows of
+    [[timestamp]] -> pure timestamp
+    _ -> fail "failed to get last modification time"
 
-cacheFeed :: MonadIO m => MaxAge -> FeedID -> m BSL.ByteString
-cacheFeed maxAge feed = do
-  cacheFile <- getCacheFile feed
-  cacheTime <- liftIO $ try $ getModificationTime cacheFile
-  currentTime <- liftIO getCurrentTime
+-- | Download a feed and store it in the database.
+downloadFeed :: Connection -> MaxAge -> FeedID -> IO ()
+downloadFeed conn maxAge feedID
+  -- TODO: Because the database may need to be rebuilt frequently during
+  -- development, we cache the json in files to avoid redownloading. After
+  -- development is done, it can be downloaded directly without caching.
+ = do
+  json <- cacheFeedInFile maxAge feedID
+  parsed <- either throwText pure $ parseFeed json
+  putCVEs conn parsed
+
+updateVulnDB :: IO ()
+updateVulnDB = do
+  cacheTime <- try $ withDB lastModification
+  currentTime <- getCurrentTime
+  let needsRebuild =
+        case cacheTime of
+          Left (_ :: SomeException) -> True
+          Right t -> diffUTCTime currentTime t > (7.5 * nominalDay)
+  when needsRebuild rebuildDB
+  withDB $ \conn -> do
+    downloadFeed conn (0.5 * nominalDay) "modified"
+    cves <- getCVEs conn "chrome" "74.0.3729.108"
+    forM_ cves $ \CVE {cveID, cveDescription} -> do
+      TIO.putStrLn $ cveID <> " " <> cveDescription
+
+-- | Update a feed if it's older than a maximum age and return the contents as
+-- ByteString.
+cacheFeedInFile :: MaxAge -> FeedID -> IO BSL.ByteString
+cacheFeedInFile maxAge feed = do
+  cacheDir <- getXdgDirectory XdgCache "nixpkgs-update/nvd"
+  createDirectoryIfMissing True cacheDir
+  let cacheFile = cacheDir </> feed <.> "json"
+  cacheTime <- try $ getModificationTime cacheFile
+  currentTime <- getCurrentTime
   let needsUpdate =
         case cacheTime of
           Left (_ :: IOError) -> True
           Right t -> diffUTCTime currentTime t > maxAge
   if needsUpdate
     then do
-      liftIO $ putStrLn $ "updating feed " <> feed
+      putStrLn $ "updating feed " <> feed
       Meta _ expectedChecksum <- getMeta feed
       compressed <- simpleHttp $ feedURL feed ".json.gz"
       let raw = decompress compressed
@@ -180,7 +261,7 @@ cacheFeed maxAge feed = do
         "wrong hash, expected: " <> BSL.unpack (hex expectedChecksum) <>
         " got: " <>
         BSL.unpack (hex actualChecksum)
-      liftIO $ BSL.writeFile cacheFile raw
+      BSL.writeFile cacheFile raw
       return raw
     else do
-      liftIO $ BSL.readFile cacheFile
+      BSL.readFile cacheFile

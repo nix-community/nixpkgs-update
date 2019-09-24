@@ -5,6 +5,7 @@
 module CVE
   ( parseFeed
   , CVE(..)
+  , CVEID
   , cveMatcherList
   ) where
 
@@ -21,15 +22,15 @@ import Data.Aeson
   , withObject
   )
 import Data.Aeson.Types (Parser, prependFailure)
-import Data.Bifunctor (bimap, second)
-import Data.List (intercalate)
+import Data.Bifunctor (bimap)
+import Data.List (intercalate, partition)
 import Data.Map (Map)
 import Data.Set (Set)
-import Data.Text.Read (decimal)
 import Data.Time.Clock (UTCTime)
-import Database.SQLite.Simple (FromRow, SQLData, ToRow, field, fromRow, toRow)
+import Database.SQLite.Simple (FromRow, ToRow, field, fromRow, toRow)
 
 import Utils (Boundary(..), ProductID, VersionMatcher(..))
+import Version (matchVersion)
 
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.Map as M
@@ -41,11 +42,8 @@ type CVEID = Text
 data CVE =
   CVE
     { cveID :: CVEID
-    , cveYear :: Int
-    , cveSubID :: Int
     , cveMatchers :: Map ProductID (Set VersionMatcher)
     , cveDescription :: Text
-    , cveCPEs :: [CPE]
     , cvePublished :: UTCTime
     , cveLastModified :: UTCTime
     }
@@ -67,21 +65,6 @@ data CPE =
     , cpeOther :: Maybe Text
     , cpeMatcher :: Maybe VersionMatcher
     }
-
-data MatcherRow =
-  MatcherRow CVEID ProductID VersionMatcher
-
-instance ToRow MatcherRow where
-  toRow (MatcherRow cveID productID matcher) = toRow (cveID, productID, matcher)
-
-instance FromRow MatcherRow where
-  fromRow = MatcherRow <$> field <*> field <*> field
-
-cveMatcherList :: CVE -> [MatcherRow]
-cveMatcherList CVE {cveID, cveMatchers} = do
-  (productID, matchers) <- M.assocs cveMatchers
-  matcher <- S.elems matchers
-  return $ MatcherRow cveID productID matcher
 
 instance Show CPE where
   show CPE { cpePart
@@ -118,19 +101,6 @@ instance Show CPE where
       cpeField _ Nothing = []
       cpeField name (Just value) = [name <> " = " <> show value]
 
-eitherToParser :: Either String a -> Parser a
-eitherToParser (Left e) = fail e
-eitherToParser (Right a) = pure a
-
-cveIDNumbers :: Text -> Either String (Int, Int)
-cveIDNumbers rest0 = do
-  rest1 <- note "invalid cve id" $ T.stripPrefix "CVE-" rest0
-  (year, rest2) <- decimal rest1
-  rest3 <- note "invalid cve id" $ T.stripPrefix "-" rest2
-  (subid, rest4) <- decimal rest3
-  guard $ T.null rest4
-  pure (year, subid)
-
 parseDescription :: Object -> Parser Text
 parseDescription o = do
   dData <- o .: "description_data"
@@ -146,45 +116,37 @@ parseDescription o = do
           _ -> []
   pure $ T.intercalate "\n\n" descriptions
 
-parseAffects :: Object -> Parser (Map ProductID (Set VersionMatcher))
-parseAffects o = do
-  vendor <- o .: "vendor"
-  vendorData <- vendor .: "vendor_data"
-  fmap (M.fromListWith S.union . concat) $
-    sequence $
-    flip map vendorData $ \v -> do
-      product_ <- v .: "product"
-      productData <- product_ .: "product_data"
-      sequence $
-        flip map productData $ \p -> do
-          productID <- p .: "product_name"
-          version <- p .: "version"
-          versionData <- version .: "version_data"
-          matchers <-
-            fmap S.fromList $
-            sequence $
-            flip map versionData $ \ver -> do
-              value <- ver .: "version_value"
-              affected :: Text <- ver .: "version_affected"
-              case affected of
-                "=" -> pure $ FuzzyMatcher value
-                "<=" -> pure $ RangeMatcher Unbounded (Including value)
-                _ -> fail $ "unknown version comparator: " <> show affected
-          pure (productID, matchers)
-
 -- TODO: We ignore update, edition and softwareEdition for now, but they might
 -- be relevant.
 cpeToMatcher :: CPE -> Map ProductID (Set VersionMatcher)
 cpeToMatcher CPE {cpeProduct = Just p, cpeVersion = Just v, cpeMatcher = Just m} =
-  M.singleton p $ S.fromList [FuzzyMatcher v, m]
+  M.singleton p $ S.fromList [SingleMatcher v, m]
 cpeToMatcher CPE {cpeProduct = Just p, cpeVersion = Just v} =
-  M.singleton p $ S.fromList [FuzzyMatcher v]
+  M.singleton p $ S.fromList [SingleMatcher v]
 cpeToMatcher CPE {cpeProduct = Just p, cpeMatcher = Just m} =
   M.singleton p $ S.fromList [m]
 cpeToMatcher _ = M.empty
 
 cpeMatchers :: [CPE] -> Map ProductID (Set VersionMatcher)
 cpeMatchers = M.unionsWith S.union . map cpeToMatcher
+
+cveMatcherList :: CVE -> [(CVEID, ProductID, VersionMatcher)]
+cveMatcherList CVE {cveID, cveMatchers} = do
+  (productID, matchers) <- M.assocs cveMatchers
+  matcher <- reduceMatcherList $ S.elems matchers
+  return (cveID, productID, matcher)
+
+reduceMatcherList :: [VersionMatcher] -> [VersionMatcher]
+reduceMatcherList matchers = usefulMatchers ++ rangeMatchers
+  where
+    isRangeMatcher (RangeMatcher _ _) = True
+    isRangeMatcher _ = False
+    (rangeMatchers, otherMatchers) = partition isRangeMatcher matchers
+    -- A version matcher is useful if it is not matched by any range matcher
+    isUseful (SingleMatcher v) =
+      not $ any (\m -> matchVersion m v) rangeMatchers
+    isUseful _ = True
+    usefulMatchers = filter isUseful otherMatchers
 
 instance FromJSON CVE where
   parseJSON =
@@ -197,13 +159,9 @@ instance FromJSON CVE where
         cveCPEs <- parseConfigurations cfgs
         cvePublished <- o .: "publishedDate"
         cveLastModified <- o .: "lastModifiedDate"
-        (cveYear, cveSubID) <- eitherToParser $ cveIDNumbers cveID
         description <- cve .: "description"
         cveDescription <- parseDescription description
-        affects <- cve .: "affects"
-        affectMatchers <- parseAffects affects
-        let cveMatchers =
-              M.unionWith S.union affectMatchers (cpeMatchers cveCPEs)
+        let cveMatchers = cpeMatchers cveCPEs
         pure CVE {..}
 
 instance ToRow CVE where
@@ -212,6 +170,7 @@ instance ToRow CVE where
 
 instance FromRow CVE where
   fromRow = do
+    let cveMatchers = M.empty
     cveID <- field
     cveDescription <- field
     cvePublished <- field
@@ -238,14 +197,14 @@ instance FromJSON CPE where
         case (vStartIncluding, vStartExcluding) of
           (Nothing, Nothing) -> pure Unbounded
           (Just start, Nothing) -> pure (Including start)
-          (Nothing, Just start) -> pure (Including start)
-          (Just _, Just _) -> fail "multiple starts"
+          (Nothing, Just start) -> pure (Excluding start)
+          (Just _, Just _) -> fail "multiple version starts"
       endBoundary <-
         case (vEndIncluding, vEndExcluding) of
           (Nothing, Nothing) -> pure Unbounded
           (Just end, Nothing) -> pure (Including end)
-          (Nothing, Just end) -> pure (Including end)
-          (Just _, Just _) -> fail "multiple ends"
+          (Nothing, Just end) -> pure (Excluding end)
+          (Just _, Just _) -> fail "multiple version ends"
       let cpeMatcher =
             case (startBoundary, endBoundary) of
               (Unbounded, Unbounded) -> Nothing

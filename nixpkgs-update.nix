@@ -4,7 +4,7 @@
 , neat-interpolation, optparse-applicative, parsec, parsers
 , polysemy, regex-applicative-text, sqlite-simple, stdenv
 , template-haskell, temporary, text, time, transformers
-, typed-process, unix, vector, xdg-basedir, zlib
+, typed-process, unix, vector, versions, xdg-basedir, zlib
 }:
 mkDerivation {
   pname = "nixpkgs-update";
@@ -19,7 +19,7 @@ mkDerivation {
     lifted-base mtl neat-interpolation optparse-applicative parsec
     parsers polysemy regex-applicative-text sqlite-simple
     template-haskell temporary text time transformers typed-process
-    unix vector xdg-basedir zlib
+    unix vector versions xdg-basedir zlib
   ];
   testHaskellDepends = [
     aeson base bytestring conduit containers cryptohash-sha256
@@ -27,7 +27,7 @@ mkDerivation {
     iso8601-time lifted-base mtl neat-interpolation
     optparse-applicative parsec parsers polysemy regex-applicative-text
     sqlite-simple template-haskell temporary text time transformers
-    typed-process unix vector xdg-basedir zlib
+    typed-process unix vector versions xdg-basedir zlib
   ];
   prePatch = "hpack";
   homepage = "https://github.com/ryantm/nixpkgs-update#readme";
