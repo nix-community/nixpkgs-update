@@ -22,6 +22,9 @@ import Text.Parser.Combinators
 outPathsExpr :: Text
 outPathsExpr =
   [interpolate|
+#!/usr/bin/env nix-shell
+# When using as a callable script, passing `--argstr path some/path` overrides $$PWD.
+#!nix-shell -p nix -i "nix-env -qaP --no-name --out-path --arg checkMeta true --argstr path $$PWD -f"
 { checkMeta
 , path ? ./.
 }:
@@ -86,19 +89,29 @@ outPath = do
   liftIO $ putStrLn "Writing outpaths.nix..."
   liftIO $ T.writeFile "./outpaths.nix" outPathsExpr
   liftIO $ putStrLn "Evaluating outpaths..."
+  p <- ourReadProcessInterleaved_ "echo $PATH"
+  liftIO $ T.putStrLn p
+  e <- ourReadProcessInterleaved_ "env"
+  liftIO $ T.putStrLn e
+  v <- ourReadProcessInterleaved_ "nix-env --version"
+  liftIO $ T.putStrLn v
   ourReadProcessInterleaved_
-    "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true"
+    "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true --show-trace"
 
-data Outpath = Outpath
-  { mayName :: Maybe Text
-  , storePath :: Text
-  } deriving (Eq, Ord, Show)
+data Outpath =
+  Outpath
+    { mayName :: Maybe Text
+    , storePath :: Text
+    }
+  deriving (Eq, Ord, Show)
 
-data ResultLine = ResultLine
-  { package :: Text
-  , architecture :: Text
-  , outpaths :: Vector Outpath
-  } deriving (Eq, Ord, Show)
+data ResultLine =
+  ResultLine
+    { package :: Text
+    , architecture :: Text
+    , outpaths :: Vector Outpath
+    }
+  deriving (Eq, Ord, Show)
 
 -- Example query result line:
 -- testInput :: Text
