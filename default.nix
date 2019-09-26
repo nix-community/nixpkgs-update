@@ -13,6 +13,8 @@ let
   pkg = compiler.developPackage {
     root = ./.;
     overrides = self: super: {
+      polysemy = super.polysemy_1_2_1_0;
+      polysemy-plugin = dontCheck super.polysemy-plugin;
       time-compat = dontCheck super.time-compat;
       binary-orphans = dontCheck super.binary-orphans;
       binary-instances = dontCheck super.binary-instances;

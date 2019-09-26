@@ -16,7 +16,7 @@ extra-source-files:
 
 github: ryantm/nixpkgs-update
 
-ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively
+ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
 
 default-extensions:
   - DataKinds
@@ -51,6 +51,7 @@ dependencies:
   - parsec
   - parsers
   - polysemy
+  - polysemy-plugin
   - regex-applicative-text
   - template-haskell
   - text
