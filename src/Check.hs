@@ -109,8 +109,8 @@ checkTestsBuildReport True =
 
 checkReport :: BinaryCheck -> Text
 checkReport (BinaryCheck p False False) =
-  "- Warning: no invocation of " <> T.pack p <>
-  " had a zero exit code or showed the expected version"
+  "- Warning: no invocation of " <>
+  T.pack p <> " had a zero exit code or showed the expected version"
 checkReport (BinaryCheck p _ _) =
   "- " <> T.pack p <> " passed the binary check."
 
@@ -127,48 +127,49 @@ ourLockedDownReadProcessInterleaved processConfig tempDir =
 foundVersionInOutputs :: Text -> String -> IO (Maybe Text)
 foundVersionInOutputs expectedVersion resultPath =
   hush <$>
-  (runExceptT $ do
-     (exitCode, _) <-
-       proc "grep" ["-r", T.unpack expectedVersion, resultPath] &
-       ourReadProcessInterleaved
-     case exitCode of
-       ExitSuccess ->
-         return $
-         "- found " <> expectedVersion <> " with grep in " <> T.pack resultPath <>
-         "\n"
-       _ -> throwE "grep did not find version in file names")
+  runExceptT
+    (do (exitCode, _) <-
+          proc "grep" ["-r", T.unpack expectedVersion, resultPath] &
+          ourReadProcessInterleaved
+        case exitCode of
+          ExitSuccess ->
+            return $
+            "- found " <>
+            expectedVersion <> " with grep in " <> T.pack resultPath <> "\n"
+          _ -> throwE "grep did not find version in file names")
 
 foundVersionInFileNames :: Text -> String -> IO (Maybe Text)
 foundVersionInFileNames expectedVersion resultPath =
   hush <$>
-  (runExceptT $ do
-     (_, contents) <- shell ("find " <> resultPath) & ourReadProcessInterleaved
-     (contents =~ versionRegex expectedVersion) & hoistMaybe &
-       noteT (T.pack "Expected version not found")
-     return $
-       "- found " <> expectedVersion <> " in filename of file in " <>
-       T.pack resultPath <>
-       "\n")
+  runExceptT
+    (do (_, contents) <-
+          shell ("find " <> resultPath) & ourReadProcessInterleaved
+        (contents =~ versionRegex expectedVersion) & hoistMaybe &
+          noteT (T.pack "Expected version not found")
+        return $
+          "- found " <>
+          expectedVersion <>
+          " in filename of file in " <> T.pack resultPath <> "\n")
 
 treeGist :: String -> IO (Maybe Text)
 treeGist resultPath =
   hush <$>
-  (runExceptT $
-   (do contents <- proc "tree" [resultPath] & ourReadProcessInterleavedBS_
-       g <-
-         shell "gist" & setStdin (byteStringInput contents) &
-         ourReadProcessInterleaved_
-       return $ "- directory tree listing: " <> g <> "\n"))
+  runExceptT
+    (do contents <- proc "tree" [resultPath] & ourReadProcessInterleavedBS_
+        g <-
+          shell "gist" & setStdin (byteStringInput contents) &
+          ourReadProcessInterleaved_
+        return $ "- directory tree listing: " <> g <> "\n")
 
 duGist :: String -> IO (Maybe Text)
 duGist resultPath =
   hush <$>
-  (runExceptT $
-   (do contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
-       g <-
-         shell "gist" & setStdin (byteStringInput contents) &
-         ourReadProcessInterleaved_
-       return $ "- du listing: " <> g <> "\n"))
+  runExceptT
+    (do contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
+        g <-
+          shell "gist" & setStdin (byteStringInput contents) &
+          ourReadProcessInterleaved_
+        return $ "- du listing: " <> g <> "\n")
 
 result :: MonadIO m => UpdateEnv -> String -> m Text
 result updateEnv resultPath =
@@ -206,16 +207,20 @@ result updateEnv resultPath =
       fromMaybe "" <$>
       foundVersionInOutputs expectedVersion resultPath <>
       foundVersionInFileNames expectedVersion resultPath <>
-      treeGist resultPath <>
-      duGist resultPath
+      treeGist resultPath <> duGist resultPath
     return $
       let testsBuildSummary = checkTestsBuildReport testsBuild
           c = T.intercalate "\n" (map checkReport checks')
           binaryCheckSummary =
-            "- " <> passedZeroExitCode <> " of " <> numBinaries <>
-            " passed binary check by having a zero exit code."
+            "- " <>
+            passedZeroExitCode <>
+            " of " <>
+            numBinaries <> " passed binary check by having a zero exit code."
           versionPresentSummary =
-            "- " <> passedVersionPresent <> " of " <> numBinaries <>
+            "- " <>
+            passedVersionPresent <>
+            " of " <>
+            numBinaries <>
             " passed binary check by having the new version present in output."
        in [interpolate|
               $testsBuildSummary

@@ -20,7 +20,7 @@ import Utils (Options(..), setupNixpkgs)
 
 default (T.Text)
 
-data UpdateOptions =
+newtype UpdateOptions =
   UpdateOptions
     { dry :: Bool
     }
@@ -33,7 +33,7 @@ data Command
 
 updateOptionsParser :: O.Parser Command
 updateOptionsParser =
-  Update <$> UpdateOptions <$>
+  Update . UpdateOptions <$>
   O.switch
     (O.long "dry-run" <>
      O.help
@@ -42,31 +42,32 @@ updateOptionsParser =
 commandParser :: O.Parser Command
 commandParser =
   O.hsubparser
-    ((O.command
-        "update"
-        (O.info updateOptionsParser (O.progDesc "Update packages"))) <>
-     (O.command
-        "delete-done"
-        (O.info
-           (pure DeleteDone)
-           (O.progDesc "Deletes branches from PRs that were merged or closed"))) <>
-     (O.command
-        "version"
-        (O.info
-           (pure Version)
-           (O.progDesc
-              "Displays version information for nixpkgs-update and dependencies"))) <>
-     (O.command
-        "update-vulnerability-db"
-        (O.info
-           (pure UpdateVulnDB)
-           (O.progDesc "Updates the vulnerability database"))))
+    (O.command
+       "update"
+       (O.info updateOptionsParser (O.progDesc "Update packages")) <>
+     O.command
+       "delete-done"
+       (O.info
+          (pure DeleteDone)
+          (O.progDesc "Deletes branches from PRs that were merged or closed")) <>
+     O.command
+       "version"
+       (O.info
+          (pure Version)
+          (O.progDesc
+             "Displays version information for nixpkgs-update and dependencies")) <>
+     O.command
+       "update-vulnerability-db"
+       (O.info
+          (pure UpdateVulnDB)
+          (O.progDesc "Updates the vulnerability database")))
 
 programInfo :: O.ParserInfo Command
 programInfo =
   O.info
     (commandParser <**> O.helper)
-    (O.fullDesc <> O.progDesc "Update packages in the Nixpkgs repository" <>
+    (O.fullDesc <>
+     O.progDesc "Update packages in the Nixpkgs repository" <>
      O.header "nixpkgs-update")
 
 getGithubToken :: IO Text
@@ -81,7 +82,7 @@ main = do
       setupNixpkgs token
       setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
-    Update (UpdateOptions {dry}) -> do
+    Update UpdateOptions {dry} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
@@ -90,7 +91,7 @@ main = do
       setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
       updateAll (Options dry token) updates
     Version -> do
-      v <- runExceptT $ Nix.version
+      v <- runExceptT Nix.version
       case v of
         Left t -> T.putStrLn ("error:" <> t)
         Right t -> T.putStrLn t
