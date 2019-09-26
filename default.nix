@@ -1,7 +1,7 @@
 { nixpkgs-tarball ? builtins.fetchTarball {
   name = "nixpkgs-unstable";
-  url = "https://releases.nixos.org/nixos/unstable/nixos-19.09pre186563.b5f5c97f7d6/nixexprs.tar.xz";
-  sha256 = "175jkhcfdyq0ddvc0188dzpm9lgmrplvgxx5gzmbzy86jywhhqs2";
+  url = "https://releases.nixos.org/nixos/unstable/nixos-20.03pre193829.f0fec244ca3/nixexprs.tar.xz";
+  sha256 = "03iqwyz5lxaq4k2hw4wfd55gizdf1230jcsqia0zmp3whpyj5y1x";
 }, pkgs ? import nixpkgs-tarball { config = { allowBroken = true; }; } }:
 
 let
@@ -19,15 +19,9 @@ let
       hpack = dontCheck super.hpack;
     };
     source-overrides = {
-      aeson = "1.4.3.0";
-      time-compat = "1.9.2.2";
-      binary-orphans = "1.0.1";
-      first-class-families = "0.5.0.0";
-      th-abstraction = "0.3.1.0";
-      th-lift = "0.8.0.1";
     };
   };
 
 in pkg.overrideAttrs (attrs: {
-  propagatedBuildInputs = with pkgs; [ nix gitAndTools.hub jq tree gist ];
+  propagatedBuildInputs = with pkgs; [ nix git getent gitAndTools.hub jq tree gist ];
   })
