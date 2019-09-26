@@ -31,8 +31,13 @@ import System.Environment.XDG.BaseDir
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv, setEnv)
 import System.Posix.Files
-  (directoryMode, fileExist, groupModes, otherExecuteMode, otherReadMode,
-  ownerModes)
+  ( directoryMode
+  , fileExist
+  , groupModes
+  , otherExecuteMode
+  , otherReadMode
+  , ownerModes
+  )
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
 import qualified System.Process.Typed
@@ -40,6 +45,7 @@ import qualified System.Process.Typed
 default (T.Text)
 
 type ProductID = Text
+
 type Version = Text
 
 -- | The Ord instance is used to sort lists of matchers in order to compare them
