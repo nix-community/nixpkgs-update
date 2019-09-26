@@ -13,10 +13,10 @@ data Time m a where
 
 makeSem ''Time
 
-runIO :: Member (Lift IO) r => Sem (Time ': r) a -> Sem r a
+runIO :: Member (Embed IO) r => Sem (Time ': r) a -> Sem r a
 runIO =
   interpret $ \case
-    Now -> sendM getCurrentTime
+    Now -> embed getCurrentTime
 
 runPure :: UTCTime -> Sem (Time ': r) a -> Sem r a
 runPure t =
