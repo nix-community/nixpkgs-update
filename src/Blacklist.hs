@@ -126,6 +126,7 @@ contentList =
   , infixOf
       "nixpkgs-update: no auto update"
       "Derivation file asks not to auto update it"
+  , infixOf "gnome" "don't update gnome during a release cycle"
   ]
 
 checkResultList :: Blacklist
