@@ -272,8 +272,9 @@ withVulnDB action = do
   rebuild <- needsRebuild
   when rebuild rebuildDB
   withDB $ \conn -> do
-    unless rebuild $ downloadFeed conn (0.25 * nominalDay) "modified"
-    markUpdated conn
+    unless rebuild $ do
+      downloadFeed conn (0.25 * nominalDay) "modified"
+      markUpdated conn
     action conn
 
 -- | Update a feed if it's older than a maximum age and return the contents as

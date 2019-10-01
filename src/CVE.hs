@@ -208,9 +208,9 @@ guardAttr object attribute expected = do
   actual <- object .: attribute
   unless (actual == expected) $
     fail $
-    "unexpected " <> T.unpack attribute <> ", expected " <> show expected <>
-    ", got " <>
-    show actual
+    "unexpected " <>
+    T.unpack attribute <>
+    ", expected " <> show expected <> ", got " <> show actual
 
 -- Because complex boolean formulas can't be used to determine if a single
 -- product/version is vulnerable, we simply use all leaves marked vulnerable.

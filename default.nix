@@ -19,6 +19,7 @@ let
       binary-orphans = dontCheck super.binary-orphans;
       binary-instances = dontCheck super.binary-instances;
       hpack = dontCheck super.hpack;
+      partial-order = doJailbreak super.partial-order;
     };
     source-overrides = {
     };

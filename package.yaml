@@ -50,11 +50,13 @@ dependencies:
   - optparse-applicative
   - parsec
   - parsers
+  - partial-order
   - polysemy
   - polysemy-plugin
   - regex-applicative-text
   - sqlite-simple
   - template-haskell
+  - temporary
   - text
   - time >= 1.8 && < 1.10
   - transformers
@@ -63,7 +65,6 @@ dependencies:
   - vector
   - versions
   - xdg-basedir
-  - temporary
   - zlib
 
 executables:

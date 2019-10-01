@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Version
@@ -7,8 +9,11 @@ module Version
 
 import OurPrelude
 
+import Data.Char (isAlpha, isDigit)
+import Data.Function (on)
+import qualified Data.PartialOrd as PO
 import qualified Data.Text as T
-import Data.Versions (Versioning, prettyV, versioning)
+import Data.Versions (SemVer(..), VUnit(..), semver)
 import Utils
 
 notElemOf :: (Eq a, Foldable t) => t a -> a -> Bool
@@ -83,44 +88,149 @@ versionIncompatibleWithPathPin path version =
 assertCompatibleWithPathPin :: Monad m => UpdateEnv -> Text -> ExceptT Text m ()
 assertCompatibleWithPathPin ue attrPath =
   tryAssert
-    ("Version in attr path " <> attrPath <> " not compatible with " <>
-     newVersion ue)
+    ("Version in attr path " <>
+     attrPath <> " not compatible with " <> newVersion ue)
     (not
        (versionCompatibleWithPathPin attrPath (oldVersion ue) &&
         versionIncompatibleWithPathPin attrPath (newVersion ue)))
 
-data ParsedVersion
-  = Unparsable Text
-  | Parsed Versioning
+data VersionPart
+  = PreReleasePart VersionPart
+  | EmptyPart
+  | IntPart Word
+  | TextPart Text
   deriving (Show, Eq)
 
--- TODO: Comparing unparsable versions by text is not acceptable. Better parsing
--- is needed.
-instance Ord ParsedVersion where
-  compare (Unparsable a) (Unparsable b) = compare a b
-  compare (Parsed a) (Unparsable b) = compare (prettyV a) b
-  compare (Unparsable a) (Parsed b) = compare a (prettyV b)
-  compare (Parsed a) (Parsed b) = compare a b
+data ParsedVersion
+  = SemanticVersion SemVer
+  | SimpleVersion [VersionPart]
+  deriving (Show, Eq)
+
+preReleaseTexts :: [Text]
+preReleaseTexts = ["alpha", "beta", "pre", "rc"]
+
+textPart :: Text -> VersionPart
+textPart t
+  | tLower `elem` preReleaseTexts = PreReleasePart $ TextPart tLower
+  | otherwise = TextPart tLower
+  where
+    tLower = T.toLower t
+
+class SimpleVersion a where
+  simpleVersion :: a -> [VersionPart]
+
+instance SimpleVersion Text where
+  simpleVersion t
+    | digitHead /= "" = IntPart number : simpleVersion digitTail
+    | alphaHead /= "" = textPart alphaHead : simpleVersion alphaTail
+    | otherwise = []
+    where
+      t' = T.dropWhile (\c -> not (isAlpha c || isDigit c)) t
+      (digitHead, digitTail) = T.span isDigit t'
+      number = read $ T.unpack digitHead
+      (alphaHead, alphaTail) = T.span isAlpha t'
+
+instance SimpleVersion ParsedVersion where
+  simpleVersion (SimpleVersion v) = v
+  simpleVersion (SemanticVersion v) = simpleVersion v
+
+instance SimpleVersion SemVer where
+  simpleVersion SemVer {_svMajor, _svMinor, _svPatch, _svPreRel} =
+    [IntPart _svMajor, IntPart _svMinor, IntPart _svPatch] ++
+    map toPart (concat _svPreRel)
+    where
+      toPart (Digits i) = IntPart i
+      toPart (Str t) =
+        case textPart t of
+          PreReleasePart p -> PreReleasePart p
+          p -> PreReleasePart p
+
+instance SimpleVersion [VersionPart] where
+  simpleVersion = id
+
+-- | Pre-release parts come before empty parts, everything else comes after
+-- them. Int and text parts compare to themselves as expected and comparison
+-- between them is not defined.
+instance PO.PartialOrd VersionPart where
+  PreReleasePart a <= PreReleasePart b = a PO.<= b
+  PreReleasePart _ <= _ = True
+  _ <= PreReleasePart _ = False
+  EmptyPart <= _ = True
+  _ <= EmptyPart = False
+  IntPart a <= IntPart b = a <= b
+  TextPart a <= TextPart b = a <= b
+  _ <= _ = False
+
+-- | If either version contains no comparable parts, the versions are not
+-- comparable. If both contain at least some parts, compare parts in order. When
+-- a version runs out of parts, its remaining parts are considered empty parts,
+-- which come after pre-release parts, but before other parts.
+--
+-- Examples:
+--
+-- >>> on PO.compare parseVersion "1.2.3" "1.2.4"
+-- Just LT
+--
+-- >>> on PO.compare parseVersion "1.0" "-"
+-- Nothing
+--
+-- >>> on PO.compare parseVersion "-" "-"
+-- Nothing
+--
+-- >>> on PO.compare parseVersion "1.0" "1_0_0"
+-- Just LT
+--
+-- >>> on PO.compare parseVersion "1.0-pre3" "1.0"
+-- Just LT
+--
+-- >>> on PO.compare parseVersion "1.1" "1.a"
+-- Nothing
+instance PO.PartialOrd ParsedVersion where
+  SemanticVersion a <= SemanticVersion b = a <= b
+  SimpleVersion [] <= _ = False
+  _ <= SimpleVersion [] = False
+  a <= b = on lessOrEq simpleVersion a b
+    where
+      lessOrEq [] [] = True
+      lessOrEq [] ys = lessOrEq [EmptyPart] ys
+      lessOrEq xs [] = lessOrEq xs [EmptyPart]
+      lessOrEq (x:xs) (y:ys) =
+        case PO.compare x y of
+          Just LT -> True
+          Just EQ -> lessOrEq xs ys
+          Just GT -> False
+          Nothing -> False
 
 parseVersion :: Version -> ParsedVersion
 parseVersion v =
-  case versioning v of
-    Left _ -> Unparsable v
-    Right v' -> Parsed v'
+  case semver v of
+    Left _ -> SimpleVersion $ simpleVersion v
+    Right v' -> SemanticVersion v'
 
 matchUpperBound :: Boundary Version -> Version -> Bool
 matchUpperBound Unbounded _ = True
-matchUpperBound (Including b) v = parseVersion v <= parseVersion b
-matchUpperBound (Excluding b) v = parseVersion v < parseVersion b
+matchUpperBound (Including b) v = parseVersion v PO.<= parseVersion b
+matchUpperBound (Excluding b) v = parseVersion v PO.< parseVersion b
 
 matchLowerBound :: Boundary Version -> Version -> Bool
 matchLowerBound Unbounded _ = True
-matchLowerBound (Including b) v = parseVersion b <= parseVersion v
-matchLowerBound (Excluding b) v = parseVersion b < parseVersion v
+matchLowerBound (Including b) v = parseVersion b PO.<= parseVersion v
+matchLowerBound (Excluding b) v = parseVersion b PO.< parseVersion v
 
--- | A basic method of matching versions with CVE version matchers. Can be
--- improved upon if there are too many false positives.
+-- | Reports True only if matcher certainly matches. When the order or equality
+-- of versions is ambiguous, return False.
+--
+-- Examples:
+--
+-- >>> matchVersion (SingleMatcher "1.2.3") "1_2-3"
+-- True
+--
+-- >>> matchVersion (RangeMatcher Unbounded (Including "1.0-pre3")) "1.0"
+-- False
+--
+-- >>> matchVersion (RangeMatcher Unbounded (Excluding "1.0-rev3")) "1.0"
+-- True
 matchVersion :: VersionMatcher -> Version -> Bool
-matchVersion (SingleMatcher v) v' = parseVersion v == parseVersion v'
+matchVersion (SingleMatcher v) v' = parseVersion v PO.== parseVersion v'
 matchVersion (RangeMatcher lowerBound upperBound) v =
   matchLowerBound lowerBound v && matchUpperBound upperBound v
