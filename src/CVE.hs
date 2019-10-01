@@ -23,14 +23,13 @@ import Data.Aeson
   )
 import Data.Aeson.Types (Parser, prependFailure)
 import Data.Bifunctor (bimap)
-import Data.List (intercalate, partition)
+import Data.List (intercalate)
 import Data.Map (Map)
 import Data.Set (Set)
 import Data.Time.Clock (UTCTime)
 import Database.SQLite.Simple (FromRow, ToRow, field, fromRow, toRow)
 
 import Utils (Boundary(..), ProductID, VersionMatcher(..))
-import Version (matchVersion)
 
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.Map as M
@@ -49,6 +48,8 @@ data CVE =
     }
   deriving (Show)
 
+-- This decodes an entire CPE string and related attributes, but we only use
+-- cpeVulnerable, cpeProduct, cpeVersion and cpeMatcher.
 data CPE =
   CPE
     { cpeVulnerable :: Bool
@@ -101,6 +102,8 @@ instance Show CPE where
       cpeField _ Nothing = []
       cpeField name (Just value) = [name <> " = " <> show value]
 
+-- | Parse a @description_data@ subtree and return the concatenation of the
+-- english descriptions.
 parseDescription :: Object -> Parser Text
 parseDescription o = do
   dData <- o .: "description_data"
@@ -116,8 +119,6 @@ parseDescription o = do
           _ -> []
   pure $ T.intercalate "\n\n" descriptions
 
--- TODO: We ignore update, edition and softwareEdition for now, but they might
--- be relevant.
 cpeToMatcher :: CPE -> Map ProductID (Set VersionMatcher)
 cpeToMatcher CPE {cpeProduct = Just p, cpeVersion = Just v, cpeMatcher = Just m} =
   M.singleton p $ S.fromList [SingleMatcher v, m]
@@ -133,20 +134,8 @@ cpeMatchers = M.unionsWith S.union . map cpeToMatcher
 cveMatcherList :: CVE -> [(CVEID, ProductID, VersionMatcher)]
 cveMatcherList CVE {cveID, cveMatchers} = do
   (productID, matchers) <- M.assocs cveMatchers
-  matcher <- reduceMatcherList $ S.elems matchers
+  matcher <- S.elems matchers
   return (cveID, productID, matcher)
-
-reduceMatcherList :: [VersionMatcher] -> [VersionMatcher]
-reduceMatcherList matchers = usefulMatchers ++ rangeMatchers
-  where
-    isRangeMatcher (RangeMatcher _ _) = True
-    isRangeMatcher _ = False
-    (rangeMatchers, otherMatchers) = partition isRangeMatcher matchers
-    -- A version matcher is useful if it is not matched by any range matcher
-    isUseful (SingleMatcher v) =
-      not $ any (\m -> matchVersion m v) rangeMatchers
-    isUseful _ = True
-    usefulMatchers = filter isUseful otherMatchers
 
 instance FromJSON CVE where
   parseJSON =
@@ -223,20 +212,17 @@ guardAttr object attribute expected = do
     ", got " <>
     show actual
 
--- TODO: Determine how nodes work exactly. What does AND mean and what does
--- vulnerable: false mean? For now, we assume everything with vulnerable: true
--- is vulnerable.
+-- Because complex boolean formulas can't be used to determine if a single
+-- product/version is vulnerable, we simply use all leaves marked vulnerable.
 parseNode :: Object -> Parser [CPE]
 parseNode node = do
-  children <- node .:! "children"
-  parseNode' children node
-
-parseNode' :: (Maybe [Object]) -> Object -> Parser [CPE]
-parseNode' Nothing node = do
-  matches <- node .:! "cpe_match" .!= []
-  pure $ filter cpeVulnerable matches
-parseNode' (Just children) _ = do
-  fmap concat $ sequence $ map parseNode children
+  maybeChildren <- node .:! "children"
+  case maybeChildren of
+    Nothing -> do
+      matches <- node .:! "cpe_match" .!= []
+      pure $ filter cpeVulnerable matches
+    Just children -> do
+      fmap concat $ sequence $ map parseNode children
 
 parseConfigurations :: Object -> Parser [CPE]
 parseConfigurations o = do

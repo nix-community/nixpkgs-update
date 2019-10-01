@@ -11,7 +11,7 @@ import Control.Applicative ((<**>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
-import NVD (updateVulnDB)
+import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
 import System.Posix.Env (setEnv)
@@ -66,8 +66,7 @@ programInfo :: O.ParserInfo Command
 programInfo =
   O.info
     (commandParser <**> O.helper)
-    (O.fullDesc <>
-     O.progDesc "Update packages in the Nixpkgs repository" <>
+    (O.fullDesc <> O.progDesc "Update packages in the Nixpkgs repository" <>
      O.header "nixpkgs-update")
 
 getGithubToken :: IO Text
@@ -95,4 +94,4 @@ main = do
       case v of
         Left t -> T.putStrLn ("error:" <> t)
         Right t -> T.putStrLn t
-    UpdateVulnDB -> updateVulnDB
+    UpdateVulnDB -> withVulnDB $ \_conn -> pure ()

@@ -1,7 +1,16 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module NVD where
+module NVD
+  ( withVulnDB
+  , getCVEs
+  , Connection
+  , ProductID
+  , Version
+  , CVE
+  , CVEID
+  , UTCTime
+  ) where
 
 import OurPrelude
 
@@ -14,7 +23,6 @@ import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Hex (hex, unhex)
 import Data.List (group)
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock
   ( NominalDiffTime
@@ -29,6 +37,7 @@ import Database.SQLite.Simple
   ( Connection
   , Only(..)
   , Query(..)
+  , execute
   , executeMany
   , execute_
   , query
@@ -57,12 +66,20 @@ type Timestamp = UTCTime
 
 type Checksum = BSL.ByteString
 
-type CompressedFeed = BSL.ByteString
-
 type MaxAge = NominalDiffTime
+
+type DBVersion = Int
 
 data Meta =
   Meta Timestamp Checksum
+
+-- | Database version the software expects. If the software version is
+-- higher than the database version or the database has not been updated in more
+-- than 7.5 days, the database will be deleted and rebuilt from scratch. Bump
+-- this when the database layout changes or the build-time data filtering
+-- changes.
+softwareVersion :: DBVersion
+softwareVersion = 1
 
 getDBPath :: IO FilePath
 getDBPath = do
@@ -75,12 +92,25 @@ withDB action = do
   dbPath <- getDBPath
   withConnection dbPath action
 
+markUpdated :: Connection -> IO ()
+markUpdated conn = do
+  now <- getCurrentTime
+  execute conn (Query $ T.unlines ["UPDATE meta", "SET last_update = ?"]) [now]
+
 -- | Rebuild the entire database, redownloading all data.
 rebuildDB :: IO ()
 rebuildDB = do
   dbPath <- getDBPath
   removeFile dbPath
   withConnection dbPath $ \conn -> do
+    execute_ conn $
+      Query $
+      T.unlines
+        ["CREATE TABLE meta (", "  db_version int,", "  last_update text)"]
+    execute
+      conn
+      (Query $ T.unlines ["INSERT INTO meta", "VALUES (?, ?)"])
+      (softwareVersion, "1970-01-01 00:00:00" :: Text)
     execute_ conn $
       Query $
       T.unlines
@@ -105,6 +135,7 @@ rebuildDB = do
         ["CREATE INDEX matchers_by_product_id", "ON matchers(product_id)"]
     years <- allYears
     forM_ years $ downloadFeed conn (7.5 * nominalDay)
+    markUpdated conn
 
 feedURL :: FeedID -> Extension -> String
 feedURL feed ext =
@@ -118,7 +149,7 @@ throwText = throwString . T.unpack
 
 allYears :: IO [FeedID]
 allYears = do
-  now <- liftIO getCurrentTime
+  now <- getCurrentTime
   let (year, _, _) = toGregorian $ utctDay now
   return $ map show [2002 .. year]
 
@@ -203,12 +234,25 @@ putCVEs conn cves =
          ])
       (concatMap cveMatcherList cves)
 
-lastModification :: Connection -> IO UTCTime
-lastModification conn = do
-  rows <- query conn "SELECT max(modified) FROM cves" ()
+getDBMeta :: Connection -> IO (DBVersion, UTCTime)
+getDBMeta conn = do
+  rows <- query conn "SELECT db_version, last_update FROM meta" ()
   case rows of
-    [[timestamp]] -> pure timestamp
-    _ -> fail "failed to get last modification time"
+    [meta] -> pure meta
+    _ -> fail "failed to get meta information"
+
+needsRebuild :: IO Bool
+needsRebuild = do
+  dbMeta <- try $ withDB getDBMeta
+  currentTime <- getCurrentTime
+  case dbMeta of
+    Left (e :: SomeException) -> do
+      putStrLn $ "rebuilding database because " <> show e
+      pure True
+    Right (dbVersion, t) ->
+      pure $
+      diffUTCTime currentTime t > (7.5 * nominalDay) ||
+      dbVersion /= softwareVersion
 
 -- | Download a feed and store it in the database.
 downloadFeed :: Connection -> MaxAge -> FeedID -> IO ()
@@ -221,20 +265,16 @@ downloadFeed conn maxAge feedID
   parsed <- either throwText pure $ parseFeed json
   putCVEs conn parsed
 
-updateVulnDB :: IO ()
-updateVulnDB = do
-  cacheTime <- try $ withDB lastModification
-  currentTime <- getCurrentTime
-  let needsRebuild =
-        case cacheTime of
-          Left (_ :: SomeException) -> True
-          Right t -> diffUTCTime currentTime t > (7.5 * nominalDay)
-  when needsRebuild rebuildDB
+-- | Update the vulnerability database and run an action with a connection to
+-- it.
+withVulnDB :: (Connection -> IO a) -> IO a
+withVulnDB action = do
+  rebuild <- needsRebuild
+  when rebuild rebuildDB
   withDB $ \conn -> do
-    downloadFeed conn (0.5 * nominalDay) "modified"
-    cves <- getCVEs conn "chrome" "74.0.3729.108"
-    forM_ cves $ \CVE {cveID, cveDescription} -> do
-      TIO.putStrLn $ cveID <> " " <> cveDescription
+    unless rebuild $ downloadFeed conn (0.25 * nominalDay) "modified"
+    markUpdated conn
+    action conn
 
 -- | Update a feed if it's older than a maximum age and return the contents as
 -- ByteString.
