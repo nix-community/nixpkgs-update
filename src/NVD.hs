@@ -25,8 +25,7 @@ import Data.List (group)
 import qualified Data.Text as T
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock
-  ( NominalDiffTime
-  , UTCTime
+  ( UTCTime
   , diffUTCTime
   , getCurrentTime
   , nominalDay
@@ -48,11 +47,10 @@ import Network.HTTP.Conduit (simpleHttp)
 import System.Directory
   ( XdgDirectory(..)
   , createDirectoryIfMissing
-  , getModificationTime
   , getXdgDirectory
   , removeFile
   )
-import System.FilePath ((<.>), (</>))
+import System.FilePath ((</>))
 import System.IO.Error (userError)
 import Utils (ProductID, Version)
 import Version (matchVersion)
@@ -65,8 +63,6 @@ type Extension = String
 type Timestamp = UTCTime
 
 type Checksum = BSL.ByteString
-
-type MaxAge = NominalDiffTime
 
 type DBVersion = Int
 
@@ -95,7 +91,7 @@ withDB action = do
 markUpdated :: Connection -> IO ()
 markUpdated conn = do
   now <- getCurrentTime
-  execute conn (Query $ T.unlines ["UPDATE meta", "SET last_update = ?"]) [now]
+  execute conn "UPDATE meta SET last_update = ?" [now]
 
 -- | Rebuild the entire database, redownloading all data.
 rebuildDB :: IO ()
@@ -103,13 +99,10 @@ rebuildDB = do
   dbPath <- getDBPath
   removeFile dbPath
   withConnection dbPath $ \conn -> do
-    execute_ conn $
-      Query $
-      T.unlines
-        ["CREATE TABLE meta (", "  db_version int,", "  last_update text)"]
+    execute_ conn "CREATE TABLE meta (db_version int, last_update text)"
     execute
       conn
-      (Query $ T.unlines ["INSERT INTO meta", "VALUES (?, ?)"])
+      "INSERT INTO meta VALUES (?, ?)"
       (softwareVersion, "1970-01-01 00:00:00" :: Text)
     execute_ conn $
       Query $
@@ -129,12 +122,9 @@ rebuildDB = do
         , "  matcher text,"
         , "  UNIQUE(cve_id, product_id, matcher))"
         ]
-    execute_ conn $
-      Query $
-      T.unlines
-        ["CREATE INDEX matchers_by_product_id", "ON matchers(product_id)"]
+    execute_ conn "CREATE INDEX matchers_by_product_id ON matchers(product_id)"
     years <- allYears
-    forM_ years $ downloadFeed conn (7.5 * nominalDay)
+    forM_ years $ updateFeed conn
     markUpdated conn
 
 feedURL :: FeedID -> Extension -> String
@@ -223,7 +213,7 @@ putCVEs conn cves =
       cves
     executeMany
       conn
-      (Query $ T.unlines ["DELETE FROM matchers", "WHERE cve_id = ?"])
+      "DELETE FROM matchers WHERE cve_id = ?"
       (map (Only . cveID) cves)
     executeMany
       conn
@@ -255,13 +245,9 @@ needsRebuild = do
       dbVersion /= softwareVersion
 
 -- | Download a feed and store it in the database.
-downloadFeed :: Connection -> MaxAge -> FeedID -> IO ()
-downloadFeed conn maxAge feedID
-  -- TODO: Because the database may need to be rebuilt frequently during
-  -- development, we cache the json in files to avoid redownloading. After
-  -- development is done, it can be downloaded directly without caching.
- = do
-  json <- cacheFeedInFile maxAge feedID
+updateFeed :: Connection -> FeedID -> IO ()
+updateFeed conn feedID = do
+  json <- downloadFeed feedID
   parsed <- either throwText pure $ parseFeed json
   putCVEs conn parsed
 
@@ -272,37 +258,25 @@ withVulnDB action = do
   rebuild <- needsRebuild
   when rebuild rebuildDB
   withDB $ \conn -> do
-    unless rebuild $ do
-      downloadFeed conn (0.25 * nominalDay) "modified"
+    (_, lastUpdate) <- withDB getDBMeta
+    currentTime <- getCurrentTime
+    when (diffUTCTime currentTime lastUpdate > (0.25 * nominalDay)) $ do
+      updateFeed conn "modified"
       markUpdated conn
     action conn
 
 -- | Update a feed if it's older than a maximum age and return the contents as
 -- ByteString.
-cacheFeedInFile :: MaxAge -> FeedID -> IO BSL.ByteString
-cacheFeedInFile maxAge feed = do
-  cacheDir <- getXdgDirectory XdgCache "nixpkgs-update/nvd"
-  createDirectoryIfMissing True cacheDir
-  let cacheFile = cacheDir </> feed <.> "json"
-  cacheTime <- try $ getModificationTime cacheFile
-  currentTime <- getCurrentTime
-  let needsUpdate =
-        case cacheTime of
-          Left (_ :: IOError) -> True
-          Right t -> diffUTCTime currentTime t > maxAge
-  if needsUpdate
-    then do
-      putStrLn $ "updating feed " <> feed
-      Meta _ expectedChecksum <- getMeta feed
-      compressed <- simpleHttp $ feedURL feed ".json.gz"
-      let raw = decompress compressed
-      let actualChecksum = BSL.fromStrict $ hashlazy raw
-      when (actualChecksum /= expectedChecksum) $
-        throwString $
-        "wrong hash, expected: " <> BSL.unpack (hex expectedChecksum) <>
-        " got: " <>
-        BSL.unpack (hex actualChecksum)
-      BSL.writeFile cacheFile raw
-      return raw
-    else do
-      BSL.readFile cacheFile
+downloadFeed :: FeedID -> IO BSL.ByteString
+downloadFeed feed = do
+  putStrLn $ "updating feed " <> feed
+  Meta _ expectedChecksum <- getMeta feed
+  compressed <- simpleHttp $ feedURL feed ".json.gz"
+  let raw = decompress compressed
+  let actualChecksum = BSL.fromStrict $ hashlazy raw
+  when (actualChecksum /= expectedChecksum) $
+    throwString $
+    "wrong hash, expected: " <>
+    BSL.unpack (hex expectedChecksum) <>
+    " got: " <> BSL.unpack (hex actualChecksum)
+  return raw
