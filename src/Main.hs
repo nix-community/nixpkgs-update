@@ -11,7 +11,7 @@ import Control.Applicative ((<**>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
-import NVD (withVulnDB)
+import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
 import System.Posix.Env (setEnv)
@@ -30,6 +30,7 @@ data Command
   | DeleteDone
   | Version
   | UpdateVulnDB
+  | CheckVulnerable Text Text
 
 updateOptionsParser :: O.Parser Command
 updateOptionsParser =
@@ -60,13 +61,22 @@ commandParser =
        "update-vulnerability-db"
        (O.info
           (pure UpdateVulnDB)
-          (O.progDesc "Updates the vulnerability database")))
+          (O.progDesc "Updates the vulnerability database")) <>
+     O.command
+       "check-vulnerable"
+       (O.info checkVulnerable (O.progDesc "checks if something is vulnerable")))
+
+checkVulnerable :: O.Parser Command
+checkVulnerable =
+  CheckVulnerable <$> O.strArgument (O.metavar "PRODUCT_ID") <*>
+  O.strArgument (O.metavar "VERSION")
 
 programInfo :: O.ParserInfo Command
 programInfo =
   O.info
     (commandParser <**> O.helper)
-    (O.fullDesc <> O.progDesc "Update packages in the Nixpkgs repository" <>
+    (O.fullDesc <>
+     O.progDesc "Update packages in the Nixpkgs repository" <>
      O.header "nixpkgs-update")
 
 getGithubToken :: IO Text
@@ -95,3 +105,7 @@ main = do
         Left t -> T.putStrLn ("error:" <> t)
         Right t -> T.putStrLn t
     UpdateVulnDB -> withVulnDB $ \_conn -> pure ()
+    CheckVulnerable productId version ->
+      withVulnDB $ \conn -> do
+        cves <- getCVEs conn productId version
+        mapM_ print cves
