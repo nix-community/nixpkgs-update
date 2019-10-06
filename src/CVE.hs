@@ -7,6 +7,7 @@ module CVE
   , CVE(..)
   , CVEID
   , cveMatcherList
+  , cveLI
   ) where
 
 import OurPrelude
@@ -46,7 +47,12 @@ data CVE =
     , cvePublished :: UTCTime
     , cveLastModified :: UTCTime
     }
-  deriving (Show)
+  deriving (Show, Eq, Ord)
+
+-- | cve list item
+cveLI :: CVE -> Text
+cveLI c =
+  "- [" <> cveID c <> "](https://nvd.nist.gov/vuln/detail/" <> cveID c <> ")"
 
 -- This decodes an entire CPE string and related attributes, but we only use
 -- cpeVulnerable, cpeProduct, cpeVersion and cpeMatcher.

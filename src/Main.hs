@@ -11,12 +11,12 @@ import Control.Applicative ((<**>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
-import NVD (getCVEs, withVulnDB)
+import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
 import System.Posix.Env (setEnv)
-import Update (updateAll)
-import Utils (Options(..), setupNixpkgs)
+import Update (cveAll, cveReport, updateAll)
+import Utils (Options(..), UpdateEnv(..), setupNixpkgs)
 
 default (T.Text)
 
@@ -30,7 +30,8 @@ data Command
   | DeleteDone
   | Version
   | UpdateVulnDB
-  | CheckVulnerable Text Text
+  | CheckAllVulnerable
+  | CheckVulnerable Text Text Text
 
 updateOptionsParser :: O.Parser Command
 updateOptionsParser =
@@ -64,12 +65,18 @@ commandParser =
           (O.progDesc "Updates the vulnerability database")) <>
      O.command
        "check-vulnerable"
-       (O.info checkVulnerable (O.progDesc "checks if something is vulnerable")))
+       (O.info checkVulnerable (O.progDesc "checks if something is vulnerable")) <>
+     O.command
+       "check-all-vulnerable"
+       (O.info
+          (pure CheckAllVulnerable)
+          (O.progDesc "checks all packages to update for vulnerabilities")))
 
 checkVulnerable :: O.Parser Command
 checkVulnerable =
   CheckVulnerable <$> O.strArgument (O.metavar "PRODUCT_ID") <*>
-  O.strArgument (O.metavar "VERSION")
+  O.strArgument (O.metavar "OLD_VERSION") <*>
+  O.strArgument (O.metavar "NEW_VERSION")
 
 programInfo :: O.ParserInfo Command
 programInfo =
@@ -105,7 +112,11 @@ main = do
         Left t -> T.putStrLn ("error:" <> t)
         Right t -> T.putStrLn t
     UpdateVulnDB -> withVulnDB $ \_conn -> pure ()
-    CheckVulnerable productId version ->
-      withVulnDB $ \conn -> do
-        cves <- getCVEs conn productId version
-        mapM_ print cves
+    CheckAllVulnerable -> do
+      updates <- T.readFile "packages-to-update.txt"
+      cveAll (Options undefined undefined) updates
+    CheckVulnerable productID oldVersion newVersion -> do
+      report <-
+        cveReport
+          (UpdateEnv productID oldVersion newVersion (Options False undefined))
+      T.putStrLn report

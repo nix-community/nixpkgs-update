@@ -7,11 +7,14 @@
 
 module Update
   ( updateAll
+  , cveReport
+  , cveAll
   ) where
 
 import OurPrelude
 
 import qualified Blacklist
+import CVE (cveLI)
 import qualified Check
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -23,6 +26,7 @@ import Data.Time.Clock (UTCTime, getCurrentTime)
 import qualified File
 import qualified GH
 import qualified Git
+import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import Outpaths
 import Prelude hiding (log)
@@ -62,6 +66,17 @@ updateAll o updates = do
   mergeBaseOutpathSet <-
     liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
   updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
+
+cveAll :: Options -> Text -> IO ()
+cveAll o updates = do
+  let u' = rights $ parseUpdates updates
+  results <-
+    mapM
+      (\(p, oldV, newV) -> do
+         r <- cveReport (UpdateEnv p oldV newV o)
+         return $ p <> ": " <> oldV <> " -> " <> newV <> "\n" <> r)
+      u'
+  T.putStrLn (T.unlines results)
 
 updateLoop ::
      MonadIO m
@@ -178,6 +193,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
       Left msg -> pure msg
   d <- Nix.getDescription attrPath <|> return T.empty
   u <- Nix.getHomepage attrPath <|> return T.empty
+  cveRep <- liftIO $ cveReport updateEnv
   let metaDescription =
         if d == T.empty
           then ""
@@ -225,7 +241,8 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
          attrPath
          maintainersCc
          result
-         (outpathReport opDiff))
+         (outpathReport opDiff)
+         cveRep)
   Git.cleanAndResetTo "master"
 
 repologyUrl :: UpdateEnv -> Text
@@ -266,7 +283,8 @@ prMessage ::
   -> Text
   -> Text
   -> Text
-prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport =
+  -> Text
+prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
       repologyLink = repologyUrl updateEnv
@@ -327,6 +345,9 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
 
        </details>
        <br/>
+
+       $cveRep
+
        $maintainersCc
     |]
 
@@ -348,3 +369,47 @@ assertNotUpdatedOn updateEnv derivationFile branch = do
   Git.cleanAndResetTo branch
   derivationContents <- fmapLT tshow $ tryIO $ T.readFile derivationFile
   Nix.assertOldVersionOn updateEnv branch derivationContents
+
+cveReport :: UpdateEnv -> IO Text
+cveReport updateEnv =
+  withVulnDB $ \conn
+  -- TODO try other heuristics for project id
+  -- example false positive in current plan "vault"
+   -> do
+    oldCVEs <-
+      S.fromList <$> getCVEs conn (packageName updateEnv) (oldVersion updateEnv)
+    newCVEs <-
+      S.fromList <$> getCVEs conn (packageName updateEnv) (newVersion updateEnv)
+    let inOldButNotNew = S.difference oldCVEs newCVEs
+        inNewButNotOld = S.difference newCVEs oldCVEs
+        inBoth = S.intersection oldCVEs newCVEs
+        ifEmptyNone t =
+          if t == T.empty
+            then "none"
+            else t
+        toMkdownList = S.toList >>> fmap cveLI >>> T.unlines >>> ifEmptyNone
+        fixedList = toMkdownList inOldButNotNew
+        newList = toMkdownList inNewButNotOld
+        unresolvedList = toMkdownList inBoth
+    if fixedList == "none" && unresolvedList == "none" && newList == "none"
+      then return ""
+      else return
+             [interpolate|
+      <details>
+      <summary>
+      Experimental: CVE security report (click to expand)
+      </summary>
+
+      CVEs resolved by this update:
+      $fixedList
+
+      CVEs introduced by this update:
+      $newList
+
+      CVEs present in both versions:
+      $unresolvedList
+
+
+       </details>
+       <br/>
+      |]
