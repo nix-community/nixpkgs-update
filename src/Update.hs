@@ -9,6 +9,7 @@ module Update
   ( updateAll
   , cveReport
   , cveAll
+  , sourceGithubAll
   ) where
 
 import OurPrelude
@@ -77,6 +78,26 @@ cveAll o updates = do
          return $ p <> ": " <> oldV <> " -> " <> newV <> "\n" <> r)
       u'
   T.putStrLn (T.unlines results)
+
+sourceGithubAll :: Options -> Text -> IO ()
+sourceGithubAll o updates = do
+  let u' = rights $ parseUpdates updates
+  _ <-
+    runExceptT $ do
+      Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
+      Git.cleanAndResetTo "master"
+  mapM_
+    (\(p, oldV, newV) -> do
+       let updateEnv = UpdateEnv p oldV newV o
+       runExceptT $ do
+         attrPath <- Nix.lookupAttrPath updateEnv
+         srcUrl <- Nix.getSrcUrl attrPath
+         v <- GH.latestVersion updateEnv srcUrl
+         if v /= newV
+           then liftIO $
+                T.putStrLn $ p <> ": " <> oldV <> " -> " <> newV <> " -> " <> v
+           else return ())
+    u'
 
 updateLoop ::
      MonadIO m

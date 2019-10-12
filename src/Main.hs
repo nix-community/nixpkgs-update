@@ -15,7 +15,7 @@ import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
 import System.Posix.Env (setEnv)
-import Update (cveAll, cveReport, updateAll)
+import Update (cveAll, cveReport, sourceGithubAll, updateAll)
 import Utils (Options(..), UpdateEnv(..), setupNixpkgs)
 
 default (T.Text)
@@ -31,6 +31,7 @@ data Command
   | Version
   | UpdateVulnDB
   | CheckAllVulnerable
+  | SourceGithub
   | CheckVulnerable Text Text Text
 
 updateOptionsParser :: O.Parser Command
@@ -70,7 +71,10 @@ commandParser =
        "check-all-vulnerable"
        (O.info
           (pure CheckAllVulnerable)
-          (O.progDesc "checks all packages to update for vulnerabilities")))
+          (O.progDesc "checks all packages to update for vulnerabilities")) <>
+     O.command
+       "source-github"
+       (O.info (pure SourceGithub) (O.progDesc "looks for updates on GitHub")))
 
 checkVulnerable :: O.Parser Command
 checkVulnerable =
@@ -120,3 +124,9 @@ main = do
         cveReport
           (UpdateEnv productID oldVersion newVersion (Options False undefined))
       T.putStrLn report
+    SourceGithub -> do
+      token <- getGithubToken
+      updates <- T.readFile "packages-to-update.txt"
+      setupNixpkgs token
+      setEnv "GITHUB_TOKEN" (T.unpack token) True
+      sourceGithubAll (Options False token) updates

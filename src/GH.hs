@@ -12,6 +12,7 @@ module GH
   , openPullRequests
   , openAutoUpdatePR
   , checkExistingUpdatePR
+  , latestVersion
   ) where
 
 import OurPrelude
@@ -23,11 +24,11 @@ import qualified Data.Vector as V
 import GitHub
 import GitHub.Data.Name (Name(..), untagName)
 import GitHub.Endpoints.GitData.References (references')
-import GitHub.Endpoints.Repos.Releases (releaseByTagName)
+import GitHub.Endpoints.Repos.Releases (latestRelease', releaseByTagName)
 import GitHub.Endpoints.Search (searchIssues')
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
-import Utils (UpdateEnv(..))
+import Utils (UpdateEnv(..), Version)
 import qualified Utils as U
 
 default (T.Text)
@@ -97,12 +98,11 @@ compareUrl urlOld urlNew = do
   oldParts <- parseURL urlOld
   newParts <- parseURL urlNew
   return $
-    "https://github.com/" <> untagName (owner newParts) <> "/" <>
+    "https://github.com/" <>
+    untagName (owner newParts) <>
+    "/" <>
     untagName (repo newParts) <>
-    "/compare/" <>
-    tag oldParts <>
-    "..." <>
-    tag newParts
+    "/compare/" <> tag oldParts <> "..." <> tag newParts
 
 --deleteDoneBranches :: IO ()
 --deleteDoneBranches = do
@@ -171,3 +171,16 @@ checkExistingUpdatePR ue attrPath = do
     search = [interpolate|repo:nixos/nixpkgs $title |]
     anyOpen searchResult =
       any (issueClosedAt >>> isNothing) (searchResultResults searchResult)
+
+latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
+latestVersion ue url = do
+  urlParts <- parseURL url
+  r <-
+    ExceptT $
+    liftIO $
+    latestRelease'
+      (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
+      (owner urlParts)
+      (repo urlParts) &
+    fmap (first (T.pack . show))
+  return $ T.dropWhile (\c -> c == 'v' || c == 'V') (releaseTagName r)
