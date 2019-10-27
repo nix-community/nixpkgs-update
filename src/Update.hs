@@ -175,6 +175,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
         else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
     derivationContents <- liftIO $ T.readFile derivationFile
     Nix.assertOneOrFewerFetcher derivationContents derivationFile
+    Nix.assertOneOrFewerHashes derivationContents derivationFile
     Blacklist.content derivationContents
     oldHash <- Nix.getOldHash attrPath
     oldSrcUrl <- Nix.getSrcUrl attrPath

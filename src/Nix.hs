@@ -20,6 +20,7 @@ module Nix
   , getHomepage
   , cachix
   , assertOneOrFewerFetcher
+  , assertOneOrFewerHashes
   , getHashFromBuild
   , assertOldVersionOn
   , resultLink
@@ -61,17 +62,16 @@ assertNewerVersion updateEnv = do
   versionComparison <-
     nixEvalET
       NoRaw
-      ("(builtins.compareVersions \"" <> newVersion updateEnv <> "\" \"" <>
-       oldVersion updateEnv <>
-       "\")")
+      ("(builtins.compareVersions \"" <>
+       newVersion updateEnv <> "\" \"" <> oldVersion updateEnv <> "\")")
   case versionComparison of
     "1" -> return ()
     a ->
       throwE
-        (newVersion updateEnv <> " is not newer than " <> oldVersion updateEnv <>
-         " according to Nix; versionComparison: " <>
-         a <>
-         " ")
+        (newVersion updateEnv <>
+         " is not newer than " <>
+         oldVersion updateEnv <>
+         " according to Nix; versionComparison: " <> a <> " ")
 
 -- This is extremely slow but gives us the best results we know of
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
@@ -107,16 +107,15 @@ getOldHash :: MonadIO m => Text -> ExceptT Text m Text
 getOldHash attrPath =
   getHash attrPath &
   overwriteErrorT
-    ("Could not find old output hash at " <> attrPath <>
-     ".src.drvAttrs.outputHash or .drvAttrs.outputHash.")
+    ("Could not find old output hash at " <>
+     attrPath <> ".src.drvAttrs.outputHash or .drvAttrs.outputHash.")
 
 getMaintainers :: MonadIO m => Text -> ExceptT Text m Text
 getMaintainers attrPath =
   nixEvalET
     Raw
     ("(let pkgs = import ./. {}; gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh pkgs." <>
-     attrPath <>
-     ".meta.maintainers or []))))") &
+     attrPath <> ".meta.maintainers or []))))") &
   overwriteErrorT ("Could not fetch maintainers for" <> attrPath)
 
 parseStringList :: MonadIO m => Text -> ExceptT Text m (Vector Text)
@@ -145,8 +144,8 @@ getIsBroken :: MonadIO m => Text -> ExceptT Text m Bool
 getIsBroken attrPath =
   nixEvalET
     NoRaw
-    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-     ".meta.broken or false)") &
+    ("(let pkgs = import ./. {}; in pkgs." <>
+     attrPath <> ".meta.broken or false)") &
   readNixBool &
   overwriteErrorT ("Could not get meta.broken for attrpath " <> attrPath)
 
@@ -154,16 +153,16 @@ getDescription :: MonadIO m => Text -> ExceptT Text m Text
 getDescription attrPath =
   nixEvalET
     NoRaw
-    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-     ".meta.description or \"\")") &
+    ("(let pkgs = import ./. {}; in pkgs." <>
+     attrPath <> ".meta.description or \"\")") &
   overwriteErrorT ("Could not get meta.description for attrpath " <> attrPath)
 
 getHomepage :: MonadIO m => Text -> ExceptT Text m Text
 getHomepage attrPath =
   nixEvalET
     NoRaw
-    ("(let pkgs = import ./. {}; in pkgs." <> attrPath <>
-     ".meta.homepage or \"\")") &
+    ("(let pkgs = import ./. {}; in pkgs." <>
+     attrPath <> ".meta.homepage or \"\")") &
   overwriteErrorT ("Could not get meta.homepage for attrpath " <> attrPath)
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
@@ -172,8 +171,8 @@ getSrcUrl =
     (\attrPath ->
        nixEvalET
          Raw
-         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <> attrPath <>
-          ".drvAttrs.urls 0)"))
+         ("(let pkgs = import ./. {}; in builtins.elemAt pkgs." <>
+          attrPath <> ".drvAttrs.urls 0)"))
 
 getSrcAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getSrcAttr attr =
@@ -184,8 +183,7 @@ getSrcUrls = getSrcAttr "urls"
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
-  silently $
-  proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
+  silently $ proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
 log attrPath = proc "nix" ["log", "-f", ".", attrPath & T.unpack]
@@ -221,6 +219,17 @@ assertOneOrFewerFetcher :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
 assertOneOrFewerFetcher derivationContents derivationFile =
   tryAssert
     ("More than one fetcher in " <> T.pack derivationFile)
+    (numberOfFetchers derivationContents <= 1)
+
+numberOfHashes :: Text -> Int
+numberOfHashes derivationContents = countUp "sha256 =" + countUp "sha256="
+  where
+    countUp x = T.count x derivationContents
+
+assertOneOrFewerHashes :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
+assertOneOrFewerHashes derivationContents derivationFile =
+  tryAssert
+    ("More than one hash in " <> T.pack derivationFile)
     (numberOfFetchers derivationContents <= 1)
 
 assertOldVersionOn ::
@@ -259,9 +268,7 @@ getHashFromBuild =
        let secondSplit = T.splitOn "\n" firstSplitSecondPart
        tryHead
          ("stderr did not split second part as expected full stderr was: \n" <>
-          stdErrText <>
-          "\nfirstSplitSecondPart:\n" <>
-          firstSplitSecondPart)
+          stdErrText <> "\nfirstSplitSecondPart:\n" <> firstSplitSecondPart)
          secondSplit)
 
 version :: MonadIO m => ExceptT Text m Text
