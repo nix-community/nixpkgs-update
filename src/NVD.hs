@@ -269,7 +269,7 @@ withVulnDB action = do
 -- ByteString.
 downloadFeed :: FeedID -> IO BSL.ByteString
 downloadFeed feed = do
-  putStrLn $ "updating feed " <> feed
+  putStrLn $ "Updating National Vulnerability Database feed (" <> feed <> ")"
   Meta _ expectedChecksum <- getMeta feed
   compressed <- simpleHttp $ feedURL feed ".json.gz"
   let raw = decompress compressed
