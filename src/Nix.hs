@@ -230,7 +230,7 @@ assertOneOrFewerHashes :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
 assertOneOrFewerHashes derivationContents derivationFile =
   tryAssert
     ("More than one hash in " <> T.pack derivationFile)
-    (numberOfFetchers derivationContents <= 1)
+    (numberOfHashes derivationContents <= 1)
 
 assertOldVersionOn ::
      MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
