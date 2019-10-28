@@ -26,6 +26,9 @@ module Nix
   , resultLink
   , sha256Zero
   , version
+  , getPatches
+  , hasPatchNamed
+  , Raw(..)
   ) where
 
 import OurPrelude
@@ -54,7 +57,7 @@ nixEvalET raw expr =
   ourReadProcessInterleaved_
     (proc "nix" (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])) &
   fmapRT T.strip &
-  overwriteErrorT ("nix eval failed for " <> expr <> " ")
+  overwriteErrorT ("nix eval failed for \"" <> expr <> "\"")
 
 -- Error if the "new version" is actually newer according to nix
 assertNewerVersion :: MonadIO m => UpdateEnv -> ExceptT Text m ()
@@ -273,3 +276,15 @@ getHashFromBuild =
 
 version :: MonadIO m => ExceptT Text m Text
 version = ourReadProcessInterleaved_ "nix --version"
+
+getPatches :: MonadIO m => Text -> ExceptT Text m Text
+getPatches attrPath =
+  nixEvalET
+    NoRaw
+    ("(let pkgs = import ./. {}; in (map (p: p.name) pkgs." <>
+     attrPath <> ".patches))")
+
+hasPatchNamed :: MonadIO m => Text -> Text -> ExceptT Text m Bool
+hasPatchNamed attrPath name = do
+  ps <- getPatches attrPath
+  return $ name `T.isInfixOf` ps

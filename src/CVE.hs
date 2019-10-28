@@ -50,9 +50,15 @@ data CVE =
   deriving (Show, Eq, Ord)
 
 -- | cve list item
-cveLI :: CVE -> Text
-cveLI c =
-  "- [" <> cveID c <> "](https://nvd.nist.gov/vuln/detail/" <> cveID c <> ")"
+cveLI :: CVE -> Bool -> Text
+cveLI c patched =
+  "- [" <>
+  cveID c <> "](https://nvd.nist.gov/vuln/detail/" <> cveID c <> ")" <> p
+  where
+    p =
+      if patched
+        then " (patched)"
+        else ""
 
 -- This decodes an entire CPE string and related attributes, but we only use
 -- cpeVulnerable, cpeProduct, cpeVersion and cpeMatcher.

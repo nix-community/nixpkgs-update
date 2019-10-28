@@ -117,9 +117,11 @@ main = do
         Right t -> T.putStrLn t
     UpdateVulnDB -> withVulnDB $ \_conn -> pure ()
     CheckAllVulnerable -> do
+      setupNixpkgs undefined
       updates <- T.readFile "packages-to-update.txt"
       cveAll (Options undefined undefined) updates
     CheckVulnerable productID oldVersion newVersion -> do
+      setupNixpkgs undefined
       report <-
         cveReport
           (UpdateEnv productID oldVersion newVersion (Options False undefined))

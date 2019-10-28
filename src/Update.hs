@@ -10,12 +10,13 @@ module Update
   , cveReport
   , cveAll
   , sourceGithubAll
+  , addPatched
   ) where
 
 import OurPrelude
 
 import qualified Blacklist
-import CVE (cveLI)
+import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -382,11 +383,27 @@ assertNotUpdatedOn updateEnv derivationFile branch = do
   derivationContents <- fmapLT tshow $ tryIO $ T.readFile derivationFile
   Nix.assertOldVersionOn updateEnv branch derivationContents
 
+addPatched :: Text -> Set CVE -> IO [(CVE, Bool)]
+addPatched attrPath set = do
+  let list = S.toList set
+  forM
+    list
+    (\cve -> do
+       patched <- runExceptT $ Nix.hasPatchNamed attrPath (cveID cve)
+       let p =
+             case patched of
+               Left _ -> False
+               Right r -> r
+       return (cve, p))
+
 cveReport :: UpdateEnv -> IO Text
 cveReport updateEnv =
   withVulnDB $ \conn
   -- TODO try other heuristics for project id
   -- example false positive in current plan "vault"
+  --    def product_candidates(self):
+  --      return {self.pname, self.pname.replace('-', '_')}
+  -- TODO add fixup for Vendor
    -> do
     oldCVEs <-
       S.fromList <$> getCVEs conn (packageName updateEnv) (oldVersion updateEnv)
@@ -399,10 +416,13 @@ cveReport updateEnv =
           if t == T.empty
             then "none"
             else t
-        toMkdownList = S.toList >>> fmap cveLI >>> T.unlines >>> ifEmptyNone
-        fixedList = toMkdownList inOldButNotNew
-        newList = toMkdownList inNewButNotOld
-        unresolvedList = toMkdownList inBoth
+    inOldButNotNew' <- addPatched (packageName updateEnv) inOldButNotNew
+    inNewButNotOld' <- addPatched (packageName updateEnv) inNewButNotOld
+    inBoth' <- addPatched (packageName updateEnv) inBoth
+    let toMkdownList = fmap (uncurry cveLI) >>> T.unlines >>> ifEmptyNone
+        fixedList = toMkdownList inOldButNotNew'
+        newList = toMkdownList inNewButNotOld'
+        unresolvedList = toMkdownList inBoth'
     if fixedList == "none" && unresolvedList == "none" && newList == "none"
       then return ""
       else return
