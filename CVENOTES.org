@@ -22,3 +22,5 @@
 
   Not rockwellautomation:arena
   Not openforis:arena
+* thrift:
+  Apache Thrift vs Facebook Thrift
