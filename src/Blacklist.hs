@@ -60,7 +60,6 @@ attrPathList =
   , prefix
       "deepin"
       "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
-  , prefix "gnome" "don't update gnome during a release cycle"
   ]
 
 nameList :: Blacklist
@@ -126,7 +125,6 @@ contentList =
   , infixOf
       "nixpkgs-update: no auto update"
       "Derivation file asks not to auto update it"
-  , infixOf "gnome" "don't update gnome during a release cycle"
   ]
 
 checkResultList :: Blacklist
@@ -163,8 +161,7 @@ python :: Monad m => Int -> Text -> ExceptT Text m ()
 python numPackageRebuilds derivationContents =
   tryAssert
     ("Python package with too many package rebuilds " <>
-     (T.pack . show) numPackageRebuilds <>
-     "  > 10")
+     (T.pack . show) numPackageRebuilds <> "  > 10")
     (not isPython || numPackageRebuilds <= 10)
   where
     isPython = "buildPythonPackage" `T.isInfixOf` derivationContents
