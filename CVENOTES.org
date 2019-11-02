@@ -24,3 +24,8 @@
   Not openforis:arena
 * thrift:
   Apache Thrift vs Facebook Thrift
+* go: 1.13.3 -> 1.13.4
+  https://github.com/NixOS/nixpkgs/pull/72516
+
+  Looks like maybe go used to use dates for versions and now uses
+  regular versions
