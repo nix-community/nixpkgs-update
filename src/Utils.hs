@@ -37,7 +37,7 @@ import Database.SQLite.Simple.Internal (Field(..))
 import Database.SQLite.Simple.Ok (Ok(..))
 import Database.SQLite.Simple.ToField (ToField, toField)
 import System.Directory (doesDirectoryExist, setCurrentDirectory)
-import System.Environment.XDG.BaseDir
+import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv, setEnv)
 import System.Posix.Files
