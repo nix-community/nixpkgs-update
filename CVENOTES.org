@@ -1,13 +1,13 @@
 * uzbl: 0.9.0 -> 0.9.1
-  - [CVE-2010-0011](https://nvd.nist.gov/vuln/detail/CVE-2010-0011)
-  - [CVE-2010-2809](https://nvd.nist.gov/vuln/detail/CVE-2010-2809)
+  - [[https://nvd.nist.gov/vuln/detail/CVE-2010-0011][CVE-2010-0011]]
+  - [[https://nvd.nist.gov/vuln/detail/CVE-2010-2809][CVE-2010-2809]]
 
   Both CVEs refer to matchers that are date based releases, but the
   author of the library switched to normal version numbering after
   that, so these CVEs are reported as relevant even though they are
   not.
 * terraform: 0.12.7 -> 0.12.9
-  - [CVE-2018-9057](https://nvd.nist.gov/vuln/detail/CVE-2018-9057)
+  - [[https://nvd.nist.gov/vuln/detail/CVE-2018-9057][CVE-2018-9057]]
 
   https://nvd.nist.gov/products/cpe/detail/492339?keyword=cpe:2.3:a:hashicorp:terraform:1.12.0:*:*:*:*:aws:*:*&status=FINAL,DEPRECATED&orderBy=CPEURI&namingFormat=2.3
 
@@ -17,8 +17,8 @@
 
   the CPE mistakenly uses tor for the product id when the product id should be torbrowser
 * arena: 1.1 -> 1.06
-  - [CVE-2018-8843](https://nvd.nist.gov/vuln/detail/CVE-2018-8843)
-  - [CVE-2019-15567](https://nvd.nist.gov/vuln/detail/CVE-2019-15567)
+  - [[https://nvd.nist.gov/vuln/detail/CVE-2018-8843][CVE-2018-8843]]
+  - [[https://nvd.nist.gov/vuln/detail/CVE-2019-15567][CVE-2019-15567]]
 
   Not rockwellautomation:arena
   Not openforis:arena
