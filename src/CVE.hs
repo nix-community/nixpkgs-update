@@ -4,6 +4,7 @@
 
 module CVE
   ( parseFeed
+  , CPE(..)
   , CVE(..)
   , CVEID
   , cveMatcherList
@@ -42,6 +43,7 @@ type CVEID = Text
 data CVE =
   CVE
     { cveID :: CVEID
+    , cveCPEs :: [CPE]
     , cveMatchers :: Map ProductID (Set VersionMatcher)
     , cveDescription :: Text
     , cvePublished :: UTCTime
@@ -78,6 +80,7 @@ data CPE =
     , cpeOther :: Maybe Text
     , cpeMatcher :: Maybe VersionMatcher
     }
+  deriving (Eq, Ord)
 
 instance Show CPE where
   show CPE { cpePart
@@ -172,6 +175,7 @@ instance ToRow CVE where
 instance FromRow CVE where
   fromRow = do
     let cveMatchers = M.empty
+    let cveCPEs = []
     cveID <- field
     cveDescription <- field
     cvePublished <- field

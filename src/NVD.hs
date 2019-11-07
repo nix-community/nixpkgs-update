@@ -14,7 +14,7 @@ module NVD
 
 import OurPrelude
 
-import CVE (CVE(..), CVEID, cveMatcherList, parseFeed)
+import CVE (CPE(..), CVE(..), CVEID, cveMatcherList, parseFeed)
 import Codec.Compression.GZip (decompress)
 import Control.Exception (SomeException, ioError, try)
 import Crypto.Hash.SHA256 (hashlazy)
@@ -75,7 +75,7 @@ data Meta =
 -- this when the database layout changes or the build-time data filtering
 -- changes.
 softwareVersion :: DBVersion
-softwareVersion = 1
+softwareVersion = 2
 
 getDBPath :: IO FilePath
 getDBPath = do
@@ -112,6 +112,24 @@ rebuildDB = do
         , "  description text,"
         , "  published text,"
         , "  modified text)"
+        ]
+    execute_ conn $
+      Query $
+      T.unlines
+        [ "CREATE TABLE cpes ("
+        , "  cve_id text REFERENCES cve,"
+        , "  part text,"
+        , "  vendor text,"
+        , "  product text,"
+        , "  version text,"
+        , "  \"update\" text,"
+        , "  edition text,"
+        , "  language text,"
+        , "  software_edition text,"
+        , "  target_software text,"
+        , "  target_hardware text,"
+        , "  other text,"
+        , "  UNIQUE(cve_id, part, product, version, \"update\",edition, language, software_edition, target_software, target_hardware, other))"
         ]
     execute_ conn $
       Query $
@@ -223,6 +241,49 @@ putCVEs conn cves =
          , "VALUES (?, ?, ?)"
          ])
       (concatMap cveMatcherList cves)
+    executeMany
+      conn
+      "DELETE FROM cpes WHERE cve_id = ?"
+      (map (Only . cveID) cves)
+    executeMany
+      conn
+      (Query $
+       T.unlines
+         [ "REPLACE INTO cpes("
+         , "  cve_id,"
+         , "  part,"
+         , "  vendor,"
+         , "  product,"
+         , "  version,"
+         , "  \"update\","
+         , "  edition,"
+         , "  language,"
+         , "  software_edition,"
+         , "  target_software,"
+         , "  target_hardware,"
+         , "  other)"
+         , "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+         ])
+      (concatMap cpeRows cves)
+
+cpeRows :: CVE -> [[Text]]
+cpeRows cve =
+  map
+    (\cpe ->
+       [ cveID cve
+       , fromMaybe "*" (cpePart cpe)
+       , fromMaybe "*" (cpeVendor cpe)
+       , fromMaybe "*" (cpeProduct cpe)
+       , fromMaybe "*" (cpeVersion cpe)
+       , fromMaybe "*" (cpeUpdate cpe)
+       , fromMaybe "*" (cpeEdition cpe)
+       , fromMaybe "*" (cpeLanguage cpe)
+       , fromMaybe "*" (cpeSoftwareEdition cpe)
+       , fromMaybe "*" (cpeTargetSoftware cpe)
+       , fromMaybe "*" (cpeTargetHardware cpe)
+       , fromMaybe "*" (cpeOther cpe)
+       ])
+    (cveCPEs cve)
 
 getDBMeta :: Connection -> IO (DBVersion, UTCTime)
 getDBMeta conn = do
@@ -248,8 +309,8 @@ needsRebuild = do
 updateFeed :: Connection -> FeedID -> IO ()
 updateFeed conn feedID = do
   json <- downloadFeed feedID
-  parsed <- either throwText pure $ parseFeed json
-  putCVEs conn parsed
+  parsedCVEs <- either throwText pure $ parseFeed json
+  putCVEs conn parsedCVEs
 
 -- | Update the vulnerability database and run an action with a connection to
 -- it.
