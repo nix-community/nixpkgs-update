@@ -291,6 +291,10 @@ guardAttr object attribute expected = do
     T.unpack attribute <>
     ", expected " <> show expected <> ", got " <> show actual
 
+boundedMatcher :: VersionMatcher -> Bool
+boundedMatcher (RangeMatcher Unbounded Unbounded) = False
+boundedMatcher _ = True
+
 -- Because complex boolean formulas can't be used to determine if a single
 -- product/version is vulnerable, we simply use all leaves marked vulnerable.
 parseNode :: Object -> Parser [CPEMatch]
@@ -299,7 +303,9 @@ parseNode node = do
   case maybeChildren of
     Nothing -> do
       matches <- node .:! "cpe_match" .!= []
-      pure $ filter cpeMatchVulnerable matches
+      pure $
+        filter (cpeMatchVersionMatcher >>> boundedMatcher) $
+        filter cpeMatchVulnerable matches
     Just children -> do
       fmap concat $ sequence $ map parseNode children
 

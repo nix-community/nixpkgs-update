@@ -12,7 +12,7 @@
   https://nvd.nist.gov/products/cpe/detail/492339?keyword=cpe:2.3:a:hashicorp:terraform:1.12.0:*:*:*:*:aws:*:*&status=FINAL,DEPRECATED&orderBy=CPEURI&namingFormat=2.3
 
   CVE only applies to terraform-providers-aws, but you can only tell that by looking at the "Target Software" part.
-* tor: 0.4.1.5 -> 0.4.1.6
+* tor: 0.4.1.5 -> 0.4.1.6 FIXED
   https://nvd.nist.gov/vuln/detail/CVE-2017-16541
 
   the CPE mistakenly uses tor for the product id when the product id should be torbrowser
