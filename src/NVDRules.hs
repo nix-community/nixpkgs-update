@@ -16,4 +16,7 @@ filter _ cpeMatch "terraform"
   | cpeTargetSoftware (cpeMatchCPE cpeMatch) == Just "aws" = False
 filter cve _ "tor"
   | cveID cve == "CVE-2017-16541" = False
+filter _ cpeMatch "arena"
+  | cpeVendor (cpeMatchCPE cpeMatch) == Just "rockwellautomation" ||
+      cpeVendor (cpeMatchCPE cpeMatch) == Just "openforis" = False
 filter _cve _match _productID = True

@@ -16,7 +16,7 @@
   https://nvd.nist.gov/vuln/detail/CVE-2017-16541
 
   the CPE mistakenly uses tor for the product id when the product id should be torbrowser
-* arena: 1.1 -> 1.06
+* arena: 1.1 -> 1.06 FIXED
   - [CVE-2018-8843](https://nvd.nist.gov/vuln/detail/CVE-2018-8843)
   - [CVE-2019-15567](https://nvd.nist.gov/vuln/detail/CVE-2019-15567)
 
