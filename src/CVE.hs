@@ -5,9 +5,11 @@
 module CVE
   ( parseFeed
   , CPE(..)
+  , CPEMatch(..)
+  , CPEMatchRow(..)
+  , cpeMatches
   , CVE(..)
   , CVEID
-  , cpeMatches
   , cveLI
   ) where
 
@@ -66,6 +68,13 @@ data CPEMatch =
     }
   deriving (Show, Eq, Ord)
 
+instance FromRow CPEMatch where
+  fromRow = do
+    cpeMatchCPE <- fromRow
+    let cpeMatchVulnerable = True
+    cpeMatchVersionMatcher <- field
+    pure CPEMatch {..}
+
 -- This decodes an entire CPE string and related attributes, but we only use
 -- cpeVulnerable, cpeProduct, cpeVersion and cpeMatcher.
 data CPE =
@@ -116,6 +125,49 @@ instance Show CPE where
       cpeField :: Show a => String -> Maybe a -> [String]
       cpeField _ Nothing = []
       cpeField name (Just value) = [name <> " = " <> show value]
+
+instance ToRow CPE where
+  toRow CPE { cpePart
+            , cpeVendor
+            , cpeProduct
+            , cpeVersion
+            , cpeUpdate
+            , cpeEdition
+            , cpeLanguage
+            , cpeSoftwareEdition
+            , cpeTargetSoftware
+            , cpeTargetHardware
+            , cpeOther
+            } =
+    fmap -- There is no toRow instance for a tuple this large
+      toField
+      [ cpePart
+      , cpeVendor
+      , cpeProduct
+      , cpeVersion
+      , cpeUpdate
+      , cpeEdition
+      , cpeLanguage
+      , cpeSoftwareEdition
+      , cpeTargetSoftware
+      , cpeTargetHardware
+      , cpeOther
+      ]
+
+instance FromRow CPE where
+  fromRow = do
+    cpePart <- field
+    cpeVendor <- field
+    cpeProduct <- field
+    cpeVersion <- field
+    cpeUpdate <- field
+    cpeEdition <- field
+    cpeLanguage <- field
+    cpeSoftwareEdition <- field
+    cpeTargetSoftware <- field
+    cpeTargetHardware <- field
+    cpeOther <- field
+    pure CPE {..}
 
 -- | Parse a @description_data@ subtree and return the concatenation of the
 -- english descriptions.
@@ -215,33 +267,15 @@ instance ToRow CPEMatchRow where
     [toField $ Just cveID] ++
     toRow cpeMatchCPE ++ [toField cpeMatchVersionMatcher]
 
-instance ToRow CPE where
-  toRow CPE { cpePart
-            , cpeVendor
-            , cpeProduct
-            , cpeVersion
-            , cpeUpdate
-            , cpeEdition
-            , cpeLanguage
-            , cpeSoftwareEdition
-            , cpeTargetSoftware
-            , cpeTargetHardware
-            , cpeOther
-            } =
-    fmap -- There is no toRow instance for a tuple this large
-      toField
-      [ cpePart
-      , cpeVendor
-      , cpeProduct
-      , cpeVersion
-      , cpeUpdate
-      , cpeEdition
-      , cpeLanguage
-      , cpeSoftwareEdition
-      , cpeTargetSoftware
-      , cpeTargetHardware
-      , cpeOther
-      ]
+instance FromRow CPEMatchRow where
+  fromRow = do
+    let cveCPEMatches = []
+    let cveDescription = undefined
+    let cvePublished = undefined
+    let cveLastModified = undefined
+    cveID <- field
+    cpeM <- fromRow
+    pure $ CPEMatchRow (CVE {..}) cpeM
 
 cpeMatches :: [CVE] -> [CPEMatchRow]
 cpeMatches = concatMap rows

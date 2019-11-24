@@ -14,7 +14,14 @@ module NVD
 
 import OurPrelude
 
-import CVE (CVE(..), CVEID, cpeMatches, parseFeed)
+import CVE
+  ( CPEMatch(..)
+  , CPEMatchRow(..)
+  , CVE(..)
+  , CVEID
+  , cpeMatches
+  , parseFeed
+  )
 import Codec.Compression.GZip (decompress)
 import Control.Exception (SomeException, ioError, try)
 import Crypto.Hash.SHA256 (hashlazy)
@@ -43,6 +50,7 @@ import Database.SQLite.Simple
   , withConnection
   , withTransaction
   )
+import qualified NVDRules
 import Network.HTTP.Conduit (simpleHttp)
 import System.Directory
   ( XdgDirectory(..)
@@ -182,7 +190,10 @@ getCVE conn cveID_ = do
       conn
       (Query $
        T.unlines
-         ["SELECT cve_id, published, modified", "FROM cves", "WHERE cve_id = ?"])
+         [ "SELECT cve_id, description, published, modified"
+         , "FROM cves"
+         , "WHERE cve_id = ?"
+         ])
       (Only cveID_)
   case cves of
     [cve] -> pure cve
@@ -191,23 +202,38 @@ getCVE conn cveID_ = do
 
 getCVEs :: Connection -> ProductID -> Version -> IO [CVE]
 getCVEs conn productID version = do
-  rows <-
+  matches :: [CPEMatchRow] <-
     query
       conn
       (Query $
        T.unlines
-         [ "SELECT cve_id, matcher"
+         [ "SELECT"
+         , "  cve_id,"
+         , "  part,"
+         , "  vendor,"
+         , "  product,"
+         , "  version,"
+         , "  \"update\","
+         , "  edition,"
+         , "  language,"
+         , "  software_edition,"
+         , "  target_software,"
+         , "  target_hardware,"
+         , "  other,"
+         , "  matcher"
          , "FROM cpe_matches"
-         , "WHERE product_id = ?"
+         , "WHERE product = ?"
          , "ORDER BY cve_id"
          ])
       (Only productID)
   let cveIDs =
         map head $
         group $
-        flip mapMaybe rows $ \(cveID_, matcher) ->
-          if matchVersion matcher version
-            then Just cveID_
+        flip mapMaybe matches $ \(CPEMatchRow cve cpeMatch) ->
+          if matchVersion (cpeMatchVersionMatcher cpeMatch) version
+            then if NVDRules.filter cve cpeMatch productID
+                   then Just (cveID cve)
+                   else Nothing
             else Nothing
   forM cveIDs $ getCVE conn
 
