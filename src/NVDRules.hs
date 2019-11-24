@@ -19,4 +19,6 @@ filter cve _ "tor"
 filter _ cpeMatch "arena"
   | cpeVendor (cpeMatchCPE cpeMatch) == Just "rockwellautomation" ||
       cpeVendor (cpeMatchCPE cpeMatch) == Just "openforis" = False
+filter _ cpeMatch "thrift"
+  | cpeVendor (cpeMatchCPE cpeMatch) == Just "facebook" = False
 filter _cve _match _productID = True
