@@ -8,17 +8,22 @@ let
 
   compiler = pkgs.haskell.packages."ghc865";
 
-  inherit (pkgs.haskell.lib) dontCheck doJailbreak;
+  inherit (pkgs.haskell.lib) dontCheck doJailbreak overrideCabal;
 
   pkg = compiler.developPackage {
     root = ./.;
     overrides = self: super: {
-      polysemy = super.polysemy_1_2_1_0;
+      aeson = dontCheck super.aeson;
+      polysemy = dontCheck super.polysemy_1_2_1_0;
       polysemy-plugin = dontCheck super.polysemy-plugin;
       time-compat = dontCheck super.time-compat;
       binary-orphans = dontCheck super.binary-orphans;
       binary-instances = dontCheck super.binary-instances;
       hpack = dontCheck super.hpack;
+      HUnit = dontCheck super.HUnit;
+      hspec-core = dontCheck super.hspec-core;
+      th-abstraction = dontCheck super.th-abstraction;
+      inspection-testing = dontCheck super.inspection-testing;
       partial-order = doJailbreak super.partial-order;
     };
     source-overrides = {

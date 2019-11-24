@@ -14,7 +14,7 @@ module NVD
 
 import OurPrelude
 
-import CVE (CPE(..), CVE(..), CVEID, cveMatcherList, parseFeed)
+import CVE (CVE(..), CVEID, cpeMatches, parseFeed)
 import Codec.Compression.GZip (decompress)
 import Control.Exception (SomeException, ioError, try)
 import Crypto.Hash.SHA256 (hashlazy)
@@ -116,7 +116,7 @@ rebuildDB = do
     execute_ conn $
       Query $
       T.unlines
-        [ "CREATE TABLE cpes ("
+        [ "CREATE TABLE cpe_matches ("
         , "  cve_id text REFERENCES cve,"
         , "  part text,"
         , "  vendor text,"
@@ -129,18 +129,14 @@ rebuildDB = do
         , "  target_software text,"
         , "  target_hardware text,"
         , "  other text,"
-        , "  UNIQUE(cve_id, part, product, version, \"update\",edition, language, software_edition, target_software, target_hardware, other))"
+        , "  matcher text)"
         ]
-    execute_ conn $
-      Query $
-      T.unlines
-        [ "CREATE TABLE matchers ("
-        , "  cve_id text REFERENCES cve,"
-        , "  product_id text,"
-        , "  matcher text,"
-        , "  UNIQUE(cve_id, product_id, matcher))"
-        ]
-    execute_ conn "CREATE INDEX matchers_by_product_id ON matchers(product_id)"
+    execute_ conn "CREATE INDEX matchers_by_cve ON cpe_matches(cve_id)"
+    execute_ conn "CREATE INDEX matchers_by_product ON cpe_matches(product)"
+    execute_ conn "CREATE INDEX matchers_by_vendor ON cpe_matches(vendor)"
+    execute_
+      conn
+      "CREATE INDEX matchers_by_target_software ON cpe_matches(target_software)"
     years <- allYears
     forM_ years $ updateFeed conn
     markUpdated conn
@@ -186,10 +182,7 @@ getCVE conn cveID_ = do
       conn
       (Query $
        T.unlines
-         [ "SELECT cve_id, description, published, modified"
-         , "FROM cves"
-         , "WHERE cve_id = ?"
-         ])
+         ["SELECT cve_id, published, modified", "FROM cves", "WHERE cve_id = ?"])
       (Only cveID_)
   case cves of
     [cve] -> pure cve
@@ -204,7 +197,7 @@ getCVEs conn productID version = do
       (Query $
        T.unlines
          [ "SELECT cve_id, matcher"
-         , "FROM matchers"
+         , "FROM cpe_matches"
          , "WHERE product_id = ?"
          , "ORDER BY cve_id"
          ])
@@ -219,37 +212,29 @@ getCVEs conn productID version = do
   forM cveIDs $ getCVE conn
 
 putCVEs :: Connection -> [CVE] -> IO ()
-putCVEs conn cves =
+putCVEs conn cves = do
   withTransaction conn $ do
+    executeMany
+      conn
+      "DELETE FROM cves WHERE cve_id = ?"
+      (map (Only . cveID) cves)
     executeMany
       conn
       (Query $
        T.unlines
-         [ "REPLACE INTO cves(cve_id, description, published, modified)"
+         [ "INSERT INTO cves(cve_id, description, published, modified)"
          , "VALUES (?, ?, ?, ?)"
          ])
       cves
     executeMany
       conn
-      "DELETE FROM matchers WHERE cve_id = ?"
+      "DELETE FROM cpe_matches WHERE cve_id = ?"
       (map (Only . cveID) cves)
     executeMany
       conn
       (Query $
        T.unlines
-         [ "REPLACE INTO matchers(cve_id, product_id, matcher)"
-         , "VALUES (?, ?, ?)"
-         ])
-      (concatMap cveMatcherList cves)
-    executeMany
-      conn
-      "DELETE FROM cpes WHERE cve_id = ?"
-      (map (Only . cveID) cves)
-    executeMany
-      conn
-      (Query $
-       T.unlines
-         [ "REPLACE INTO cpes("
+         [ "INSERT INTO cpe_matches("
          , "  cve_id,"
          , "  part,"
          , "  vendor,"
@@ -261,29 +246,11 @@ putCVEs conn cves =
          , "  software_edition,"
          , "  target_software,"
          , "  target_hardware,"
-         , "  other)"
-         , "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+         , "  other,"
+         , "  matcher)"
+         , "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
          ])
-      (concatMap cpeRows cves)
-
-cpeRows :: CVE -> [[Text]]
-cpeRows cve =
-  map
-    (\cpe ->
-       [ cveID cve
-       , fromMaybe "*" (cpePart cpe)
-       , fromMaybe "*" (cpeVendor cpe)
-       , fromMaybe "*" (cpeProduct cpe)
-       , fromMaybe "*" (cpeVersion cpe)
-       , fromMaybe "*" (cpeUpdate cpe)
-       , fromMaybe "*" (cpeEdition cpe)
-       , fromMaybe "*" (cpeLanguage cpe)
-       , fromMaybe "*" (cpeSoftwareEdition cpe)
-       , fromMaybe "*" (cpeTargetSoftware cpe)
-       , fromMaybe "*" (cpeTargetHardware cpe)
-       , fromMaybe "*" (cpeOther cpe)
-       ])
-    (cveCPEs cve)
+      (cpeMatches cves)
 
 getDBMeta :: Connection -> IO (DBVersion, UTCTime)
 getDBMeta conn = do
@@ -308,6 +275,7 @@ needsRebuild = do
 -- | Download a feed and store it in the database.
 updateFeed :: Connection -> FeedID -> IO ()
 updateFeed conn feedID = do
+  putStrLn $ "Updating National Vulnerability Database feed (" <> feedID <> ")"
   json <- downloadFeed feedID
   parsedCVEs <- either throwText pure $ parseFeed json
   putCVEs conn parsedCVEs
@@ -330,7 +298,6 @@ withVulnDB action = do
 -- ByteString.
 downloadFeed :: FeedID -> IO BSL.ByteString
 downloadFeed feed = do
-  putStrLn $ "Updating National Vulnerability Database feed (" <> feed <> ")"
   Meta _ expectedChecksum <- getMeta feed
   compressed <- simpleHttp $ feedURL feed ".json.gz"
   let raw = decompress compressed

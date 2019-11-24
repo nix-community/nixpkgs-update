@@ -7,7 +7,7 @@ module CVE
   , CPE(..)
   , CVE(..)
   , CVEID
-  , cveMatcherList
+  , cpeMatches
   , cveLI
   ) where
 
@@ -26,16 +26,13 @@ import Data.Aeson
 import Data.Aeson.Types (Parser, prependFailure)
 import Data.Bifunctor (bimap)
 import Data.List (intercalate)
-import Data.Map (Map)
-import Data.Set (Set)
 import Data.Time.Clock (UTCTime)
 import Database.SQLite.Simple (FromRow, ToRow, field, fromRow, toRow)
+import Database.SQLite.Simple.ToField (toField)
 
-import Utils (Boundary(..), ProductID, VersionMatcher(..))
+import Utils (Boundary(..), VersionMatcher(..))
 
 import qualified Data.ByteString.Lazy.Char8 as BSL
-import qualified Data.Map as M
-import qualified Data.Set as S
 import qualified Data.Text as T
 
 type CVEID = Text
@@ -43,8 +40,7 @@ type CVEID = Text
 data CVE =
   CVE
     { cveID :: CVEID
-    , cveCPEs :: [CPE]
-    , cveMatchers :: Map ProductID (Set VersionMatcher)
+    , cveCPEMatches :: [CPEMatch]
     , cveDescription :: Text
     , cvePublished :: UTCTime
     , cveLastModified :: UTCTime
@@ -62,23 +58,29 @@ cveLI c patched =
         then " (patched)"
         else ""
 
+data CPEMatch =
+  CPEMatch
+    { cpeMatchCPE :: CPE
+    , cpeMatchVulnerable :: Bool
+    , cpeMatchVersionMatcher :: VersionMatcher
+    }
+  deriving (Show, Eq, Ord)
+
 -- This decodes an entire CPE string and related attributes, but we only use
 -- cpeVulnerable, cpeProduct, cpeVersion and cpeMatcher.
 data CPE =
   CPE
-    { cpeVulnerable :: Bool
-    , cpePart :: Maybe Text
-    , cpeVendor :: Maybe Text
-    , cpeProduct :: Maybe Text
-    , cpeVersion :: Maybe Text
-    , cpeUpdate :: Maybe Text
-    , cpeEdition :: Maybe Text
-    , cpeLanguage :: Maybe Text
-    , cpeSoftwareEdition :: Maybe Text
-    , cpeTargetSoftware :: Maybe Text
-    , cpeTargetHardware :: Maybe Text
-    , cpeOther :: Maybe Text
-    , cpeMatcher :: Maybe VersionMatcher
+    { cpePart :: (Maybe Text)
+    , cpeVendor :: (Maybe Text)
+    , cpeProduct :: (Maybe Text)
+    , cpeVersion :: (Maybe Text)
+    , cpeUpdate :: (Maybe Text)
+    , cpeEdition :: (Maybe Text)
+    , cpeLanguage :: (Maybe Text)
+    , cpeSoftwareEdition :: (Maybe Text)
+    , cpeTargetSoftware :: (Maybe Text)
+    , cpeTargetHardware :: (Maybe Text)
+    , cpeOther :: (Maybe Text)
     }
   deriving (Eq, Ord)
 
@@ -94,7 +96,6 @@ instance Show CPE where
            , cpeTargetSoftware
            , cpeTargetHardware
            , cpeOther
-           , cpeMatcher
            } =
     "CPE {" <>
     (intercalate ", " . concat)
@@ -109,7 +110,6 @@ instance Show CPE where
       , cpeField "targetSoftware" cpeTargetSoftware
       , cpeField "targetHardware" cpeTargetHardware
       , cpeField "other" cpeOther
-      , cpeField "matcher" cpeMatcher
       ] <>
     "}"
     where
@@ -134,24 +134,6 @@ parseDescription o = do
           _ -> []
   pure $ T.intercalate "\n\n" descriptions
 
-cpeToMatcher :: CPE -> Map ProductID (Set VersionMatcher)
-cpeToMatcher CPE {cpeProduct = Just p, cpeVersion = Just v, cpeMatcher = Just m} =
-  M.singleton p $ S.fromList [SingleMatcher v, m]
-cpeToMatcher CPE {cpeProduct = Just p, cpeVersion = Just v} =
-  M.singleton p $ S.fromList [SingleMatcher v]
-cpeToMatcher CPE {cpeProduct = Just p, cpeMatcher = Just m} =
-  M.singleton p $ S.fromList [m]
-cpeToMatcher _ = M.empty
-
-cpeMatchers :: [CPE] -> Map ProductID (Set VersionMatcher)
-cpeMatchers = M.unionsWith S.union . map cpeToMatcher
-
-cveMatcherList :: CVE -> [(CVEID, ProductID, VersionMatcher)]
-cveMatcherList CVE {cveID, cveMatchers} = do
-  (productID, matchers) <- M.assocs cveMatchers
-  matcher <- S.elems matchers
-  return (cveID, productID, matcher)
-
 instance FromJSON CVE where
   parseJSON =
     withObject "CVE" $ \o -> do
@@ -160,12 +142,11 @@ instance FromJSON CVE where
       cveID <- meta .: "ID"
       prependFailure (T.unpack cveID <> ": ") $ do
         cfgs <- o .: "configurations"
-        cveCPEs <- parseConfigurations cfgs
+        cveCPEMatches <- parseConfigurations cfgs
         cvePublished <- o .: "publishedDate"
         cveLastModified <- o .: "lastModifiedDate"
         description <- cve .: "description"
         cveDescription <- parseDescription description
-        let cveMatchers = cpeMatchers cveCPEs
         pure CVE {..}
 
 instance ToRow CVE where
@@ -174,8 +155,7 @@ instance ToRow CVE where
 
 instance FromRow CVE where
   fromRow = do
-    let cveMatchers = M.empty
-    let cveCPEs = []
+    let cveCPEMatches = []
     cveID <- field
     cveDescription <- field
     cvePublished <- field
@@ -189,11 +169,16 @@ splitCPE =
     toMaybe "*" = Nothing
     toMaybe x = Just x
 
-instance FromJSON CPE where
+instance FromJSON CPEMatch where
   parseJSON =
-    withObject "CPE" $ \o -> do
+    withObject "CPEMatch" $ \o -> do
       t <- o .: "cpe23Uri"
-      cpeVulnerable <- o .: "vulnerable"
+      cpeMatchCPE <-
+        case splitCPE t of
+          [Just "cpe", Just "2.3", cpePart, cpeVendor, cpeProduct, cpeVersion, cpeUpdate, cpeEdition, cpeLanguage, cpeSoftwareEdition, cpeTargetSoftware, cpeTargetHardware, cpeOther] ->
+            pure CPE {..}
+          _ -> fail $ "unparsable cpe23Uri: " <> T.unpack t
+      cpeMatchVulnerable <- o .: "vulnerable"
       vStartIncluding <- o .:! "versionStartIncluding"
       vEndIncluding <- o .:! "versionEndIncluding"
       vStartExcluding <- o .:! "versionStartExcluding"
@@ -210,14 +195,58 @@ instance FromJSON CPE where
           (Just end, Nothing) -> pure (Including end)
           (Nothing, Just end) -> pure (Excluding end)
           (Just _, Just _) -> fail "multiple version ends"
-      let cpeMatcher =
-            case (startBoundary, endBoundary) of
-              (Unbounded, Unbounded) -> Nothing
-              (start, end) -> Just (RangeMatcher start end)
-      case splitCPE t of
-        [Just "cpe", Just "2.3", cpePart, cpeVendor, cpeProduct, cpeVersion, cpeUpdate, cpeEdition, cpeLanguage, cpeSoftwareEdition, cpeTargetSoftware, cpeTargetHardware, cpeOther] ->
-          pure CPE {..}
-        _ -> fail $ "unparsable CPE: " <> T.unpack t
+      cpeMatchVersionMatcher <-
+        case (cpeVersion cpeMatchCPE, startBoundary, endBoundary) of
+          (Just v, Unbounded, Unbounded) -> pure $ SingleMatcher v
+          (Nothing, start, end) -> pure $ RangeMatcher start end
+          _ ->
+            fail
+              ("cpe_match has both version " <>
+               show (cpeVersion cpeMatchCPE) <>
+               " in cpe, and boundaries from " <>
+               show startBoundary <> " to " <> show endBoundary)
+      pure (CPEMatch {..})
+
+data CPEMatchRow =
+  CPEMatchRow CVE CPEMatch
+
+instance ToRow CPEMatchRow where
+  toRow (CPEMatchRow CVE {cveID} CPEMatch {cpeMatchCPE, cpeMatchVersionMatcher}) =
+    [toField $ Just cveID] ++
+    toRow cpeMatchCPE ++ [toField cpeMatchVersionMatcher]
+
+instance ToRow CPE where
+  toRow CPE { cpePart
+            , cpeVendor
+            , cpeProduct
+            , cpeVersion
+            , cpeUpdate
+            , cpeEdition
+            , cpeLanguage
+            , cpeSoftwareEdition
+            , cpeTargetSoftware
+            , cpeTargetHardware
+            , cpeOther
+            } =
+    fmap -- There is no toRow instance for a tuple this large
+      toField
+      [ cpePart
+      , cpeVendor
+      , cpeProduct
+      , cpeVersion
+      , cpeUpdate
+      , cpeEdition
+      , cpeLanguage
+      , cpeSoftwareEdition
+      , cpeTargetSoftware
+      , cpeTargetHardware
+      , cpeOther
+      ]
+
+cpeMatches :: [CVE] -> [CPEMatchRow]
+cpeMatches = concatMap rows
+  where
+    rows cve = fmap (CPEMatchRow cve) (cveCPEMatches cve)
 
 guardAttr :: (Eq a, FromJSON a, Show a) => Object -> Text -> a -> Parser ()
 guardAttr object attribute expected = do
@@ -230,17 +259,17 @@ guardAttr object attribute expected = do
 
 -- Because complex boolean formulas can't be used to determine if a single
 -- product/version is vulnerable, we simply use all leaves marked vulnerable.
-parseNode :: Object -> Parser [CPE]
+parseNode :: Object -> Parser [CPEMatch]
 parseNode node = do
   maybeChildren <- node .:! "children"
   case maybeChildren of
     Nothing -> do
       matches <- node .:! "cpe_match" .!= []
-      pure $ filter cpeVulnerable matches
+      pure $ filter cpeMatchVulnerable matches
     Just children -> do
       fmap concat $ sequence $ map parseNode children
 
-parseConfigurations :: Object -> Parser [CPE]
+parseConfigurations :: Object -> Parser [CPEMatch]
 parseConfigurations o = do
   guardAttr o "CVE_data_version" ("4.0" :: Text)
   nodes <- o .: "nodes"
