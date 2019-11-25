@@ -231,7 +231,7 @@ getCVEs conn productID version = do
         group $
         flip mapMaybe matches $ \(CPEMatchRow cve cpeMatch) ->
           if matchVersion (cpeMatchVersionMatcher cpeMatch) version
-            then if NVDRules.filter cve cpeMatch productID
+            then if NVDRules.filter cve cpeMatch productID version
                    then Just (cveID cve)
                    else Nothing
             else Nothing
