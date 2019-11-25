@@ -1,3 +1,4 @@
+* Issues
 * Fixed
 ** uzbl: 0.9.0 -> 0.9.1
   - [[https://nvd.nist.gov/vuln/detail/CVE-2010-0011][CVE-2010-0011]]
@@ -17,9 +18,6 @@
    https://nvd.nist.gov/vuln/detail/CVE-2017-16541
 
   the CPE mistakenly uses tor for the product id when the product id should be torbrowser
-* arena: 1.1 -> 1.06
-
-   the CPE mistakenly uses tor for the product id when the product id should be torbrowser
 ** arena: 1.1 -> 1.06
   - [[https://nvd.nist.gov/vuln/detail/CVE-2018-8843][CVE-2018-8843]]
   - [[https://nvd.nist.gov/vuln/detail/CVE-2019-15567][CVE-2019-15567]]
