@@ -14,7 +14,14 @@ module NVD
 
 import OurPrelude
 
-import CVE (CVE(..), CVEID, cveMatcherList, parseFeed)
+import CVE
+  ( CPEMatch(..)
+  , CPEMatchRow(..)
+  , CVE(..)
+  , CVEID
+  , cpeMatches
+  , parseFeed
+  )
 import Codec.Compression.GZip (decompress)
 import Control.Exception (SomeException, ioError, try)
 import Crypto.Hash.SHA256 (hashlazy)
@@ -43,6 +50,7 @@ import Database.SQLite.Simple
   , withConnection
   , withTransaction
   )
+import qualified NVDRules
 import Network.HTTP.Conduit (simpleHttp)
 import System.Directory
   ( XdgDirectory(..)
@@ -75,7 +83,7 @@ data Meta =
 -- this when the database layout changes or the build-time data filtering
 -- changes.
 softwareVersion :: DBVersion
-softwareVersion = 1
+softwareVersion = 2
 
 getDBPath :: IO FilePath
 getDBPath = do
@@ -116,13 +124,27 @@ rebuildDB = do
     execute_ conn $
       Query $
       T.unlines
-        [ "CREATE TABLE matchers ("
+        [ "CREATE TABLE cpe_matches ("
         , "  cve_id text REFERENCES cve,"
-        , "  product_id text,"
-        , "  matcher text,"
-        , "  UNIQUE(cve_id, product_id, matcher))"
+        , "  part text,"
+        , "  vendor text,"
+        , "  product text,"
+        , "  version text,"
+        , "  \"update\" text,"
+        , "  edition text,"
+        , "  language text,"
+        , "  software_edition text,"
+        , "  target_software text,"
+        , "  target_hardware text,"
+        , "  other text,"
+        , "  matcher text)"
         ]
-    execute_ conn "CREATE INDEX matchers_by_product_id ON matchers(product_id)"
+    execute_ conn "CREATE INDEX matchers_by_cve ON cpe_matches(cve_id)"
+    execute_ conn "CREATE INDEX matchers_by_product ON cpe_matches(product)"
+    execute_ conn "CREATE INDEX matchers_by_vendor ON cpe_matches(vendor)"
+    execute_
+      conn
+      "CREATE INDEX matchers_by_target_software ON cpe_matches(target_software)"
     years <- allYears
     forM_ years $ updateFeed conn
     markUpdated conn
@@ -180,49 +202,81 @@ getCVE conn cveID_ = do
 
 getCVEs :: Connection -> ProductID -> Version -> IO [CVE]
 getCVEs conn productID version = do
-  rows <-
+  matches :: [CPEMatchRow] <-
     query
       conn
       (Query $
        T.unlines
-         [ "SELECT cve_id, matcher"
-         , "FROM matchers"
-         , "WHERE product_id = ?"
+         [ "SELECT"
+         , "  cve_id,"
+         , "  part,"
+         , "  vendor,"
+         , "  product,"
+         , "  version,"
+         , "  \"update\","
+         , "  edition,"
+         , "  language,"
+         , "  software_edition,"
+         , "  target_software,"
+         , "  target_hardware,"
+         , "  other,"
+         , "  matcher"
+         , "FROM cpe_matches"
+         , "WHERE product = ?"
          , "ORDER BY cve_id"
          ])
       (Only productID)
   let cveIDs =
         map head $
         group $
-        flip mapMaybe rows $ \(cveID_, matcher) ->
-          if matchVersion matcher version
-            then Just cveID_
+        flip mapMaybe matches $ \(CPEMatchRow cve cpeMatch) ->
+          if matchVersion (cpeMatchVersionMatcher cpeMatch) version
+            then if NVDRules.filter cve cpeMatch productID version
+                   then Just (cveID cve)
+                   else Nothing
             else Nothing
   forM cveIDs $ getCVE conn
 
 putCVEs :: Connection -> [CVE] -> IO ()
-putCVEs conn cves =
+putCVEs conn cves = do
   withTransaction conn $ do
     executeMany
       conn
-      (Query $
-       T.unlines
-         [ "REPLACE INTO cves(cve_id, description, published, modified)"
-         , "VALUES (?, ?, ?, ?)"
-         ])
-      cves
-    executeMany
-      conn
-      "DELETE FROM matchers WHERE cve_id = ?"
+      "DELETE FROM cves WHERE cve_id = ?"
       (map (Only . cveID) cves)
     executeMany
       conn
       (Query $
        T.unlines
-         [ "REPLACE INTO matchers(cve_id, product_id, matcher)"
-         , "VALUES (?, ?, ?)"
+         [ "INSERT INTO cves(cve_id, description, published, modified)"
+         , "VALUES (?, ?, ?, ?)"
          ])
-      (concatMap cveMatcherList cves)
+      cves
+    executeMany
+      conn
+      "DELETE FROM cpe_matches WHERE cve_id = ?"
+      (map (Only . cveID) cves)
+    executeMany
+      conn
+      (Query $
+       T.unlines
+         [ "INSERT INTO cpe_matches("
+         , "  cve_id,"
+         , "  part,"
+         , "  vendor,"
+         , "  product,"
+         , "  version,"
+         , "  \"update\","
+         , "  edition,"
+         , "  language,"
+         , "  software_edition,"
+         , "  target_software,"
+         , "  target_hardware,"
+         , "  other,"
+         , "  matcher)"
+         , "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+         ])
+      (cpeMatches cves)
 
 getDBMeta :: Connection -> IO (DBVersion, UTCTime)
 getDBMeta conn = do
@@ -247,9 +301,10 @@ needsRebuild = do
 -- | Download a feed and store it in the database.
 updateFeed :: Connection -> FeedID -> IO ()
 updateFeed conn feedID = do
+  putStrLn $ "Updating National Vulnerability Database feed (" <> feedID <> ")"
   json <- downloadFeed feedID
-  parsed <- either throwText pure $ parseFeed json
-  putCVEs conn parsed
+  parsedCVEs <- either throwText pure $ parseFeed json
+  putCVEs conn parsedCVEs
 
 -- | Update the vulnerability database and run an action with a connection to
 -- it.
@@ -269,7 +324,6 @@ withVulnDB action = do
 -- ByteString.
 downloadFeed :: FeedID -> IO BSL.ByteString
 downloadFeed feed = do
-  putStrLn $ "Updating National Vulnerability Database feed (" <> feed <> ")"
   Meta _ expectedChecksum <- getMeta feed
   compressed <- simpleHttp $ feedURL feed ".json.gz"
   let raw = decompress compressed
