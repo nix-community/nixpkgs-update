@@ -89,12 +89,6 @@ outPath = do
   liftIO $ putStrLn "Writing outpaths.nix..."
   liftIO $ T.writeFile "./outpaths.nix" outPathsExpr
   liftIO $ putStrLn "Evaluating outpaths..."
-  p <- ourReadProcessInterleaved_ "echo $PATH"
-  liftIO $ T.putStrLn p
-  e <- ourReadProcessInterleaved_ "env"
-  liftIO $ T.putStrLn e
-  v <- ourReadProcessInterleaved_ "nix-env --version"
-  liftIO $ T.putStrLn v
   ourReadProcessInterleaved_
     "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true --show-trace"
 
