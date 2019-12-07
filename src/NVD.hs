@@ -222,7 +222,7 @@ getCVEs conn productID version = do
          , "  other,"
          , "  matcher"
          , "FROM cpe_matches"
-         , "WHERE product = ?"
+         , "WHERE vendor = ? or product = ? or edition = ? or software_edition = ? or target_software = ?"
          , "ORDER BY cve_id"
          ])
       (Only productID)

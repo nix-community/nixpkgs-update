@@ -41,17 +41,22 @@ listing is provided.
 Information from the National Vulnerability Database maintained by
 NIST is compared against the current and updated package version. The
 nixpkgs package name is matched with the Common Platform Enumeration
-product field to find candidate Common Vulnerabilities and Exposures
-(CVEs). The CVEs are filtered by the matching the current and updated
-versions with the CVE version ranges. Then false positives are removed
-by the filter function in the NVDRules module.
+vendor, product, edition, software edition, and target software fields
+to find candidate Common Vulnerabilities and Exposures (CVEs). The
+CVEs are filtered by the matching the current and updated versions
+with the CVE version ranges.
+
+The general philosophy of the CVE search is to avoid false negatives,
+which means we expect to generate many false positives. The false
+positives can be carefully removed by manually created rules
+implemented in the filter function in the NVDRules module.
 
 If there are no CVE matches, the report is not shown. The report has
 three parts: CVEs resolved by this update, CVEs introduced by this
 update, and CVEs present in both version.
 
-If you would like to report a problem with the CVE report, please use
-the [nixpkgs-update GitHub
+If you would like to report a problem with the security report, please
+use the [nixpkgs-update GitHub
 issues](https://github.com/ryantm/nixpkgs-update/issues).
 
 The initial development of the security report was made possible by a
