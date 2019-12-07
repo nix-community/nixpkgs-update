@@ -429,7 +429,7 @@ cveReport updateEnv =
              [interpolate|
       <details>
       <summary>
-      Experimental: CVE security report (click to expand)
+      Security report (click to expand)
       </summary>
 
       CVEs resolved by this update:
