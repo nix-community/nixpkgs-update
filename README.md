@@ -29,7 +29,7 @@ manually test the package without building it themselves.
 ## Checks
 
 A number of checks are performed to help nixpkgs maintainers gauge the
-liklihood that an update was successful. All the binaries are run with
+likelihood that an update was successful. All the binaries are run with
 various flags to see if they have a zero exit code and output the new
 version number. The outpath directory tree is searched for files
 containing the new version number. A directory tree and disk usage
@@ -41,7 +41,7 @@ listing is provided.
 Information from the National Vulnerability Database maintained by
 NIST is compared against the current and updated package version. The
 nixpkgs package name is matched with the Common Platform Enumeration
-product field to find candidate Common Vulnerabilites and Exposures
+product field to find candidate Common Vulnerabilities and Exposures
 (CVEs). The CVEs are filtered by the matching the current and updated
 versions with the CVE version ranges. Then false positives are removed
 by the filter function in the NVDRules module.
@@ -95,11 +95,11 @@ test a package with one command.
 
 # Instructions
 
-1. Clone this repo:
+1. Clone this repository:
     ```
     git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
     ```
-2. Get a list of oudated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
+2. Get a list of outdated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
     ```
     git clone https://github.com/ryantm/repology-api.git && cd repology-api
     nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > ../packages-to-update.txt
