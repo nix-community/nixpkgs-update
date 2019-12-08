@@ -10,7 +10,10 @@ import qualified Data.Text as T
 import Text.Regex.Applicative.Text (RE', (=~), anySym, many, psym)
 import Utils (Boundary(..), ProductID, Version, VersionMatcher(..))
 
+-- Return False to discard CVE
 filter :: CVE -> CPEMatch -> ProductID -> Version -> Bool
+filter _ cpeMatch "socat" v
+  | cpeUpdatePresentAndNotPartOfVersion cpeMatch v = False
 filter _ cpeMatch "uzbl" v
   | isNothing (v =~ yearRegex) &&
       "2009.12.22" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch = False
@@ -51,3 +54,10 @@ yearRegex :: RE' ()
 yearRegex =
   void $
   psym isDigit <* psym isDigit <* psym isDigit <* psym isDigit <* many anySym
+
+cpeUpdatePresentAndNotPartOfVersion :: CPEMatch -> Version -> Bool
+cpeUpdatePresentAndNotPartOfVersion cpeMatch v =
+  maybe
+    False
+    (\update -> not (update `T.isInfixOf` v))
+    (cpeUpdate (cpeMatchCPE cpeMatch))

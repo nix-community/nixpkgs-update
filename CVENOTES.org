@@ -1,8 +1,4 @@
 * Issues
-** socat: 2.0.0
-   https://nvd.nist.gov/vuln/detail/CVE-2010-2799
-
-   Only the beta versions are vulnerable not version 2.0.0
 ** kanboard: 1.2.11 -> 1.2.12
 
 https://github.com/NixOS/nixpkgs/pull/74429
