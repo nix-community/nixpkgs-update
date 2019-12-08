@@ -225,7 +225,7 @@ getCVEs conn productID version = do
          , "WHERE vendor = ? or product = ? or edition = ? or software_edition = ? or target_software = ?"
          , "ORDER BY cve_id"
          ])
-      (Only productID)
+      (productID, productID, productID, productID, productID)
   let cveIDs =
         map head $
         group $
