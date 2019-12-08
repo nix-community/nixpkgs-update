@@ -382,17 +382,15 @@ addPatched attrPath set = do
 
 cveReport :: UpdateEnv -> IO Text
 cveReport updateEnv =
-  withVulnDB $ \conn
-  -- TODO try other heuristics for project id
-  -- example false positive in current plan "vault"
-  --    def product_candidates(self):
-  --      return {self.pname, self.pname.replace('-', '_')}
-  -- TODO add fixup for Vendor
-   -> do
-    oldCVEs <-
-      S.fromList <$> getCVEs conn (packageName updateEnv) (oldVersion updateEnv)
-    newCVEs <-
-      S.fromList <$> getCVEs conn (packageName updateEnv) (newVersion updateEnv)
+  withVulnDB $ \conn -> do
+    let pname1 = packageName updateEnv
+    let pname2 = T.replace "-" "_" pname1
+    oldCVEs1 <- getCVEs conn pname1 (oldVersion updateEnv)
+    oldCVEs2 <- getCVEs conn pname2 (oldVersion updateEnv)
+    let oldCVEs = S.fromList (oldCVEs1 ++ oldCVEs2)
+    newCVEs1 <- getCVEs conn pname1 (newVersion updateEnv)
+    newCVEs2 <- getCVEs conn pname2 (newVersion updateEnv)
+    let newCVEs = S.fromList (newCVEs1 ++ newCVEs2)
     let inOldButNotNew = S.difference oldCVEs newCVEs
         inNewButNotOld = S.difference newCVEs oldCVEs
         inBoth = S.intersection oldCVEs newCVEs
