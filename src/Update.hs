@@ -358,7 +358,6 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
 
        </details>
        <br/>
-
        $cveRep
 
        $maintainersCc
