@@ -18,8 +18,6 @@ import OurPrelude
 import qualified Blacklist
 import CVE (CVE, cveID, cveLI)
 import qualified Check
-import Control.Concurrent
-import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -244,7 +242,6 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   -- Try to push it three times
   Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv
   isBroken <- Nix.getIsBroken attrPath
-  lift untilOfBorgFree
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
@@ -362,18 +359,6 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
 
        $maintainersCc
     |]
-
-untilOfBorgFree :: MonadIO m => m ()
-untilOfBorgFree = do
-  stats <-
-    shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
-  waiting <-
-    shell "jq .evaluator.messages.waiting" & setStdin (byteStringInput stats) &
-    readProcessInterleaved_ &
-    fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
-  when (waiting > 2) $ do
-    liftIO $ threadDelay 60000000
-    untilOfBorgFree
 
 assertNotUpdatedOn ::
      MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
