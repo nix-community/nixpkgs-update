@@ -13,7 +13,7 @@ import Utils (Boundary(..), ProductID, Version, VersionMatcher(..))
 -- Return False to discard CVE
 filter :: CVE -> CPEMatch -> ProductID -> Version -> Bool
 filter _ cpeMatch "socat" v
-  | cpeUpdatePresentAndNotPartOfVersion cpeMatch v = False
+  | cpeUpdatePresentAndNotPartOfVersion cpeMatch v = False -- TODO consider if this rule should be applied to all packages
 filter _ cpeMatch "uzbl" v
   | isNothing (v =~ yearRegex) &&
       "2009.12.22" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch = False
