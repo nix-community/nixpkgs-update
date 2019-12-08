@@ -31,6 +31,8 @@ filter _ cpeMatch "arena" _
       cpeVendor (cpeMatchCPE cpeMatch) == Just "openforis" = False
 filter _ cpeMatch "thrift" _
   | cpeVendor (cpeMatchCPE cpeMatch) == Just "facebook" = False
+filter _ cpeMatch "kanboard" _
+  | cpeTargetSoftware (cpeMatchCPE cpeMatch) == Just "jenkins" = False
 filter _cve _match _productID _version = True
 
 anyVersionInfixOf :: Text -> VersionMatcher -> Bool
