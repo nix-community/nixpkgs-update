@@ -163,14 +163,20 @@ checkExistingUpdatePR ue attrPath = do
       (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
       search &
     fmap (first (T.pack . show))
-  when
-    (anyOpen searchResult)
-    (throwE "There is already an open PR for this update")
+  if T.length (openPRReport searchResult) == 0
+    then return ()
+    else throwE
+           ("There might already be an open PR for this update:\n" <>
+            openPRReport searchResult)
   where
     title = U.prTitle ue attrPath
     search = [interpolate|repo:nixos/nixpkgs $title |]
-    anyOpen searchResult =
-      any (issueClosedAt >>> isNothing) (searchResultResults searchResult)
+    openPRReport searchResult =
+      searchResultResults searchResult & V.filter (issueClosedAt >>> isNothing) &
+      fmap report &
+      V.toList &
+      T.unlines
+    report i = "- " <> issueTitle i <> "\n  " <> tshow (issueUrl i)
 
 latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
 latestVersion ue url = do
