@@ -340,6 +340,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
          '
        ```
        (r-ryantm's Cachix cache is only trusted for this store-path realization.)
+       For the Cachix download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
 
        Or, build yourself:
        ```
