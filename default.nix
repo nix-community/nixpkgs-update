@@ -1,8 +1,10 @@
 { nixpkgs-tarball ? builtins.fetchTarball {
   name = "nixpkgs-unstable";
-  url = "https://releases.nixos.org/nixos/unstable/nixos-20.03pre193829.f0fec244ca3/nixexprs.tar.xz";
+  url =
+    "https://releases.nixos.org/nixos/unstable/nixos-20.03pre193829.f0fec244ca3/nixexprs.tar.xz";
   sha256 = "03iqwyz5lxaq4k2hw4wfd55gizdf1230jcsqia0zmp3whpyj5y1x";
-}, pkgs ? import nixpkgs-tarball { config = { allowBroken = true; }; } }:
+}, pkgs ? import nixpkgs-tarball { config = { allowBroken = true; }; }
+, returnShellEnv ? pkgs.lib.inNixShell }:
 
 let
 
@@ -26,10 +28,18 @@ let
       inspection-testing = dontCheck super.inspection-testing;
       partial-order = doJailbreak super.partial-order;
     };
-    source-overrides = {
-    };
+    source-overrides = { };
+    inherit returnShellEnv;
   };
 
 in pkg.overrideAttrs (attrs: {
-  propagatedBuildInputs = with pkgs; [ nix git getent gitAndTools.hub jq tree gist ];
-  })
+  propagatedBuildInputs = with pkgs; [
+    nix
+    git
+    getent
+    gitAndTools.hub
+    jq
+    tree
+    gist
+  ];
+})
