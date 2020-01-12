@@ -64,8 +64,8 @@ cleanup bName = do
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
   liftIO $ do
-    home <- getHomeDirectory
-    let fetchHead = home <> "/.cache/nixpkgs/.git/FETCH_HEAD"
+    nixpkgsGit <- getUserCacheDir "nixpkgs"
+    let fetchHead = nixpkgsGit <> "/.git/FETCH_HEAD"
     oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
     fetchedLast <- getModificationTime fetchHead
     return (fetchedLast < oneHourAgo)
