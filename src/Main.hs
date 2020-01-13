@@ -14,6 +14,7 @@ import DeleteMerged (deleteDone)
 import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
+import System.IO (BufferMode(..), hSetBuffering, stderr, stdout)
 import System.Posix.Env (setEnv)
 import Update (cveAll, cveReport, sourceGithubAll, updateAll)
 import Utils (Options(..), UpdateEnv(..), setupNixpkgs)
@@ -95,6 +96,8 @@ getGithubToken = T.strip <$> T.readFile "github_token.txt"
 
 main :: IO ()
 main = do
+  hSetBuffering stdout LineBuffering
+  hSetBuffering stderr LineBuffering
   command <- O.execParser programInfo
   case command of
     DeleteDone -> do
