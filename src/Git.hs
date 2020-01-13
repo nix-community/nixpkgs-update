@@ -16,7 +16,6 @@ module Git
 import OurPrelude
 
 import Control.Concurrent
-
 import Control.Exception
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -24,7 +23,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
-import System.Directory (getHomeDirectory, getModificationTime)
+import System.Directory (getModificationTime)
+import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit
 import Utils (Options(..), UpdateEnv(..), branchName, branchPrefix)
 
