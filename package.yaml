@@ -42,6 +42,7 @@ dependencies:
   - filepath
   - github
   - hex
+  - http-client-tls
   - http-conduit
   - iso8601-time
   - lifted-base
@@ -54,6 +55,8 @@ dependencies:
   - polysemy
   - polysemy-plugin
   - regex-applicative-text
+  - servant
+  - servant-client
   - sqlite-simple
   - template-haskell
   - temporary
@@ -62,6 +65,7 @@ dependencies:
   - transformers
   - typed-process
   - unix
+  - unordered-containers
   - vector
   - versions
   - xdg-basedir
