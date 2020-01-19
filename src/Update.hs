@@ -1,19 +1,18 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
-  ( updateAll
-  , cveReport
-  , cveAll
-  , sourceGithubAll
-  , addPatched
-  ) where
-
-import OurPrelude
+  ( updateAll,
+    cveReport,
+    cveAll,
+    sourceGithubAll,
+    addPatched,
+  )
+where
 
 import qualified Blacklist
 import CVE (CVE, cveID, cveLI)
@@ -22,33 +21,35 @@ import Data.IORef
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Data.Time.Clock (UTCTime, getCurrentTime)
+import Data.Time.Calendar (toGregorian)
+import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
 import qualified File
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
 import qualified Nix
+import OurPrelude
 import Outpaths
-import Prelude hiding (log)
 import qualified Time
 import Utils
-  ( Options(..)
-  , UpdateEnv(..)
-  , Version
-  , branchName
-  , parseUpdates
-  , prTitle
-  , logDir
+  ( Options (..),
+    UpdateEnv (..),
+    Version,
+    branchName,
+    logDir,
+    parseUpdates,
+    prTitle,
   )
 import qualified Version
+import Prelude hiding (log)
 
 default (T.Text)
 
-data MergeBaseOutpathsInfo =
-  MergeBaseOutpathsInfo
-    { lastUpdated :: UTCTime
-    , mergeBaseOutpaths :: Set ResultLine
-    }
+data MergeBaseOutpathsInfo
+  = MergeBaseOutpathsInfo
+      { lastUpdated :: UTCTime,
+        mergeBaseOutpaths :: Set ResultLine
+      }
 
 log' :: MonadIO m => FilePath -> Text -> m ()
 log' logFile msg = do
@@ -57,8 +58,9 @@ log' logFile msg = do
 
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
+  (year, month, day) <- getCurrentTime >>= return . toGregorian . utctDay
   lDir <- logDir
-  let logFile = lDir <> "/ups.log"
+  let logFile = lDir <> "/" <> show year <> show month <> show day <> ".log"
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of ups.sh"
@@ -72,9 +74,10 @@ cveAll o updates = do
   let u' = rights $ parseUpdates updates
   results <-
     mapM
-      (\(p, oldV, newV) -> do
-         r <- cveReport (UpdateEnv p oldV newV o)
-         return $ p <> ": " <> oldV <> " -> " <> newV <> "\n" <> r)
+      ( \(p, oldV, newV) -> do
+          r <- cveReport (UpdateEnv p oldV newV o)
+          return $ p <> ": " <> oldV <> " -> " <> newV <> "\n" <> r
+      )
       u'
   T.putStrLn (T.unlines results)
 
@@ -86,30 +89,33 @@ sourceGithubAll o updates = do
       Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
       Git.cleanAndResetTo "master"
   mapM_
-    (\(p, oldV, newV) -> do
-       let updateEnv = UpdateEnv p oldV newV o
-       runExceptT $ do
-         attrPath <- Nix.lookupAttrPath updateEnv
-         srcUrl <- Nix.getSrcUrl attrPath
-         v <- GH.latestVersion updateEnv srcUrl
-         if v /= newV
-           then liftIO $
-                T.putStrLn $ p <> ": " <> oldV <> " -> " <> newV <> " -> " <> v
-           else return ())
+    ( \(p, oldV, newV) -> do
+        let updateEnv = UpdateEnv p oldV newV o
+        runExceptT $ do
+          attrPath <- Nix.lookupAttrPath updateEnv
+          srcUrl <- Nix.getSrcUrl attrPath
+          v <- GH.latestVersion updateEnv srcUrl
+          if v /= newV
+            then
+              liftIO
+                $ T.putStrLn
+                $ p <> ": " <> oldV <> " -> " <> newV <> " -> " <> v
+            else return ()
+    )
     u'
 
 updateLoop ::
-     MonadIO m
-  => Options
-  -> (Text -> m ())
-  -> [Either Text (Text, Version, Version)]
-  -> IORef MergeBaseOutpathsInfo
-  -> m ()
+  MonadIO m =>
+  Options ->
+  (Text -> m ()) ->
+  [Either Text (Text, Version, Version)] ->
+  IORef MergeBaseOutpathsInfo ->
+  m ()
 updateLoop _ log [] _ = log "ups.sh finished"
-updateLoop o log (Left e:moreUpdates) mergeBaseOutpathsContext = do
+updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
   log e
   updateLoop o log moreUpdates mergeBaseOutpathsContext
-updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsContext = do
+updateLoop o log (Right (pName, oldVer, newVer) : moreUpdates) mergeBaseOutpathsContext = do
   log (pName <> " " <> oldVer <> " -> " <> newVer)
   let updateEnv = UpdateEnv pName oldVer newVer o
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
@@ -121,27 +127,32 @@ updateLoop o log (Right (pName, oldVer, newVer):moreUpdates) mergeBaseOutpathsCo
         Left e -> liftIO $ print e
         _ ->
           if ".0" `T.isSuffixOf` newVer
-            then let Just newNewVersion = ".0" `T.stripSuffix` newVer
-                  in updateLoop
-                       o
-                       log
-                       (Right (pName, oldVer, newNewVersion) : moreUpdates)
-                       mergeBaseOutpathsContext
+            then
+              let Just newNewVersion = ".0" `T.stripSuffix` newVer
+               in updateLoop
+                    o
+                    log
+                    (Right (pName, oldVer, newNewVersion) : moreUpdates)
+                    mergeBaseOutpathsContext
             else updateLoop o log moreUpdates mergeBaseOutpathsContext
     Right _ -> do
       log "SUCCESS"
       updateLoop o log moreUpdates mergeBaseOutpathsContext
 
 -- Arguments this function should have to make it testable:
+
 -- * the merge base commit (should be updated externally to this function)
+
 -- * the merge base context should be updated externally to this function
+
 -- * the commit for branches: master, staging, staging-next, python-unstable
+
 updatePackage ::
-     MonadIO m
-  => (Text -> m ())
-  -> UpdateEnv
-  -> IORef MergeBaseOutpathsInfo
-  -> m (Either Text ())
+  MonadIO m =>
+  (Text -> m ()) ->
+  UpdateEnv ->
+  IORef MergeBaseOutpathsInfo ->
+  m (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     Blacklist.packageName (packageName updateEnv)
@@ -196,15 +207,15 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
-     MonadIO m
-  => (Text -> m ())
-  -> UpdateEnv
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Set ResultLine
-  -> ExceptT Text m ()
+  MonadIO m =>
+  (Text -> m ()) ->
+  UpdateEnv ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Set ResultLine ->
+  ExceptT Text m ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $ log ("cachix " <> (T.pack . show) result)
   Nix.cachix result
@@ -224,13 +235,17 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           then ""
           else "\n\nmeta.homepage for " <> attrPath <> " is: '" <> u
   releaseUrlMessage <-
-    (do msg <- GH.releaseUrl newSrcUrl
-        return ("\n[Release on GitHub](" <> msg <> ")\n\n")) <|>
-    return ""
+    ( do
+        msg <- GH.releaseUrl newSrcUrl
+        return ("\n[Release on GitHub](" <> msg <> ")\n\n")
+      )
+      <|> return ""
   compareUrlMessage <-
-    (do msg <- GH.compareUrl oldSrcUrl newSrcUrl
-        return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")) <|>
-    return "\n"
+    ( do
+        msg <- GH.compareUrl oldSrcUrl newSrcUrl
+        return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
+      )
+      <|> return "\n"
   maintainers <- Nix.getMaintainers attrPath
   let maintainersCc =
         if not (T.null maintainers)
@@ -249,20 +264,21 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   lift $
     GH.pr
       base
-      (prMessage
-         updateEnv
-         isBroken
-         metaDescription
-         metaHomepage
-         releaseUrlMessage
-         compareUrlMessage
-         resultCheckReport
-         commitHash
-         attrPath
-         maintainersCc
-         result
-         (outpathReport opDiff)
-         cveRep)
+      ( prMessage
+          updateEnv
+          isBroken
+          metaDescription
+          metaHomepage
+          releaseUrlMessage
+          compareUrlMessage
+          resultCheckReport
+          commitHash
+          attrPath
+          maintainersCc
+          result
+          (outpathReport opDiff)
+          cveRep
+      )
   Git.cleanAndResetTo "master"
 
 repologyUrl :: UpdateEnv -> Text
@@ -280,20 +296,20 @@ brokenWarning True =
   "- WARNING: Package has meta.broken=true; Please manually test this package update and remove the broken attribute."
 
 prMessage ::
-     UpdateEnv
-  -> Bool
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
-  -> Text
+  UpdateEnv ->
+  Bool ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text
 prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
@@ -362,7 +378,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
     |]
 
 assertNotUpdatedOn ::
-     MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
+  MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
 assertNotUpdatedOn updateEnv derivationFile branch = do
   Git.cleanAndResetTo branch
   derivationContents <- fmapLT tshow $ tryIO $ T.readFile derivationFile
@@ -373,13 +389,14 @@ addPatched attrPath set = do
   let list = S.toList set
   forM
     list
-    (\cve -> do
-       patched <- runExceptT $ Nix.hasPatchNamed attrPath (cveID cve)
-       let p =
-             case patched of
-               Left _ -> False
-               Right r -> r
-       return (cve, p))
+    ( \cve -> do
+        patched <- runExceptT $ Nix.hasPatchNamed attrPath (cveID cve)
+        let p =
+              case patched of
+                Left _ -> False
+                Right r -> r
+        return (cve, p)
+    )
 
 cveReport :: UpdateEnv -> IO Text
 cveReport updateEnv =
@@ -408,8 +425,9 @@ cveReport updateEnv =
         unresolvedList = toMkdownList inBoth'
     if fixedList == "none" && unresolvedList == "none" && newList == "none"
       then return ""
-      else return
-             [interpolate|
+      else
+        return
+          [interpolate|
       <details>
       <summary>
       Security report (click to expand)
