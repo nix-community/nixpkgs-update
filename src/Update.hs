@@ -38,7 +38,7 @@ import Utils
   , branchName
   , parseUpdates
   , prTitle
-  , runtimeDir
+  , logDir
   )
 import qualified Version
 
@@ -57,8 +57,8 @@ log' logFile msg = do
 
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
-  rDir <- runtimeDir
-  let logFile = rDir <> "/ups.log"
+  lDir <- logDir
+  let logFile = lDir <> "/ups.log"
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of ups.sh"

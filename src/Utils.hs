@@ -16,7 +16,7 @@ module Utils
   , overwriteErrorT
   , branchName
   , branchPrefix
-  , runtimeDir
+  , logDir
   , srcOrMain
   , prTitle
   , nixBuildOptions
@@ -118,6 +118,19 @@ regDirMode =
   directoryMode .|. ownerModes .|. groupModes .|. otherReadMode .|.
   otherExecuteMode
 
+logsDirectory :: MonadIO m => ExceptT Text m FilePath
+logsDirectory = do
+  dir <-
+    noteT "Could not get environment variable LOGS_DIRECTORY" $
+    MaybeT $ liftIO $ getEnv "LOGS_DIRECTORY"
+  dirExists <- liftIO $ doesDirectoryExist dir
+  tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
+  unless
+    dirExists
+    (liftIO $
+     putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode)
+  return dir
+
 xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
 xdgRuntimeDir = do
   xDir <-
@@ -142,13 +155,13 @@ tmpRuntimeDir = do
     dirExists
   return dir
 
-runtimeDir :: IO FilePath
-runtimeDir = do
+logDir :: IO FilePath
+logDir = do
   r <-
     runExceptT
-      (xdgRuntimeDir <|> tmpRuntimeDir <|>
+      (logsDirectory <|> xdgRuntimeDir <|> tmpRuntimeDir <|>
        throwE
-         "Failed to create runtimeDir from XDG_RUNTIME_DIR or tmp directory")
+         "Failed to create log directory.")
   case r of
     Right dir -> return dir
     Left e -> error $ T.unpack e
