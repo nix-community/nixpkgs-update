@@ -61,6 +61,7 @@ updateAll o updates = do
   (year, month, day) <- getCurrentTime >>= return . toGregorian . utctDay
   lDir <- logDir
   let logFile = lDir <> "/" <> show year <> show month <> show day <> ".log"
+  putStrLn ("Using log file : " <> logFile)
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of ups.sh"
