@@ -141,6 +141,9 @@ checkResultList =
   , infixOf
       "kicad"
       "- kicad result is not automatically checekd, because some binaries don't timeout properly"
+  , infixOf
+      "gjs"
+      "- gjs result is not automatically checekd, because some tests take a long time to run"
   ]
 
 blacklister :: Blacklist -> TextBlacklister m
