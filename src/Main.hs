@@ -27,7 +27,7 @@ newtype UpdateOptions
       }
 
 data Command
-  = Update UpdateOptions
+  = UpdateList UpdateOptions
   | DeleteDone
   | Version
   | UpdateVulnDB
@@ -38,7 +38,7 @@ data Command
 
 updateOptionsParser :: O.Parser Command
 updateOptionsParser =
-  Update . UpdateOptions
+  UpdateList . UpdateOptions
     <$> O.switch
       ( O.long "dry-run"
           <> O.help
@@ -49,7 +49,7 @@ commandParser :: O.Parser Command
 commandParser =
   O.hsubparser
     ( O.command
-        "update"
+        "update-list"
         (O.info updateOptionsParser (O.progDesc "Update packages"))
         <> O.command
           "delete-done"
@@ -117,7 +117,7 @@ main = do
       setupNixpkgs token
       setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
-    Update UpdateOptions {dry} -> do
+    UpdateList UpdateOptions {dry} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
