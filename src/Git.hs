@@ -1,19 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Git
-  ( cleanAndResetTo
-  , cleanup
-  , fetchIfStale
-  , fetch
-  , push
-  , checkoutAtMergeBase
-  , checkAutoUpdateBranchDoesntExist
-  , commit
-  , headHash
-  , deleteBranchesEverywhere
-  ) where
-
-import OurPrelude
+  ( cleanAndResetTo,
+    cleanup,
+    fetchIfStale,
+    fetch,
+    push,
+    checkoutAtMergeBase,
+    checkAutoUpdateBranchDoesntExist,
+    commit,
+    headHash,
+    deleteBranchesEverywhere,
+  )
+where
 
 import Control.Concurrent
 import Control.Exception
@@ -23,10 +22,12 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
+import qualified Data.Vector as V
+import OurPrelude
 import System.Directory (getModificationTime)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit
-import Utils (Options(..), UpdateEnv(..), branchName, branchPrefix)
+import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
 
 clean :: ProcessConfig () () ()
 clean = silently "git clean -fdx"
@@ -38,28 +39,32 @@ checkout branch target =
 reset :: Text -> ProcessConfig () () ()
 reset target = silently $ proc "git" ["reset", "--hard", T.unpack target]
 
-delete :: Text -> ProcessConfig () () ()
-delete branch = silently $ proc "git" ["branch", "-D", T.unpack branch]
+delete1 :: Text -> ProcessConfig () () ()
+delete1 branch = delete [branch]
 
-deleteOrigin :: Text -> ProcessConfig () () ()
-deleteOrigin branch =
-  silently $ proc "git" ["push", "origin", "--delete", T.unpack branch]
+delete :: [Text] -> ProcessConfig () () ()
+delete branches = silently $ proc "git" (["branch", "-D"] ++ fmap T.unpack branches)
+
+deleteOrigin :: [Text] -> ProcessConfig () () ()
+deleteOrigin branches =
+  silently $ proc "git" (["push", "origin", "--delete"] ++ fmap T.unpack branches)
 
 cleanAndResetTo :: MonadIO m => Text -> ExceptT Text m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
-   in do runProcessNoIndexIssue_ $ silently "git reset --hard"
-         runProcessNoIndexIssue_ clean
-         runProcessNoIndexIssue_ $ checkout branch target
-         runProcessNoIndexIssue_ $ reset target
-         runProcessNoIndexIssue_ clean
+   in do
+        runProcessNoIndexIssue_ $ silently "git reset --hard"
+        runProcessNoIndexIssue_ clean
+        runProcessNoIndexIssue_ $ checkout branch target
+        runProcessNoIndexIssue_ $ reset target
+        runProcessNoIndexIssue_ clean
 
 cleanup :: MonadIO m => Text -> ExceptT Text m ()
 cleanup bName = do
   liftIO $ T.putStrLn ("Cleaning up " <> bName)
   cleanAndResetTo "master"
-  runProcessNoIndexIssue_ (delete bName) <|>
-    liftIO (T.putStrLn ("Couldn't delete " <> bName))
+  runProcessNoIndexIssue_ (delete1 bName)
+    <|> liftIO (T.putStrLn ("Couldn't delete " <> bName))
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -76,34 +81,36 @@ fetchIfStale = whenM staleFetchHead fetch
 fetch :: MonadIO m => ExceptT Text m ()
 fetch =
   runProcessNoIndexIssue_ $
-  silently "git fetch -q --prune --multiple upstream origin"
+    silently "git fetch -q --prune --multiple upstream origin"
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
   runProcessNoIndexIssue_
-    (proc
-       "git"
-       ([ "push"
-        , "--force"
-        , "--set-upstream"
-        , "origin"
-        , T.unpack (branchName updateEnv)
-        ] ++
-        ["--dry-run" | dryRun (options updateEnv)]))
+    ( proc
+        "git"
+        ( [ "push",
+            "--force",
+            "--set-upstream",
+            "origin",
+            T.unpack (branchName updateEnv)
+          ]
+            ++ ["--dry-run" | dryRun (options updateEnv)]
+        )
+    )
 
 checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
 checkoutAtMergeBase bName = do
   base <-
     readProcessInterleavedNoIndexIssue_
-      "git merge-base upstream/master upstream/staging" &
-    fmapRT T.strip
+      "git merge-base upstream/master upstream/staging"
+      & fmapRT T.strip
   runProcessNoIndexIssue_ (checkout bName base)
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do
   remoteBranches <-
-    readProcessInterleavedNoIndexIssue_ "git branch --remote" &
-    fmapRT (T.lines >>> fmap T.strip)
+    readProcessInterleavedNoIndexIssue_ "git branch --remote"
+      & fmapRT (T.lines >>> fmap T.strip)
   when
     (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
     (throwE "Update branch already on origin. ")
@@ -117,7 +124,7 @@ headHash = readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
 
 deleteBranchesEverywhere :: Vector Text -> IO ()
 deleteBranchesEverywhere branches = do
-  let branchList = foldMap (\b -> b <> " ")  branches
+  let branchList = V.toList $ branches
   result <- runExceptT $ runProcessNoIndexIssue_ (delete branchList)
   case result of
     Left error1 -> T.putStrLn $ tshow error1
@@ -128,7 +135,7 @@ deleteBranchesEverywhere branches = do
     Right success2 -> T.putStrLn $ tshow success2
 
 runProcessNoIndexIssue_ ::
-     MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
+  MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
 runProcessNoIndexIssue_ config = tryIOTextET go
   where
     go = do
@@ -142,7 +149,7 @@ runProcessNoIndexIssue_ config = tryIOTextET go
         ExitFailure _ -> throw $ ExitCodeException code config out e
 
 readProcessInterleavedNoIndexIssue_ ::
-     MonadIO m => ProcessConfig () () () -> ExceptT Text m Text
+  MonadIO m => ProcessConfig () () () -> ExceptT Text m Text
 readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
   where
     go = do
