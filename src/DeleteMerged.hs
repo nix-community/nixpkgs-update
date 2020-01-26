@@ -7,7 +7,6 @@ module DeleteMerged
 import OurPrelude
 
 import qualified Data.Text.IO as T
-import qualified Data.Vector as V
 import qualified GH
 import qualified Git
 
@@ -18,8 +17,8 @@ deleteDone githubToken = do
       Git.fetch
       Git.cleanAndResetTo "master"
       refs <- ExceptT $ GH.closedAutoUpdateRefs githubToken
-      V.sequence_
-        (fmap (\r -> Git.deleteBranchEverywhere ("auto-update/" <> r)) refs)
+      let branches = fmap (\r -> ("auto-update/" <> r)) refs
+      liftIO $ Git.deleteBranchesEverywhere branches
   case result of
     Left e -> T.putStrLn e
     _ -> return ()

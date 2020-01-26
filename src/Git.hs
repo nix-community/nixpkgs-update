@@ -10,7 +10,7 @@ module Git
   , checkAutoUpdateBranchDoesntExist
   , commit
   , headHash
-  , deleteBranchEverywhere
+  , deleteBranchesEverywhere
   ) where
 
 import OurPrelude
@@ -43,7 +43,7 @@ delete branch = silently $ proc "git" ["branch", "-D", T.unpack branch]
 
 deleteOrigin :: Text -> ProcessConfig () () ()
 deleteOrigin branch =
-  silently $ proc "git" ["push", "origin", T.unpack (":" <> branch)]
+  silently $ proc "git" ["push", "origin", "--delete", T.unpack branch]
 
 cleanAndResetTo :: MonadIO m => Text -> ExceptT Text m ()
 cleanAndResetTo branch =
@@ -115,12 +115,17 @@ commit ref =
 headHash :: MonadIO m => ExceptT Text m Text
 headHash = readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
 
-deleteBranchEverywhere :: MonadIO m => Text -> ExceptT Text m ()
-deleteBranchEverywhere bName = do
-  runProcessNoIndexIssue_ (delete bName) <|>
-    liftIO (T.putStrLn ("Couldn't delete " <> bName))
-  runProcessNoIndexIssue_ (deleteOrigin bName) <|>
-    liftIO (T.putStrLn ("Couldn't delete " <> bName <> " on origin"))
+deleteBranchesEverywhere :: Vector Text -> IO ()
+deleteBranchesEverywhere branches = do
+  let branchList = foldMap (\b -> b <> " ")  branches
+  result <- runExceptT $ runProcessNoIndexIssue_ (delete branchList)
+  case result of
+    Left error1 -> T.putStrLn $ tshow error1
+    Right success1 -> T.putStrLn $ tshow success1
+  result2 <- runExceptT $ runProcessNoIndexIssue_ (deleteOrigin branchList)
+  case result2 of
+    Left error2 -> T.putStrLn $ tshow error2
+    Right success2 -> T.putStrLn $ tshow success2
 
 runProcessNoIndexIssue_ ::
      MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
