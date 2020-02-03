@@ -139,7 +139,7 @@ main = do
       setupNixpkgs undefined
       report <-
         cveReport
-          (UpdateEnv productID oldVersion newVersion (Options False undefined))
+          (UpdateEnv productID oldVersion newVersion Nothing (Options False undefined))
       T.putStrLn report
     SourceGithub -> do
       token <- getGithubToken

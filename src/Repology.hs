@@ -4,15 +4,15 @@
 
 module Repology where
 
+import OurPrelude
+
 import Control.Category ((>>>))
-import Control.Error
-import Control.Monad.IO.Class
 import Data.Aeson
 import Data.HashMap.Strict
 import Data.List
-import Data.Maybe
 import Data.Proxy
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.IO
 import Data.Vector (Vector)
 import qualified Data.Vector as V
@@ -162,13 +162,14 @@ getNextUpdateInfo n = do
   liftIO $ hPutStrLn stderr $ show (length ms)
   return (mLastName, length ms /= 1, V.fromList nixNew)
 
+repologyUrl :: Text -> Text
+repologyUrl pname = "https://repology.org/metapackage/" <> pname <> "/versions"
+
 --  let sorted = sortBy (\(p1,_) (p2,_) -> compare (name p1) (name p2)) nixNew
 updateInfo :: (Package, Package) -> Maybe Text
-updateInfo (outdated, newestP)
-  | isJust (name outdated) =
-    Just $
-      fromJust (name outdated) <> " " <> version outdated <> " " <> version newestP
-updateInfo _ = Nothing
+updateInfo (outdated, newestP) = do
+  pname <- name outdated
+  pure $ T.unwords [pname, version outdated, version newestP, repologyUrl pname]
 
 justs :: Vector (Maybe a) -> Vector a
 justs = V.concatMap (maybeToList >>> V.fromList)

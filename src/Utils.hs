@@ -10,6 +10,7 @@ module Utils
   , Boundary(..)
   , VersionMatcher(..)
   , UpdateEnv(..)
+  , URL
   , setupNixpkgs
   , tRead
   , parseUpdates
@@ -60,6 +61,8 @@ type ProductID = Text
 
 type Version = Text
 
+type URL = Text
+
 -- | The Ord instance is used to sort lists of matchers in order to compare them
 -- as a set, it is not useful for comparing bounds since the ordering of bounds
 -- depends on whether it is a start or end bound.
@@ -104,6 +107,7 @@ data UpdateEnv =
     { packageName :: Text
     , oldVersion :: Version
     , newVersion :: Version
+    , sourceURL :: Maybe URL
     , options :: Options
     }
 
@@ -191,11 +195,12 @@ branchPrefix = "auto-update/"
 branchName :: UpdateEnv -> Text
 branchName ue = branchPrefix <> packageName ue
 
-parseUpdates :: Text -> [Either Text (Text, Version, Version)]
+parseUpdates :: Text -> [Either Text (Text, Version, Version, Maybe URL)]
 parseUpdates = map (toTriple . T.words) . T.lines
   where
-    toTriple :: [Text] -> Either Text (Text, Version, Version)
-    toTriple [package, oldVer, newVer] = Right (package, oldVer, newVer)
+    toTriple :: [Text] -> Either Text (Text, Version, Version, Maybe URL)
+    toTriple [package, oldVer, newVer] = Right (package, oldVer, newVer, Nothing)
+    toTriple [package, oldVer, newVer, url] = Right (package, oldVer, newVer, Just url)
     toTriple line = Left $ "Unable to parse update: " <> T.unwords line
 
 tRead :: Read a => Text -> a
