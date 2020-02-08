@@ -46,7 +46,7 @@ import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
 import Polysemy
 import System.Exit
-import System.Process.Typed hiding (setEnv)
+import System.Process.Typed
 
 interpolate :: QuasiQuoter
 interpolate = NeatInterpolation.text

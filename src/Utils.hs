@@ -184,7 +184,7 @@ setupNixpkgs githubt = do
       runProcess_
     shell "git fetch upstream" & runProcess_
   setCurrentDirectory fp
-  setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
+  System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
 overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
 overwriteErrorT t = fmapLT (const t)

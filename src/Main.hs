@@ -15,7 +15,7 @@ import qualified Options.Applicative as O
 import OurPrelude
 import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
-import System.Posix.Env (setEnv)
+import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updateAll)
 import Utils (Options (..), UpdateEnv (..), setupNixpkgs)
 
@@ -115,15 +115,14 @@ main = do
     DeleteDone -> do
       token <- getGithubToken
       setupNixpkgs token
-      setEnv "GITHUB_TOKEN" (T.unpack token) True
+      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
     UpdateList UpdateOptions {dry} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
-      setEnv "PAGER" "" True
-      setEnv "GITHUB_TOKEN" (T.unpack token) True
-      setEnv "GC_INITIAL_HEAP_SIZE" "10g" True
+      P.setEnv "PAGER" "" True
+      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       updateAll (Options dry token) updates
     Version -> do
       v <- runExceptT Nix.version
@@ -145,6 +144,6 @@ main = do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
-      setEnv "GITHUB_TOKEN" (T.unpack token) True
+      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       sourceGithubAll (Options False token) updates
     FetchRepology -> Repology.fetch
