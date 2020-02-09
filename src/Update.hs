@@ -35,9 +35,9 @@ import Outpaths
 import qualified Time
 import Utils
   ( Options (..),
+    URL,
     UpdateEnv (..),
     Version,
-    URL,
     branchName,
     logDir,
     parseUpdates,
@@ -312,8 +312,9 @@ prMessage ::
 prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
-      sourceLinkInfo = maybe "" pattern $ sourceURL updateEnv where
-        pattern link = [interpolate|This update was made based on information from $link.|]
+      sourceLinkInfo = maybe "" pattern $ sourceURL updateEnv
+        where
+          pattern link = [interpolate|This update was made based on information from $link.|]
    in [interpolate|
        $title
 
@@ -382,9 +383,9 @@ untilOfBorgFree = do
   stats <-
     shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
   waiting <-
-    shell "jq .evaluator.messages.waiting" & setStdin (byteStringInput stats) &
-    readProcessInterleaved_ &
-    fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
+    shell "jq .evaluator.messages.waiting" & setStdin (byteStringInput stats)
+      & readProcessInterleaved_
+      & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
   when (waiting > 2) $ do
     liftIO $ threadDelay 60000000
     untilOfBorgFree

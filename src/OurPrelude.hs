@@ -1,31 +1,32 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 
 module OurPrelude
-  ( (>>>)
-  , (<|>)
-  , (<>)
-  , (<&>)
-  , (&)
-  , module Control.Error
-  , module Control.Monad.Except
-  , module Control.Monad.Trans.Class
-  , module Control.Monad.IO.Class
-  , module Data.Bifunctor
-  , module System.Process.Typed
-  , module Polysemy
-  , Set
-  , Text
-  , Vector
-  , interpolate
-  , tshow
-  , tryIOTextET
-  , whenM
-  , ourReadProcessInterleaved_
-  , ourReadProcessInterleavedBS_
-  , ourReadProcessInterleaved
-  , silently
-  , bytestringToText
-  ) where
+  ( (>>>),
+    (<|>),
+    (<>),
+    (<&>),
+    (&),
+    module Control.Error,
+    module Control.Monad.Except,
+    module Control.Monad.Trans.Class,
+    module Control.Monad.IO.Class,
+    module Data.Bifunctor,
+    module System.Process.Typed,
+    module Polysemy,
+    Set,
+    Text,
+    Vector,
+    interpolate,
+    tshow,
+    tryIOTextET,
+    whenM,
+    ourReadProcessInterleaved_,
+    ourReadProcessInterleavedBS_,
+    ourReadProcessInterleaved,
+    silently,
+    bytestringToText,
+  )
+where
 
 import Control.Applicative ((<|>))
 import Control.Category ((>>>))
@@ -64,25 +65,26 @@ bytestringToText :: BSL.ByteString -> Text
 bytestringToText = BSL.toStrict >>> T.decodeUtf8
 
 ourReadProcessInterleavedBS_ ::
-     MonadIO m
-  => ProcessConfig stdin stdoutIgnored stderrIgnored
-  -> ExceptT Text m BSL.ByteString
+  MonadIO m =>
+  ProcessConfig stdin stdoutIgnored stderrIgnored ->
+  ExceptT Text m BSL.ByteString
 ourReadProcessInterleavedBS_ = readProcessInterleaved_ >>> tryIOTextET
 
 ourReadProcessInterleaved_ ::
-     MonadIO m
-  => ProcessConfig stdin stdoutIgnored stderrIgnored
-  -> ExceptT Text m Text
+  MonadIO m =>
+  ProcessConfig stdin stdoutIgnored stderrIgnored ->
+  ExceptT Text m Text
 ourReadProcessInterleaved_ =
   readProcessInterleaved_ >>> tryIOTextET >>> fmapRT bytestringToText
 
 ourReadProcessInterleaved ::
-     MonadIO m
-  => ProcessConfig stdin stdoutIgnored stderrIgnored
-  -> ExceptT Text m (ExitCode, Text)
+  MonadIO m =>
+  ProcessConfig stdin stdoutIgnored stderrIgnored ->
+  ExceptT Text m (ExitCode, Text)
 ourReadProcessInterleaved =
-  readProcessInterleaved >>>
-  tryIOTextET >>> fmapRT (\(a, b) -> (a, bytestringToText b))
+  readProcessInterleaved
+    >>> tryIOTextET
+    >>> fmapRT (\(a, b) -> (a, bytestringToText b))
 
 silently :: ProcessConfig stdin stdout stderr -> ProcessConfig () () ()
 silently = setStderr closed >>> setStdin closed >>> setStdout closed

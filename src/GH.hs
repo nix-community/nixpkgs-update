@@ -1,34 +1,34 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module GH
-  ( GH.releaseUrl
-  , compareUrl
-  , pr
-  , closedAutoUpdateRefs
-  , openPullRequests
-  , openAutoUpdatePR
-  , checkExistingUpdatePR
-  , latestVersion
-  ) where
-
-import OurPrelude
+  ( GH.releaseUrl,
+    compareUrl,
+    pr,
+    closedAutoUpdateRefs,
+    openPullRequests,
+    openAutoUpdatePR,
+    checkExistingUpdatePR,
+    latestVersion,
+  )
+where
 
 import Control.Applicative (some)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import GitHub
-import GitHub.Data.Name (Name(..), untagName)
+import GitHub.Data.Name (Name (..), untagName)
 import GitHub.Endpoints.GitData.References (references')
 import GitHub.Endpoints.Repos.Releases (latestRelease', releaseByTagName)
 import GitHub.Endpoints.Search (searchIssues')
+import OurPrelude
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
-import Utils (UpdateEnv(..), Version)
+import Utils (UpdateEnv (..), Version)
 import qualified Utils as U
 
 default (T.Text)
@@ -36,8 +36,8 @@ default (T.Text)
 gReleaseUrl :: MonadIO m => URLParts -> ExceptT Text m Text
 gReleaseUrl (URLParts o r t) =
   ExceptT $
-  bimap (T.pack . show) (getUrl . releaseHtmlUrl) <$>
-  liftIO (releaseByTagName o r t)
+    bimap (T.pack . show) (getUrl . releaseHtmlUrl)
+      <$> liftIO (releaseByTagName o r t)
 
 releaseUrl :: MonadIO m => Text -> ExceptT Text m Text
 releaseUrl url = do
@@ -47,14 +47,14 @@ releaseUrl url = do
 pr :: MonadIO m => Text -> Text -> m ()
 pr base msg =
   runProcess_ $
-  proc "hub" ["pull-request", "-b", T.unpack base, "-m", T.unpack msg]
+    proc "hub" ["pull-request", "-b", T.unpack base, "-m", T.unpack msg]
 
-data URLParts =
-  URLParts
-    { owner :: Name Owner
-    , repo :: Name Repo
-    , tag :: Text
-    }
+data URLParts
+  = URLParts
+      { owner :: Name Owner,
+        repo :: Name Repo,
+        tag :: Text
+      }
   deriving (Show)
 
 -- | Parse owner-repo-branch triplet out of URL
@@ -80,13 +80,15 @@ parseURLMaybe url =
       extension = RE.string ".zip" <|> RE.string ".tar.gz"
       toParts n o = URLParts (N n) (N o)
       regex =
-        (toParts <$> (domain *> pathSegment) <* slash <*> pathSegment <*>
-         (RE.string "/releases/download/" *> pathSegment) <*
-         slash <*
-         pathSegment) <|>
-        (toParts <$> (domain *> pathSegment) <* slash <*> pathSegment <*>
-         (RE.string "/archive/" *> pathSegment) <*
-         extension)
+        ( toParts <$> (domain *> pathSegment) <* slash <*> pathSegment
+            <*> (RE.string "/releases/download/" *> pathSegment)
+            <* slash
+            <* pathSegment
+        )
+          <|> ( toParts <$> (domain *> pathSegment) <* slash <*> pathSegment
+                  <*> (RE.string "/archive/" *> pathSegment)
+                  <* extension
+              )
    in url =~ regex
 
 parseURL :: MonadIO m => Text -> ExceptT Text m URLParts
@@ -98,20 +100,24 @@ compareUrl urlOld urlNew = do
   oldParts <- parseURL urlOld
   newParts <- parseURL urlNew
   return $
-    "https://github.com/" <>
-    untagName (owner newParts) <>
-    "/" <>
-    untagName (repo newParts) <>
-    "/compare/" <> tag oldParts <> "..." <> tag newParts
+    "https://github.com/"
+      <> untagName (owner newParts)
+      <> "/"
+      <> untagName (repo newParts)
+      <> "/compare/"
+      <> tag oldParts
+      <> "..."
+      <> tag newParts
 
 --deleteDoneBranches :: IO ()
 --deleteDoneBranches = do
 autoUpdateRefs :: Text -> IO (Either Text (Vector Text))
 autoUpdateRefs githubToken =
-  references' (Just (OAuth (T.encodeUtf8 githubToken))) "r-ryantm" "nixpkgs" &
-  fmap
-    (first (T.pack . show) >>>
-     second (fmap gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix)))
+  references' (Just (OAuth (T.encodeUtf8 githubToken))) "r-ryantm" "nixpkgs"
+    & fmap
+      ( first (T.pack . show)
+          >>> second (fmap gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix))
+      )
   where
     prefix = "refs/heads/auto-update/"
 
@@ -119,17 +125,18 @@ openPRWithAutoUpdateRefFromRRyanTM :: Text -> Text -> IO (Either Text Bool)
 openPRWithAutoUpdateRefFromRRyanTM githubToken ref =
   executeRequest
     (OAuth (T.encodeUtf8 githubToken))
-    (pullRequestsForR
-       "nixos"
-       "nixpkgs"
-       (optionsHead ("r-ryantm:" <> U.branchPrefix <> ref) <> stateOpen)
-       FetchAll) &
-  fmap (first (T.pack . show) >>> second (not . V.null))
+    ( pullRequestsForR
+        "nixos"
+        "nixpkgs"
+        (optionsHead ("r-ryantm:" <> U.branchPrefix <> ref) <> stateOpen)
+        FetchAll
+    )
+    & fmap (first (T.pack . show) >>> second (not . V.null))
 
 refShouldBeDeleted :: Text -> Text -> IO Bool
 refShouldBeDeleted githubToken ref =
-  not . either (const True) id <$>
-  openPRWithAutoUpdateRefFromRRyanTM githubToken ref
+  not . either (const True) id
+    <$> openPRWithAutoUpdateRefFromRRyanTM githubToken ref
 
 closedAutoUpdateRefs :: Text -> IO (Either Text (Vector Text))
 closedAutoUpdateRefs githubToken =
@@ -142,8 +149,8 @@ openPullRequests :: Text -> IO (Either Text (Vector SimplePullRequest))
 openPullRequests githubToken =
   executeRequest
     (OAuth (T.encodeUtf8 githubToken))
-    (pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll) &
-  fmap (first (T.pack . show))
+    (pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll)
+    & fmap (first (T.pack . show))
 
 openAutoUpdatePR :: UpdateEnv -> Vector SimplePullRequest -> Bool
 openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
@@ -157,36 +164,38 @@ openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
 checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
 checkExistingUpdatePR ue attrPath = do
   searchResult <-
-    ExceptT $
-    liftIO $
-    searchIssues'
-      (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
-      search &
-    fmap (first (T.pack . show))
+    ExceptT
+      $ liftIO
+      $ searchIssues'
+        (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
+        search
+        & fmap (first (T.pack . show))
   if T.length (openPRReport searchResult) == 0
     then return ()
-    else throwE
-           ("There might already be an open PR for this update:\n" <>
-            openPRReport searchResult)
+    else
+      throwE
+        ( "There might already be an open PR for this update:\n"
+            <> openPRReport searchResult
+        )
   where
     title = U.prTitle ue attrPath
     search = [interpolate|repo:nixos/nixpkgs $title |]
     openPRReport searchResult =
-      searchResultResults searchResult & V.filter (issueClosedAt >>> isNothing) &
-      fmap report &
-      V.toList &
-      T.unlines
+      searchResultResults searchResult & V.filter (issueClosedAt >>> isNothing)
+        & fmap report
+        & V.toList
+        & T.unlines
     report i = "- " <> issueTitle i <> "\n  " <> tshow (issueUrl i)
 
 latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
 latestVersion ue url = do
   urlParts <- parseURL url
   r <-
-    ExceptT $
-    liftIO $
-    latestRelease'
-      (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
-      (owner urlParts)
-      (repo urlParts) &
-    fmap (first (T.pack . show))
+    ExceptT
+      $ liftIO
+      $ latestRelease'
+        (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
+        (owner urlParts)
+        (repo urlParts)
+        & fmap (first (T.pack . show))
   return $ T.dropWhile (\c -> c == 'v' || c == 'V') (releaseTagName r)

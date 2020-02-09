@@ -3,17 +3,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Version
-  ( assertCompatibleWithPathPin
-  , matchVersion
-  ) where
-
-import OurPrelude
+  ( assertCompatibleWithPathPin,
+    matchVersion,
+  )
+where
 
 import Data.Char (isAlpha, isDigit)
 import Data.Function (on)
 import qualified Data.PartialOrd as PO
 import qualified Data.Text as T
-import Data.Versions (SemVer(..), VUnit(..), semver)
+import Data.Versions (SemVer (..), VUnit (..), semver)
+import OurPrelude
 import Utils
 
 notElemOf :: (Eq a, Foldable t) => t a -> a -> Bool
@@ -67,19 +67,19 @@ versionCompatibleWithPathPin attrPath newVer
                 else Just version
         -- Check assuming version part has underscore separators
         attrVersionPeriods = T.replace "_" "." <$> attrVersionPart
-        -- If we don't find version numbers in the attr path, exit success.
-     in maybe True (`T.isPrefixOf` newVer) attrVersionPeriods
+     in -- If we don't find version numbers in the attr path, exit success.
+        maybe True (`T.isPrefixOf` newVer) attrVersionPeriods
   | otherwise =
     let attrVersionPart =
           let version = T.dropWhile (notElemOf ['0' .. '9']) attrPath
            in if T.any (notElemOf ['0' .. '9']) version
                 then Nothing
                 else Just version
-          -- Check assuming version part is the prefix of the version with dots
-          -- removed. For example, 91 => "9.1"
+        -- Check assuming version part is the prefix of the version with dots
+        -- removed. For example, 91 => "9.1"
         noPeriodNewVersion = T.replace "." "" newVer
-          -- If we don't find version numbers in the attr path, exit success.
-     in maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
+     in -- If we don't find version numbers in the attr path, exit success.
+        maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 
 versionIncompatibleWithPathPin :: Text -> Version -> Bool
 versionIncompatibleWithPathPin path version =
@@ -88,11 +88,16 @@ versionIncompatibleWithPathPin path version =
 assertCompatibleWithPathPin :: Monad m => UpdateEnv -> Text -> ExceptT Text m ()
 assertCompatibleWithPathPin ue attrPath =
   tryAssert
-    ("Version in attr path " <>
-     attrPath <> " not compatible with " <> newVersion ue)
-    (not
-       (versionCompatibleWithPathPin attrPath (oldVersion ue) &&
-        versionIncompatibleWithPathPin attrPath (newVersion ue)))
+    ( "Version in attr path "
+        <> attrPath
+        <> " not compatible with "
+        <> newVersion ue
+    )
+    ( not
+        ( versionCompatibleWithPathPin attrPath (oldVersion ue)
+            && versionIncompatibleWithPathPin attrPath (newVersion ue)
+        )
+    )
 
 data VersionPart
   = PreReleasePart VersionPart
@@ -136,8 +141,8 @@ instance SimpleVersion ParsedVersion where
 
 instance SimpleVersion SemVer where
   simpleVersion SemVer {_svMajor, _svMinor, _svPatch, _svPreRel} =
-    [IntPart _svMajor, IntPart _svMinor, IntPart _svPatch] ++
-    map toPart (concat _svPreRel)
+    [IntPart _svMajor, IntPart _svMinor, IntPart _svPatch]
+      ++ map toPart (concat _svPreRel)
     where
       toPart (Digits i) = IntPart i
       toPart (Str t) =
@@ -194,7 +199,7 @@ instance PO.PartialOrd ParsedVersion where
       lessOrEq [] [] = True
       lessOrEq [] ys = lessOrEq [EmptyPart] ys
       lessOrEq xs [] = lessOrEq xs [EmptyPart]
-      lessOrEq (x:xs) (y:ys) =
+      lessOrEq (x : xs) (y : ys) =
         case PO.compare x y of
           Just LT -> True
           Just EQ -> lessOrEq xs ys

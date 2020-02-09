@@ -2,25 +2,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module NVD
-  ( withVulnDB
-  , getCVEs
-  , Connection
-  , ProductID
-  , Version
-  , CVE
-  , CVEID
-  , UTCTime
-  ) where
-
-import OurPrelude
+  ( withVulnDB,
+    getCVEs,
+    Connection,
+    ProductID,
+    Version,
+    CVE,
+    CVEID,
+    UTCTime,
+  )
+where
 
 import CVE
-  ( CPEMatch(..)
-  , CPEMatchRow(..)
-  , CVE(..)
-  , CVEID
-  , cpeMatches
-  , parseFeed
+  ( CPEMatch (..),
+    CPEMatchRow (..),
+    CVE (..),
+    CVEID,
+    cpeMatches,
+    parseFeed,
   )
 import Codec.Compression.GZip (decompress)
 import Control.Exception (SomeException, ioError, try)
@@ -32,31 +31,32 @@ import Data.List (group)
 import qualified Data.Text as T
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock
-  ( UTCTime
-  , diffUTCTime
-  , getCurrentTime
-  , nominalDay
-  , utctDay
+  ( UTCTime,
+    diffUTCTime,
+    getCurrentTime,
+    nominalDay,
+    utctDay,
   )
 import Data.Time.ISO8601 (parseISO8601)
 import Database.SQLite.Simple
-  ( Connection
-  , Only(..)
-  , Query(..)
-  , execute
-  , executeMany
-  , execute_
-  , query
-  , withConnection
-  , withTransaction
+  ( Connection,
+    Only (..),
+    Query (..),
+    execute,
+    executeMany,
+    execute_,
+    query,
+    withConnection,
+    withTransaction,
   )
 import qualified NVDRules
 import Network.HTTP.Conduit (simpleHttp)
+import OurPrelude
 import System.Directory
-  ( XdgDirectory(..)
-  , createDirectoryIfMissing
-  , getXdgDirectory
-  , removeFile
+  ( XdgDirectory (..),
+    createDirectoryIfMissing,
+    getXdgDirectory,
+    removeFile,
   )
 import System.FilePath ((</>))
 import System.IO.Error (userError)
@@ -74,8 +74,8 @@ type Checksum = BSL.ByteString
 
 type DBVersion = Int
 
-data Meta =
-  Meta Timestamp Checksum
+data Meta
+  = Meta Timestamp Checksum
 
 -- | Database version the software expects. If the software version is
 -- higher than the database version or the database has not been updated in more
@@ -112,32 +112,32 @@ rebuildDB = do
       conn
       "INSERT INTO meta VALUES (?, ?)"
       (softwareVersion, "1970-01-01 00:00:00" :: Text)
-    execute_ conn $
-      Query $
-      T.unlines
-        [ "CREATE TABLE cves ("
-        , "  cve_id text PRIMARY KEY,"
-        , "  description text,"
-        , "  published text,"
-        , "  modified text)"
+    execute_ conn
+      $ Query
+      $ T.unlines
+        [ "CREATE TABLE cves (",
+          "  cve_id text PRIMARY KEY,",
+          "  description text,",
+          "  published text,",
+          "  modified text)"
         ]
-    execute_ conn $
-      Query $
-      T.unlines
-        [ "CREATE TABLE cpe_matches ("
-        , "  cve_id text REFERENCES cve,"
-        , "  part text,"
-        , "  vendor text,"
-        , "  product text,"
-        , "  version text,"
-        , "  \"update\" text,"
-        , "  edition text,"
-        , "  language text,"
-        , "  software_edition text,"
-        , "  target_software text,"
-        , "  target_hardware text,"
-        , "  other text,"
-        , "  matcher text)"
+    execute_ conn
+      $ Query
+      $ T.unlines
+        [ "CREATE TABLE cpe_matches (",
+          "  cve_id text REFERENCES cve,",
+          "  part text,",
+          "  vendor text,",
+          "  product text,",
+          "  version text,",
+          "  \"update\" text,",
+          "  edition text,",
+          "  language text,",
+          "  software_edition text,",
+          "  target_software text,",
+          "  target_hardware text,",
+          "  other text,",
+          "  matcher text)"
         ]
     execute_ conn "CREATE INDEX matchers_by_cve ON cpe_matches(cve_id)"
     execute_ conn "CREATE INDEX matchers_by_product ON cpe_matches(product)"
@@ -173,8 +173,9 @@ parseMeta raw = do
     note "no lastModifiedDate in meta" $ lookup "lastModifiedDate" fields
   sha256 <- note "no sha256 in meta" $ lookup "sha256" fields
   timestamp <-
-    note "invalid lastModifiedDate in meta" $
-    parseISO8601 $ BSL.unpack lastModifiedDate
+    note "invalid lastModifiedDate in meta"
+      $ parseISO8601
+      $ BSL.unpack lastModifiedDate
   checksum <- note "invalid sha256 in meta" $ unhex sha256
   return $ Meta timestamp checksum
 
@@ -188,12 +189,13 @@ getCVE conn cveID_ = do
   cves <-
     query
       conn
-      (Query $
-       T.unlines
-         [ "SELECT cve_id, description, published, modified"
-         , "FROM cves"
-         , "WHERE cve_id = ?"
-         ])
+      ( Query $
+          T.unlines
+            [ "SELECT cve_id, description, published, modified",
+              "FROM cves",
+              "WHERE cve_id = ?"
+            ]
+      )
       (Only cveID_)
   case cves of
     [cve] -> pure cve
@@ -205,36 +207,39 @@ getCVEs conn productID version = do
   matches :: [CPEMatchRow] <-
     query
       conn
-      (Query $
-       T.unlines
-         [ "SELECT"
-         , "  cve_id,"
-         , "  part,"
-         , "  vendor,"
-         , "  product,"
-         , "  version,"
-         , "  \"update\","
-         , "  edition,"
-         , "  language,"
-         , "  software_edition,"
-         , "  target_software,"
-         , "  target_hardware,"
-         , "  other,"
-         , "  matcher"
-         , "FROM cpe_matches"
-         , "WHERE vendor = ? or product = ? or edition = ? or software_edition = ? or target_software = ?"
-         , "ORDER BY cve_id"
-         ])
+      ( Query $
+          T.unlines
+            [ "SELECT",
+              "  cve_id,",
+              "  part,",
+              "  vendor,",
+              "  product,",
+              "  version,",
+              "  \"update\",",
+              "  edition,",
+              "  language,",
+              "  software_edition,",
+              "  target_software,",
+              "  target_hardware,",
+              "  other,",
+              "  matcher",
+              "FROM cpe_matches",
+              "WHERE vendor = ? or product = ? or edition = ? or software_edition = ? or target_software = ?",
+              "ORDER BY cve_id"
+            ]
+      )
       (productID, productID, productID, productID, productID)
   let cveIDs =
-        map head $
-        group $
-        flip mapMaybe matches $ \(CPEMatchRow cve cpeMatch) ->
-          if matchVersion (cpeMatchVersionMatcher cpeMatch) version
-            then if NVDRules.filter cve cpeMatch productID version
-                   then Just (cveID cve)
-                   else Nothing
-            else Nothing
+        map head
+          $ group
+          $ flip mapMaybe matches
+          $ \(CPEMatchRow cve cpeMatch) ->
+            if matchVersion (cpeMatchVersionMatcher cpeMatch) version
+              then
+                if NVDRules.filter cve cpeMatch productID version
+                  then Just (cveID cve)
+                  else Nothing
+              else Nothing
   forM cveIDs $ getCVE conn
 
 putCVEs :: Connection -> [CVE] -> IO ()
@@ -246,11 +251,12 @@ putCVEs conn cves = do
       (map (Only . cveID) cves)
     executeMany
       conn
-      (Query $
-       T.unlines
-         [ "INSERT INTO cves(cve_id, description, published, modified)"
-         , "VALUES (?, ?, ?, ?)"
-         ])
+      ( Query $
+          T.unlines
+            [ "INSERT INTO cves(cve_id, description, published, modified)",
+              "VALUES (?, ?, ?, ?)"
+            ]
+      )
       cves
     executeMany
       conn
@@ -258,24 +264,25 @@ putCVEs conn cves = do
       (map (Only . cveID) cves)
     executeMany
       conn
-      (Query $
-       T.unlines
-         [ "INSERT INTO cpe_matches("
-         , "  cve_id,"
-         , "  part,"
-         , "  vendor,"
-         , "  product,"
-         , "  version,"
-         , "  \"update\","
-         , "  edition,"
-         , "  language,"
-         , "  software_edition,"
-         , "  target_software,"
-         , "  target_hardware,"
-         , "  other,"
-         , "  matcher)"
-         , "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-         ])
+      ( Query $
+          T.unlines
+            [ "INSERT INTO cpe_matches(",
+              "  cve_id,",
+              "  part,",
+              "  vendor,",
+              "  product,",
+              "  version,",
+              "  \"update\",",
+              "  edition,",
+              "  language,",
+              "  software_edition,",
+              "  target_software,",
+              "  target_hardware,",
+              "  other,",
+              "  matcher)",
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ]
+      )
       (cpeMatches cves)
 
 getDBMeta :: Connection -> IO (DBVersion, UTCTime)
@@ -295,8 +302,8 @@ needsRebuild = do
       pure True
     Right (dbVersion, t) ->
       pure $
-      diffUTCTime currentTime t > (7.5 * nominalDay) ||
-      dbVersion /= softwareVersion
+        diffUTCTime currentTime t > (7.5 * nominalDay)
+          || dbVersion /= softwareVersion
 
 -- | Download a feed and store it in the database.
 updateFeed :: Connection -> FeedID -> IO ()
@@ -328,9 +335,10 @@ downloadFeed feed = do
   compressed <- simpleHttp $ feedURL feed ".json.gz"
   let raw = decompress compressed
   let actualChecksum = BSL.fromStrict $ hashlazy raw
-  when (actualChecksum /= expectedChecksum) $
-    throwString $
-    "wrong hash, expected: " <>
-    BSL.unpack (hex expectedChecksum) <>
-    " got: " <> BSL.unpack (hex actualChecksum)
+  when (actualChecksum /= expectedChecksum)
+    $ throwString
+    $ "wrong hash, expected: "
+      <> BSL.unpack (hex expectedChecksum)
+      <> " got: "
+      <> BSL.unpack (hex actualChecksum)
   return raw

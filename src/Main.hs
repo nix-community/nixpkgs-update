@@ -23,8 +23,8 @@ default (T.Text)
 
 data UpdateOptions
   = UpdateOptions
-      { dry :: Bool
-      , additionalUpdates :: Text
+      { dry :: Bool,
+        additionalUpdates :: Text
       }
 
 data Command
@@ -54,9 +54,9 @@ commandParser =
     ( O.command
         "update-list"
         (O.info (UpdateList <$> updateOptionsParser) (O.progDesc "Update a list of packages"))
-        <>  O.command
-        "update"
-        (O.info (Update <$> updateOptionsParser) (O.progDesc "Update packages"))
+        <> O.command
+          "update"
+          (O.info (Update <$> updateOptionsParser) (O.progDesc "Update packages"))
         <> O.command
           "delete-done"
           ( O.info

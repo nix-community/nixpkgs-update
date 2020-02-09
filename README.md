@@ -120,6 +120,8 @@ nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c c
 
 # Development tips
 
+Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
+
 Run a type checker in the background for quicker type checking feedback:
 
 ```

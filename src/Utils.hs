@@ -4,50 +4,50 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Utils
-  ( Options(..)
-  , ProductID
-  , Version
-  , Boundary(..)
-  , VersionMatcher(..)
-  , UpdateEnv(..)
-  , URL
-  , setupNixpkgs
-  , tRead
-  , parseUpdates
-  , overwriteErrorT
-  , branchName
-  , branchPrefix
-  , logDir
-  , srcOrMain
-  , prTitle
-  , nixBuildOptions
-  ) where
-
-import OurPrelude
+  ( Options (..),
+    ProductID,
+    Version,
+    Boundary (..),
+    VersionMatcher (..),
+    UpdateEnv (..),
+    URL,
+    setupNixpkgs,
+    tRead,
+    parseUpdates,
+    overwriteErrorT,
+    branchName,
+    branchPrefix,
+    logDir,
+    srcOrMain,
+    prTitle,
+    nixBuildOptions,
+  )
+where
 
 import Data.Bits ((.|.))
 import qualified Data.Text as T
-import Database.SQLite.Simple (ResultError(..), SQLData(..))
+import Database.SQLite.Simple (ResultError (..), SQLData (..))
 import Database.SQLite.Simple.FromField
-  ( FieldParser
-  , FromField
-  , fromField
-  , returnError
+  ( FieldParser,
+    FromField,
+    fromField,
+    returnError,
   )
-import Database.SQLite.Simple.Internal (Field(..))
-import Database.SQLite.Simple.Ok (Ok(..))
+import Database.SQLite.Simple.Internal (Field (..))
+import Database.SQLite.Simple.Ok (Ok (..))
 import Database.SQLite.Simple.ToField (ToField, toField)
+import OurPrelude
 import System.Directory (doesDirectoryExist, setCurrentDirectory)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv, setEnv)
 import System.Posix.Files
-  ( directoryMode
-  , fileExist
-  , groupModes
-  , otherExecuteMode
-  , otherReadMode
-  , ownerModes
+  ( directoryMode,
+    fileExist,
+    groupModes,
+    otherExecuteMode,
+    otherReadMode,
+    ownerModes,
   )
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
@@ -95,21 +95,21 @@ instance FromField VersionMatcher where
 instance ToField VersionMatcher where
   toField = showField
 
-data Options =
-  Options
-    { dryRun :: Bool
-    , githubToken :: Text
-    }
+data Options
+  = Options
+      { dryRun :: Bool,
+        githubToken :: Text
+      }
   deriving (Show)
 
-data UpdateEnv =
-  UpdateEnv
-    { packageName :: Text
-    , oldVersion :: Version
-    , newVersion :: Version
-    , sourceURL :: Maybe URL
-    , options :: Options
-    }
+data UpdateEnv
+  = UpdateEnv
+      { packageName :: Text,
+        oldVersion :: Version,
+        newVersion :: Version,
+        sourceURL :: Maybe URL,
+        options :: Options
+      }
 
 prTitle :: UpdateEnv -> Text -> Text
 prTitle updateEnv attrPath =
@@ -119,35 +119,41 @@ prTitle updateEnv attrPath =
 
 regDirMode :: FileMode
 regDirMode =
-  directoryMode .|. ownerModes .|. groupModes .|. otherReadMode .|.
-  otherExecuteMode
+  directoryMode .|. ownerModes .|. groupModes .|. otherReadMode
+    .|. otherExecuteMode
 
 logsDirectory :: MonadIO m => ExceptT Text m FilePath
 logsDirectory = do
   dir <-
-    noteT "Could not get environment variable LOGS_DIRECTORY" $
-    MaybeT $ liftIO $ getEnv "LOGS_DIRECTORY"
+    noteT "Could not get environment variable LOGS_DIRECTORY"
+      $ MaybeT
+      $ liftIO
+      $ getEnv "LOGS_DIRECTORY"
   dirExists <- liftIO $ doesDirectoryExist dir
   tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
   unless
     dirExists
-    (liftIO $
-     putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode)
+    ( liftIO $
+        putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
+    )
   return dir
 
 xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
 xdgRuntimeDir = do
   xDir <-
-    noteT "Could not get environment variable XDG_RUNTIME_DIR" $
-    MaybeT $ liftIO $ getEnv "XDG_RUNTIME_DIR"
+    noteT "Could not get environment variable XDG_RUNTIME_DIR"
+      $ MaybeT
+      $ liftIO
+      $ getEnv "XDG_RUNTIME_DIR"
   xDirExists <- liftIO $ doesDirectoryExist xDir
   tryAssert ("XDG_RUNTIME_DIR " <> T.pack xDir <> " does not exist.") xDirExists
   let dir = xDir <> "/nixpkgs-update"
   dirExists <- liftIO $ fileExist dir
   unless
     dirExists
-    (liftIO $
-     putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode)
+    ( liftIO $
+        putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
+    )
   return dir
 
 tmpRuntimeDir :: MonadIO m => ExceptT Text m FilePath
@@ -163,9 +169,10 @@ logDir :: IO FilePath
 logDir = do
   r <-
     runExceptT
-      (logsDirectory <|> xdgRuntimeDir <|> tmpRuntimeDir <|>
-       throwE
-         "Failed to create log directory.")
+      ( logsDirectory <|> xdgRuntimeDir <|> tmpRuntimeDir
+          <|> throwE
+            "Failed to create log directory."
+      )
   case r of
     Right dir -> return dir
     Left e -> error $ T.unpack e
@@ -175,13 +182,13 @@ setupNixpkgs githubt = do
   fp <- getUserCacheDir "nixpkgs"
   exists <- doesDirectoryExist fp
   unless exists $ do
-    proc "hub" ["clone", "nixpkgs", fp] & -- requires that user has forked nixpkgs
-      System.Process.Typed.setEnv
-        [("GITHUB_TOKEN" :: String, githubt & T.unpack)] &
-      runProcess_
+    proc "hub" ["clone", "nixpkgs", fp]
+      & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
+        [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
+      & runProcess_
     setCurrentDirectory fp
-    shell "git remote add upstream https://github.com/NixOS/nixpkgs" &
-      runProcess_
+    shell "git remote add upstream https://github.com/NixOS/nixpkgs"
+      & runProcess_
     shell "git fetch upstream" & runProcess_
   setCurrentDirectory fp
   System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
@@ -211,13 +218,13 @@ srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath
 
 nixBuildOptions :: [String]
 nixBuildOptions =
-  [ "--option"
-  , "sandbox"
-  , "true"
-  , "--option"
-  , "restrict-eval"
-  , "true"
-  , "--arg"
-  , "config"
-  , "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
+  [ "--option",
+    "sandbox",
+    "true",
+    "--option",
+    "restrict-eval",
+    "true",
+    "--arg",
+    "config",
+    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
   ]

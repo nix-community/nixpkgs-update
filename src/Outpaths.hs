@@ -1,20 +1,23 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -p nix -i "nix-env -qaP --no-name --out-path --arg checkMeta true --argstr path $$PWD -f"
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Outpaths
-  ( currentOutpathSet
-  , ResultLine
-  , numPackageRebuilds
-  , outpathReport
-  ) where
-
-import OurPrelude
+  ( currentOutpathSet,
+    ResultLine,
+    numPackageRebuilds,
+    outpathReport,
+  )
+where
 
 import Data.List (sort)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Vector as V
+import OurPrelude
 import Text.Parsec (parse)
 import Text.Parser.Char
 import Text.Parser.Combinators
@@ -22,9 +25,9 @@ import Text.Parser.Combinators
 outPathsExpr :: Text
 outPathsExpr =
   [interpolate|
-#!/usr/bin/env nix-shell
+
 # When using as a callable script, passing `--argstr path some/path` overrides $$PWD.
-#!nix-shell -p nix -i "nix-env -qaP --no-name --out-path --arg checkMeta true --argstr path $$PWD -f"
+
 { checkMeta
 , path ? ./.
 }:
@@ -92,19 +95,19 @@ outPath = do
   ourReadProcessInterleaved_
     "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true --show-trace"
 
-data Outpath =
-  Outpath
-    { mayName :: Maybe Text
-    , storePath :: Text
-    }
+data Outpath
+  = Outpath
+      { mayName :: Maybe Text,
+        storePath :: Text
+      }
   deriving (Eq, Ord, Show)
 
-data ResultLine =
-  ResultLine
-    { package :: Text
-    , architecture :: Text
-    , outpaths :: Vector Outpath
-    }
+data ResultLine
+  = ResultLine
+      { package :: Text,
+        architecture :: Text,
+        outpaths :: Vector Outpath
+      }
   deriving (Eq, Ord, Show)
 
 -- Example query result line:
@@ -121,10 +124,10 @@ parseResults = S.fromList <$> parseResultLine `sepEndBy` newline
 
 parseResultLine :: CharParsing m => m ResultLine
 parseResultLine =
-  ResultLine <$> (T.dropWhileEnd (== '.') <$> parseAttrpath) <*>
-  parseArchitecture <*
-  spaces <*>
-  parseOutpaths
+  ResultLine <$> (T.dropWhileEnd (== '.') <$> parseAttrpath)
+    <*> parseArchitecture
+    <* spaces
+    <*> parseOutpaths
 
 parseAttrpath :: CharParsing m => m Text
 parseAttrpath = T.concat <$> many (try parseAttrpathPart)
@@ -140,8 +143,8 @@ parseOutpaths = V.fromList <$> (parseOutpath `sepBy1` char ';')
 
 parseOutpath :: CharParsing m => m Outpath
 parseOutpath =
-  Outpath <$> optional (try (T.pack <$> (many (noneOf "=\n") <* char '='))) <*>
-  (T.pack <$> many (noneOf ";\n"))
+  Outpath <$> optional (try (T.pack <$> (many (noneOf "=\n") <* char '=')))
+    <*> (T.pack <$> many (noneOf ";\n"))
 
 packageRebuilds :: Set ResultLine -> Vector Text
 packageRebuilds = S.toList >>> fmap package >>> sort >>> V.fromList >>> V.uniq

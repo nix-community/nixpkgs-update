@@ -4,8 +4,6 @@
 
 module Repology where
 
-import OurPrelude
-
 import Control.Category ((>>>))
 import Data.Aeson
 import Data.HashMap.Strict
@@ -18,8 +16,9 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import GHC.Generics
 import Network.HTTP.Client.TLS (newTlsManager)
+import OurPrelude
 import Servant.API
-import Servant.Client (ClientEnv (ClientEnv), ClientM, runClientM, BaseUrl(..), Scheme(..), client)
+import Servant.Client (BaseUrl (..), ClientEnv (ClientEnv), ClientM, Scheme (..), client, runClientM)
 import System.IO
 
 baseUrl :: BaseUrl

@@ -2,33 +2,36 @@
 
 module NVDRules where
 
-import OurPrelude
-
-import CVE (CPE(..), CPEMatch(..), CVE(..))
+import CVE (CPE (..), CPEMatch (..), CVE (..))
 import Data.Char (isDigit)
 import qualified Data.Text as T
-import Text.Regex.Applicative.Text (RE', (=~), anySym, many, psym)
-import Utils (Boundary(..), ProductID, Version, VersionMatcher(..))
+import OurPrelude
+import Text.Regex.Applicative.Text ((=~), RE', anySym, many, psym)
+import Utils (Boundary (..), ProductID, Version, VersionMatcher (..))
 
 -- Return False to discard CVE
 filter :: CVE -> CPEMatch -> ProductID -> Version -> Bool
 filter _ cpeMatch "socat" v
   | cpeUpdatePresentAndNotPartOfVersion cpeMatch v = False -- TODO consider if this rule should be applied to all packages
 filter _ cpeMatch "uzbl" v
-  | isNothing (v =~ yearRegex) &&
-      "2009.12.22" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch = False
-  | isNothing (v =~ yearRegex) &&
-      "2010.04.03" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch = False
+  | isNothing (v =~ yearRegex)
+      && "2009.12.22" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+    False
+  | isNothing (v =~ yearRegex)
+      && "2010.04.03" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+    False
 filter _ cpeMatch "go" v
-  | "." `T.isInfixOf` v &&
-      "-" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch = False
+  | "." `T.isInfixOf` v
+      && "-" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+    False
 filter _ cpeMatch "terraform" _
   | cpeTargetSoftware (cpeMatchCPE cpeMatch) == Just "aws" = False
 filter cve _ "tor" _
   | cveID cve == "CVE-2017-16541" = False
 filter _ cpeMatch "arena" _
-  | cpeVendor (cpeMatchCPE cpeMatch) == Just "rockwellautomation" ||
-      cpeVendor (cpeMatchCPE cpeMatch) == Just "openforis" = False
+  | cpeVendor (cpeMatchCPE cpeMatch) == Just "rockwellautomation"
+      || cpeVendor (cpeMatchCPE cpeMatch) == Just "openforis" =
+    False
 filter _ cpeMatch "thrift" _
   | cpeVendor (cpeMatchCPE cpeMatch) == Just "facebook" = False
 filter _ cpeMatch "kanboard" _
@@ -55,7 +58,7 @@ anyVersionInfixOf _ (RangeMatcher Unbounded Unbounded) = False
 yearRegex :: RE' ()
 yearRegex =
   void $
-  psym isDigit <* psym isDigit <* psym isDigit <* psym isDigit <* many anySym
+    psym isDigit <* psym isDigit <* psym isDigit <* psym isDigit <* many anySym
 
 cpeUpdatePresentAndNotPartOfVersion :: CPEMatch -> Version -> Bool
 cpeUpdatePresentAndNotPartOfVersion cpeMatch v =
