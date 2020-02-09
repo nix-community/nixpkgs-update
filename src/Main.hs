@@ -21,13 +21,15 @@ import Utils (Options (..), UpdateEnv (..), setupNixpkgs)
 
 default (T.Text)
 
-newtype UpdateOptions
+data UpdateOptions
   = UpdateOptions
       { dry :: Bool
+      , additionalUpdates :: Text
       }
 
 data Command
   = UpdateList UpdateOptions
+  | Update UpdateOptions
   | DeleteDone
   | Version
   | UpdateVulnDB
@@ -36,21 +38,25 @@ data Command
   | FetchRepology
   | CheckVulnerable Text Text Text
 
-updateOptionsParser :: O.Parser Command
+updateOptionsParser :: O.Parser UpdateOptions
 updateOptionsParser =
-  UpdateList . UpdateOptions
+  UpdateOptions
     <$> O.switch
       ( O.long "dry-run"
           <> O.help
             "Do everything except actually pushing the updates to the remote repository"
       )
+    <*> O.strOption (O.long "additionalUpdates" <> O.help "A string of updates formatted the same way as packages-to-update.txt")
 
 commandParser :: O.Parser Command
 commandParser =
   O.hsubparser
     ( O.command
         "update-list"
-        (O.info updateOptionsParser (O.progDesc "Update packages"))
+        (O.info (UpdateList <$> updateOptionsParser) (O.progDesc "Update a list of packages"))
+        <>  O.command
+        "update"
+        (O.info (Update <$> updateOptionsParser) (O.progDesc "Update packages"))
         <> O.command
           "delete-done"
           ( O.info
@@ -117,13 +123,19 @@ main = do
       setupNixpkgs token
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
-    UpdateList UpdateOptions {dry} -> do
+    UpdateList UpdateOptions {dry, additionalUpdates} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options dry token) updates
+      updateAll (Options dry token) (updates <> "\n" <> additionalUpdates)
+    Update UpdateOptions {dry, additionalUpdates} -> do
+      token <- getGithubToken
+      setupNixpkgs token
+      P.setEnv "PAGER" "" True
+      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
+      updateAll (Options dry token) additionalUpdates
     Version -> do
       v <- runExceptT Nix.version
       case v of
