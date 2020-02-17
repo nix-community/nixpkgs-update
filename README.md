@@ -100,16 +100,41 @@ test a package with one command.
 
 # Instructions
 
-1. Clone this repository:
+1. Clone this repository and build `nixpkgs-update`:
     ```
     git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
+    nix-build
     ```
-2. Get a list of outdated packages and place them in a `packages-to-update.txt` file in the root directory of this repository.
-    ```
-    git clone https://github.com/ryantm/repology-api.git && cd repology-api
-    nix run nixpkgs.cabal2nix -c cabal2nix --shell --hpack . > shell.nix && nix-build shell.nix && result/bin/repology-api > ../packages-to-update.txt
-    ```
-3. Return back `cd ..` and run the tool `nix run -c nixpkgs-update update`
+
+2. Setup [hub](https://github.com/github/hub) and copy the oauth token to
+   `github_token.txt` in the root of this repository.
+
+3. To test your config, try to update a single package:
+
+   ```
+   touch packages-to-upadte.txt
+   ./result/bin/nixpkgs-update --dry-run --additionalUpdates "X oldVer newVer"`,
+   ```
+
+   where `X` is the attribute name, and `oldver` and `newVer` are the versions.
+
+   If this works, you are now setup to hack on `nixpkgs-update`! To send a batch of
+   updates, proceed as follows:
+
+4. Get a list of outdated packages and place them in a `packages-to-update.txt` file:
+
+  ```
+  ./result/bin/nixpkgs-update fetch-repology > packages-to-update.txt
+  ```
+
+5. Run the tool in batch mode with `update-list`:
+
+  ```
+  ./result/bin/nixpkgs-update update-list --additionalUpdates ""
+  ```
+
+  Note that the `--additionalUpdates` argument is currently mandatory, but does
+  not need to have a real value.
 
 
 # Adding new dependencies / updating Cabal file
