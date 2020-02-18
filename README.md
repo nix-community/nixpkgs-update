@@ -147,6 +147,13 @@ nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c c
 
 Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
 
+For incremental building, use nix-shell
+
+```
+nix-shell
+cabal new-repl
+```
+
 Run a type checker in the background for quicker type checking feedback:
 
 ```
