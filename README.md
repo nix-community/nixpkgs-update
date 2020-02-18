@@ -136,19 +136,18 @@ test a package with one command.
   not need to have a real value.
 
 
-# Adding new dependencies / updating Cabal file
+# Development
+
+Setup a Cabal file (also run this when adding new dependencies):
 
 ```
 nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
 ```
 
-# Development tips
-
-Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
-
-For incremental building, use nix-shell
+For incremental building, first make a Cabal file with the above command, then use nix-shell
 
 ```
+nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
 nix-shell
 cabal new-repl
 ```
@@ -159,6 +158,7 @@ Run a type checker in the background for quicker type checking feedback:
 nix-shell --run ghcid
 ```
 
+Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
 
 # Prior work
 
