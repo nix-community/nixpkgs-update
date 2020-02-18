@@ -25,13 +25,13 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
-import qualified File
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import OurPrelude
 import Outpaths
+import qualified Rewriters
 import qualified Time
 import Utils
   ( Options (..),
@@ -144,13 +144,9 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
       updateLoop o log moreUpdates mergeBaseOutpathsContext
 
 -- Arguments this function should have to make it testable:
-
--- * the merge base commit (should be updated externally to this function)
-
--- * the merge base context should be updated externally to this function
-
--- * the commit for branches: master, staging, staging-next, python-unstable
-
+-- - the merge base commit (should be updated externally to this function)
+-- - the merge base context should be updated externally to this function
+-- - the commit for branches: master, staging, staging-next, python-unstable
 updatePackage ::
   MonadIO m =>
   (Text -> m ()) ->
@@ -159,11 +155,14 @@ updatePackage ::
   m (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
-    Blacklist.packageName (packageName updateEnv)
-    Nix.assertNewerVersion updateEnv
+    -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
+    --
+    -- Filters: various cases where we shouldn't update the package
+    Blacklist.packageName (packageName updateEnv)
+    Nix.assertNewerVersion updateEnv
     attrPath <- Nix.lookupAttrPath updateEnv
     GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
@@ -175,6 +174,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     assertNotUpdatedOn updateEnv derivationFile "staging"
     assertNotUpdatedOn updateEnv derivationFile "staging-next"
     assertNotUpdatedOn updateEnv derivationFile "python-unstable"
+    --
+    -- Get the original derivation file for diffing purposes
     Git.checkoutAtMergeBase (branchName updateEnv)
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
@@ -188,25 +189,37 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
           return mbos
         else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
     derivationContents <- liftIO $ T.readFile derivationFile
+    oldSrcUrl <- Nix.getSrcUrl attrPath
+    --
+    -- Current limitations that we may re-visit in the future
     Nix.assertOneOrFewerFetcher derivationContents derivationFile
     Nix.assertOneOrFewerHashes derivationContents derivationFile
+    --
+    -- One final filter
     Blacklist.content derivationContents
-    oldHash <- Nix.getOldHash attrPath
-    oldSrcUrl <- Nix.getSrcUrl attrPath
-    lift $
-      File.replace (oldVersion updateEnv) (newVersion updateEnv) derivationFile
-    newSrcUrl <- Nix.getSrcUrl attrPath
-    when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-    lift $ File.replace oldHash Nix.sha256Zero derivationFile
-    newHash <- Nix.getHashFromBuild attrPath
-    tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
-    lift $ File.replace Nix.sha256Zero newHash derivationFile
+    --
+    ----------------------------------------------------------------------------
+    -- UPDATES
+    -- At this point, we've stashed the old derivation contents and validated
+    -- that we actually should be touching this file. Get to work processing the
+    -- various rewrite functions!
+    let rwArgs = Rewriters.RewriteArgs updateEnv attrPath derivationFile
+    Rewriters.rewriteVersion rwArgs
+    Rewriters.rewriteQuotedUrls rwArgs
+    ----------------------------------------------------------------------------
+    --
+    -- Compute the diff, look at rebuilds, and publish the package
+    updatedDerivationContents <- liftIO $ T.readFile derivationFile
+    when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
+    --
     editedOutpathSet <- currentOutpathSet
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
     Blacklist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
+    newSrcUrl <- Nix.getSrcUrl attrPath
+    --
     result <- Nix.resultLink
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
