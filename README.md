@@ -112,8 +112,7 @@ test a package with one command.
 3. To test your config, try to update a single package:
 
    ```
-   touch packages-to-upadte.txt
-   ./result/bin/nixpkgs-update --dry-run --additionalUpdates "X oldVer newVer"`,
+   ./result/bin/nixpkgs-update update --dry-run --additionalUpdates "X oldVer newVer"`,
    ```
 
    where `X` is the attribute name, and `oldver` and `newVer` are the versions.
