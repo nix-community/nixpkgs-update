@@ -102,7 +102,6 @@ lookupAttrPath updateEnv =
     )
     & ourReadProcessInterleaved_
     & fmapRT (T.lines >>> head >>> T.words >>> head)
-    & overwriteErrorT "nix-env -q failed to find package name with old version "
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
