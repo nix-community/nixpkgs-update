@@ -113,7 +113,7 @@ checkAutoUpdateBranchDoesntExist pName = do
       & fmapRT (T.lines >>> fmap T.strip)
   when
     (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
-    (throwE "Update branch already on origin. ")
+    (throwE "Update branch already on origin.")
 
 commit :: MonadIO m => Text -> ExceptT Text m ()
 commit ref =

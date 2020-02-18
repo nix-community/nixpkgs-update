@@ -99,7 +99,8 @@ instance ToField VersionMatcher where
 data Options
   = Options
       { dryRun :: Bool,
-        githubToken :: Text
+        githubToken :: Text,
+        pushToCachix :: Bool
       }
   deriving (Show)
 

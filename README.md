@@ -112,7 +112,7 @@ test a package with one command.
 3. To test your config, try to update a single package:
 
    ```
-   ./result/bin/nixpkgs-update update --dry-run --additionalUpdates "X oldVer newVer"`,
+   ./result/bin/nixpkgs-update update --dry-run --additional-updates "X oldVer newVer"`,
    ```
 
    where `X` is the attribute name, and `oldver` and `newVer` are the versions.
@@ -129,12 +129,8 @@ test a package with one command.
 5. Run the tool in batch mode with `update-list`:
 
   ```
-  ./result/bin/nixpkgs-update update-list --additionalUpdates ""
+  ./result/bin/nixpkgs-update update-list
   ```
-
-  Note that the `--additionalUpdates` argument is currently mandatory, but does
-  not need to have a real value.
-
 
 # Development
 

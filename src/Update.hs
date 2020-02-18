@@ -64,7 +64,7 @@ updateAll o updates = do
   (year, month, day) <- getCurrentTime >>= return . toGregorian . utctDay
   lDir <- logDir
   let logFile = lDir <> "/" <> show year <> show month <> show day <> ".log"
-  putStrLn ("Using log file : " <> logFile)
+  putStrLn ("Using log file: " <> logFile)
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of ups.sh"
@@ -221,8 +221,7 @@ publishPackage ::
   Set ResultLine ->
   ExceptT Text m ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
-  lift $ log ("cachix " <> (T.pack . show) result)
-  Nix.cachix result
+  cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
       Right () -> lift $ Check.result updateEnv (T.unpack result)
@@ -283,6 +282,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           result
           (outpathReport opDiff)
           cveRep
+          cachixTestInstructions
       )
   Git.cleanAndResetTo "master"
 
@@ -308,8 +308,9 @@ prMessage ::
   Text ->
   Text ->
   Text ->
+  Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep =
+prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cachixTestInstructions =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
       sourceLinkInfo = maybe "" pattern $ sourceURL updateEnv
@@ -347,19 +348,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
        Instructions to test this update (click to expand)
        </summary>
 
-       Either download from Cachix:
-       ```
-       nix-store -r $resultPath \
-         --option binary-caches 'https://cache.nixos.org/ https://r-ryantm.cachix.org/' \
-         --option trusted-public-keys '
-         r-ryantm.cachix.org-1:gkUbLkouDAyvBdpBX0JOdIiD2/DP1ldF3Z3Y6Gqcc4c=
-         cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-         '
-       ```
-       (r-ryantm's Cachix cache is only trusted for this store-path realization.)
-       For the Cachix download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
-
-       Or, build yourself:
+       $cachixTestInstructions
        ```
        nix-build -A $attrPath https://github.com/r-ryantm/nixpkgs/archive/$commitHash.tar.gz
        ```
@@ -459,3 +448,29 @@ cveReport updateEnv =
        </details>
        <br/>
       |]
+
+doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
+doCachix log updateEnv resultPath =
+  if pushToCachix (options updateEnv)
+    then do
+      lift $ log ("cachix " <> (T.pack . show) resultPath)
+      Nix.cachix resultPath
+      return
+        [interpolate|
+       Either download from Cachix:
+       ```
+       nix-store -r $resultPath \
+         --option binary-caches 'https://cache.nixos.org/ https://r-ryantm.cachix.org/' \
+         --option trusted-public-keys '
+         r-ryantm.cachix.org-1:gkUbLkouDAyvBdpBX0JOdIiD2/DP1ldF3Z3Y6Gqcc4c=
+         cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+         '
+       ```
+       (r-ryantm's Cachix cache is only trusted for this store-path realization.)
+       For the Cachix download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
+
+       Or, build yourself:
+       |]
+    else do
+      lift $ log "skipping cachix"
+      return "Build yourself:"
