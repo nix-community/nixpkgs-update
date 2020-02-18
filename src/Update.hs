@@ -171,6 +171,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     srcUrls <- Nix.getSrcUrls attrPath
     Blacklist.srcUrl srcUrls
     derivationFile <- Nix.getDerivationFile attrPath
+    Version.assertCompatibleWithFileName updateEnv (T.pack derivationFile)
     assertNotUpdatedOn updateEnv derivationFile "master"
     assertNotUpdatedOn updateEnv derivationFile "staging"
     assertNotUpdatedOn updateEnv derivationFile "staging-next"

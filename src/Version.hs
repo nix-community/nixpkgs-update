@@ -4,7 +4,9 @@
 
 module Version
   ( assertCompatibleWithPathPin,
+    assertCompatibleWithFileName,
     matchVersion,
+    xout,
   )
 where
 
@@ -98,6 +100,73 @@ assertCompatibleWithPathPin ue attrPath =
             && versionIncompatibleWithPathPin attrPath (newVersion ue)
         )
     )
+
+assertCompatibleWithFileName :: Monad m => UpdateEnv -> Text -> ExceptT Text m ()
+assertCompatibleWithFileName ue fileName =
+  tryAssert
+    ( "Version in file name "
+        <> tshow fileName
+        <> " not compatible with "
+        <> newVersion ue
+    )
+    ( not
+        ( versionCompatibleWithFileName fileName (oldVersion ue)
+            && versionIncompatibleWithFileName fileName (newVersion ue)
+        )
+    )
+
+-- | Check if attribute path is not pinned to a certain version.
+-- If a derivation is expected to stay at certain version branch,
+-- it will usually have the branch as a part of the attribute path.
+--
+-- Examples:
+--
+-- >>> versionCompatibleWithFileName "pkgs/development/tools/misc/swig/3.x.nix" "3.0.12"
+-- True
+--
+-- >>> versionCompatibleWithFileName "pkgs/development/tools/misc/swig/3.x.nix" "4.0.0"
+-- False
+versionCompatibleWithFileName :: Text -> Version -> Bool
+versionCompatibleWithFileName fileName newVer = False
+    --parts = concatMap (T.splitOn ".") (T.splitOn "/" fileName)
+
+-- |
+-- >>> xVersions "4.0.0"
+-- ["4.0.0", "4.0.x", "4.x.x", "4.0", "4.x", "4"]
+xVersions :: Text -> [Text]
+xVersions v = fmap (T.intercalate ".") (go parts)
+  where
+    parts = T.splitOn "." v
+    go :: [Text] -> [[Text]]
+    go [] = [[]]
+    go ps = fmap (\t -> head ps <> t) (xout (tail ps)) <> go (init ps)
+
+
+-- |
+-- >>> xs ["0"]
+-- ["0","x"]
+-- >>> xs ["0", "0"]
+-- ["0.0", "0.x", "x.x"]
+xout :: [Text] -> [Text]
+xout [] = []
+xout [p] = [p, "x"]
+xout (p:t) = fmap (\p2 -> p <> "." <> p2) (xout t) <> fmap (\p2 -> "x." <> p2) (filter (\p2 -> T.head p2 == 'x') (xout t))
+
+-- ps = fmap (intercalate ".") (go2 ps)
+--     go2 ps = [ [p,"x"] | p <- ps ]
+
+--  T.head ps 
+
+
+
+
+
+
+versionIncompatibleWithFileName :: Text -> Version -> Bool
+versionIncompatibleWithFileName fileName version =
+  not (versionCompatibleWithFileName fileName version)
+
+
 
 data VersionPart
   = PreReleasePart VersionPart
