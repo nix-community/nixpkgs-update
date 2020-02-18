@@ -41,7 +41,7 @@ import System.Exit
 import Text.Parsec (parse)
 import Text.Parser.Combinators
 import Text.Parser.Token
-import Utils (UpdateEnv (..), nixBuildOptions, overwriteErrorT, srcOrMain)
+import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, overwriteErrorT, srcOrMain)
 import Prelude hiding (log)
 
 data Env = Env [(String, String)]
@@ -92,15 +92,14 @@ lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
   proc
     "nix-env"
-    [ "-qa",
-      (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
-      "-f",
-      ".",
-      "--attr-path",
-      "--arg",
-      "config",
-      "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
-    ]
+    ( [ "-qa",
+        (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
+        "-f",
+        ".",
+        "--attr-path"
+      ]
+        <> nixCommonOptions
+    )
     & ourReadProcessInterleaved_
     & fmapRT (T.lines >>> head >>> T.words >>> head)
     & overwriteErrorT "nix-env -q failed to find package name with old version "

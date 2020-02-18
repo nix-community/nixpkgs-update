@@ -21,6 +21,7 @@ module Utils
     srcOrMain,
     prTitle,
     nixBuildOptions,
+    nixCommonOptions,
   )
 where
 
@@ -216,6 +217,16 @@ tRead = read . T.unpack
 srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
 srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath
 
+nixCommonOptions :: [String]
+nixCommonOptions =
+  [ "--arg",
+    "config",
+    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }",
+    "--arg",
+    "overlays",
+    "[ ]"
+  ]
+
 nixBuildOptions :: [String]
 nixBuildOptions =
   [ "--option",
@@ -223,8 +234,6 @@ nixBuildOptions =
     "true",
     "--option",
     "restrict-eval",
-    "true",
-    "--arg",
-    "config",
-    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }"
+    "true"
   ]
+    <> nixCommonOptions
