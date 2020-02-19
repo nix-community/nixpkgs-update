@@ -203,10 +203,6 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     derivationContents <- liftIO $ T.readFile derivationFile
     oldSrcUrl <- Nix.getSrcUrl attrPath
     --
-    -- Current limitations that we may re-visit in the future
-    Nix.assertOneOrFewerFetcher derivationContents derivationFile
-    Nix.assertOneOrFewerHashes derivationContents derivationFile
-    --
     -- One final filter
     Blacklist.content derivationContents
     --
@@ -217,17 +213,17 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
     msg1 <- Rewrite.version log rwArgs
-    diffAfterVersion <- Git.diff
-    lift . log $ "Diff after version rewrite:\n" <> diffAfterVersion
     msg2 <- Rewrite.quotedUrls log rwArgs
-    diffAfterQuoted <- Git.diff
-    lift . log $ "Diff after quotedUrls rewrite:\n" <> diffAfterQuoted
-    let msgs = catMaybes [msg1, msg2]
+    msg3 <- Rewrite.rustCargoFetcher log rwArgs
+    msg4 <- Rewrite.rustCrateVersion log rwArgs
+    let msgs = catMaybes [msg1, msg2, msg3, msg4]
     ----------------------------------------------------------------------------
     --
     -- Compute the diff, look at rebuilds, and publish the package
+    gitDiff <- Git.diff
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
+    lift . log $ "Successfully finished rewrites with diff:\n" <> gitDiff
     --
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
@@ -236,15 +232,12 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
     newSrcUrl <- Nix.getSrcUrl attrPath
+    lift . log $ "Successfully processed update"
     --
-    -- Either publish the result, or just print a diff and quit
-    if dry
-      then do
-        gitDiff <- Git.diff
-        lift . log $ "Successfully finished processing, rewrote derivation with diff:\n" <> gitDiff
-      else do
-        result <- Nix.resultLink
-        publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
+    -- Publish the result!
+    unless dry $ do
+      result <- Nix.resultLink
+      publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
 
 publishPackage ::
   MonadIO m =>

@@ -7,6 +7,7 @@ module Nix
   ( nixEvalET,
     assertNewerVersion,
     lookupAttrPath,
+    getDrvAttr,
     getDerivationFile,
     getMaintainers,
     getOldHash,
@@ -19,8 +20,8 @@ module Nix
     getDescription,
     getHomepage,
     cachix,
-    assertOneOrFewerFetcher,
-    assertOneOrFewerHashes,
+    numberOfFetchers,
+    numberOfHashes,
     getHashFromBuild,
     assertOldVersionOn,
     resultLink,
@@ -109,6 +110,11 @@ getDerivationFile attrPath =
     & ourReadProcessInterleaved_
     & fmapRT (T.strip >>> T.unpack)
     & overwriteErrorT "Couldn't find derivation file. "
+
+getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
+getDrvAttr drvAttr =
+  srcOrMain
+    (\attrPath -> nixEvalET (EvalOptions Raw (Env [])) ("pkgs." <> attrPath <> ".drvAttrs." <> drvAttr))
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash =
@@ -243,22 +249,10 @@ numberOfFetchers derivationContents =
   where
     countUp x = T.count x derivationContents
 
-assertOneOrFewerFetcher :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
-assertOneOrFewerFetcher derivationContents derivationFile =
-  tryAssert
-    ("More than one fetcher in " <> T.pack derivationFile)
-    (numberOfFetchers derivationContents <= 1)
-
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents = countUp "sha256 =" + countUp "sha256="
   where
     countUp x = T.count x derivationContents
-
-assertOneOrFewerHashes :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
-assertOneOrFewerHashes derivationContents derivationFile =
-  tryAssert
-    ("More than one hash in " <> T.pack derivationFile)
-    (numberOfHashes derivationContents <= 1)
 
 assertOldVersionOn ::
   MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
