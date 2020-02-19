@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Rewriters
-  ( RewriteArgs (..),
-    rewriteVersion,
-    rewriteQuotedUrls,
+module Rewrite
+  ( Args (..),
+    version,
+    quotedUrls,
   )
 where
 
@@ -24,8 +24,8 @@ import qualified Utils
 -- really easy to unit test, so we should setup a rewriters test framework that
 -- uses some mock.nix files and rewrites them, then asserts the expected diff.
 
-data RewriteArgs
-  = RewriteArgs
+data Args
+  = Args
       { updateEnv :: Utils.UpdateEnv,
         attrPath :: Text,
         derivationFile :: FilePath
@@ -33,8 +33,8 @@ data RewriteArgs
 
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
-rewriteVersion :: MonadIO m => RewriteArgs -> ExceptT Text m ()
-rewriteVersion (RewriteArgs env attrPth drvFile) = do
+version :: MonadIO m => Args -> ExceptT Text m ()
+version (Args env attrPth drvFile) = do
   oldHash <- Nix.getOldHash attrPth
   -- Change the actual version
   lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
@@ -45,8 +45,8 @@ rewriteVersion (RewriteArgs env attrPth drvFile) = do
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
 -- already, as per https://github.com/NixOS/rfcs/pull/45
-rewriteQuotedUrls :: MonadIO m => RewriteArgs -> ExceptT Text m ()
-rewriteQuotedUrls (RewriteArgs _ attrPth drvFile) = do
+quotedUrls :: MonadIO m => Args -> ExceptT Text m ()
+quotedUrls (Args _ attrPth drvFile) = do
   homepage <- Nix.getHomepage attrPth
   contents <- liftIO $ T.readFile drvFile
   -- The homepage that comes out of nix-env is *always* quoted by the nix eval,

@@ -31,7 +31,7 @@ import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import OurPrelude
 import Outpaths
-import qualified Rewriters
+import qualified Rewrite
 import qualified Time
 import Utils
   ( Options (..),
@@ -155,14 +155,17 @@ updatePackage ::
   m (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
+    --
+    -- Filters that don't need git
+    Blacklist.packageName (packageName updateEnv)
+    Nix.assertNewerVersion updateEnv
+    --
     -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
     Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
     --
     -- Filters: various cases where we shouldn't update the package
-    Blacklist.packageName (packageName updateEnv)
-    Nix.assertNewerVersion updateEnv
     attrPath <- Nix.lookupAttrPath updateEnv
     GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
@@ -203,9 +206,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- At this point, we've stashed the old derivation contents and validated
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
-    let rwArgs = Rewriters.RewriteArgs updateEnv attrPath derivationFile
-    Rewriters.rewriteVersion rwArgs
-    Rewriters.rewriteQuotedUrls rwArgs
+    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile
+    Rewrite.version rwArgs
+    Rewrite.quotedUrls rwArgs
     ----------------------------------------------------------------------------
     --
     -- Compute the diff, look at rebuilds, and publish the package
