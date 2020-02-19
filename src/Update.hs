@@ -67,7 +67,7 @@ updateAll o updates = do
   putStrLn ("Using log file: " <> logFile)
   let log = log' logFile
   T.appendFile logFile "\n\n"
-  log "New run of ups.sh"
+  log "New run of nixpkgs-update"
   twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
   mergeBaseOutpathSet <-
     liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
@@ -115,7 +115,7 @@ updateLoop ::
   [Either Text (Text, Version, Version, Maybe URL)] ->
   IORef MergeBaseOutpathsInfo ->
   m ()
-updateLoop _ log [] _ = log "ups.sh finished"
+updateLoop _ log [] _ = log "nixpkgs-update finished"
 updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
   log e
   updateLoop o log moreUpdates mergeBaseOutpathsContext
