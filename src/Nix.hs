@@ -7,6 +7,7 @@ module Nix
   ( nixEvalET,
     assertNewerVersion,
     lookupAttrPath,
+    getDrvAttr,
     getDerivationFile,
     getMaintainers,
     getHash,
@@ -110,6 +111,11 @@ getDerivationFile attrPath =
     & ourReadProcessInterleaved_
     & fmapRT (T.strip >>> T.unpack)
     & overwriteErrorT "Couldn't find derivation file. "
+
+getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
+getDrvAttr drvAttr =
+  srcOrMain
+    (\attrPath -> nixEvalET (EvalOptions Raw (Env [])) ("pkgs." <> attrPath <> ".drvAttrs." <> drvAttr))
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash =
@@ -244,8 +250,10 @@ numberOfFetchers derivationContents =
   where
     countUp x = T.count x derivationContents
 
+-- Sum the number of things that look like fixed-output derivation hashes
 numberOfHashes :: Text -> Int
-numberOfHashes derivationContents = countUp "sha256 =" + countUp "sha256="
+numberOfHashes derivationContents =
+  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "modSha256 ="]
   where
     countUp x = T.count x derivationContents
 
