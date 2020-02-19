@@ -122,7 +122,7 @@ updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
 updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOutpathsContext = do
   log (pName <> " " <> oldVer <> " -> " <> newVer)
   let updateEnv = UpdateEnv pName oldVer newVer url o
-  updated <- updatePackage log updateEnv mergeBaseOutpathsContext
+  updated <- updatePackage o log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
       log $ "FAIL " <> failure
@@ -149,11 +149,12 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
 -- - the commit for branches: master, staging, staging-next, python-unstable
 updatePackage ::
   MonadIO m =>
+  Options ->
   (Text -> m ()) ->
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
   m (Either Text ())
-updatePackage log updateEnv mergeBaseOutpathsContext =
+updatePackage o log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     --
     -- Filters that don't need git
@@ -167,7 +168,10 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     --
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
-    GH.checkExistingUpdatePR updateEnv attrPath
+    -- If we're doing a dry run, we want to re-run locally even if there's
+    -- already a PR open upstream
+    unless (dryRun o) $
+      GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
@@ -206,9 +210,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- At this point, we've stashed the old derivation contents and validated
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
-    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile
-    Rewrite.version rwArgs
-    Rewrite.quotedUrls rwArgs
+    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
+    Rewrite.version log rwArgs
+    Rewrite.quotedUrls log rwArgs
     ----------------------------------------------------------------------------
     --
     -- Compute the diff, look at rebuilds, and publish the package
@@ -223,8 +227,14 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Nix.build attrPath
     newSrcUrl <- Nix.getSrcUrl attrPath
     --
-    result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
+    -- Either publish the result, or just print a diff and quit
+    if (dryRun o)
+      then do
+        gitDiff <- Git.diff
+        lift . log $ "Successfully finished processing, rewrote derivation with diff:\n" <> gitDiff
+      else do
+        result <- Nix.resultLink
+        publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
   MonadIO m =>
@@ -248,11 +258,11 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   let metaDescription =
         if d == T.empty
           then ""
-          else "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
+          else "\n\nmeta.description for " <> attrPath <> " is: " <> d
   let metaHomepage =
         if u == T.empty
           then ""
-          else "\n\nmeta.homepage for " <> attrPath <> " is: '" <> u
+          else "\n\nmeta.homepage for " <> attrPath <> " is: " <> u
   releaseUrlMessage <-
     ( do
         msg <- GH.releaseUrl newSrcUrl

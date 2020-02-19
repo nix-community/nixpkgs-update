@@ -3,6 +3,7 @@
 module Git
   ( cleanAndResetTo,
     cleanup,
+    diff,
     fetchIfStale,
     fetch,
     push,
@@ -65,6 +66,9 @@ cleanup bName = do
   cleanAndResetTo "master"
   runProcessNoIndexIssue_ (delete1 bName)
     <|> liftIO (T.putStrLn ("Couldn't delete " <> bName))
+
+diff :: MonadIO m => ExceptT Text m Text
+diff = readProcessInterleavedNoIndexIssue_ $ proc "git" ["diff"]
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
