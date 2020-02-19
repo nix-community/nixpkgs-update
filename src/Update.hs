@@ -183,7 +183,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     assertNotUpdatedOn updateEnv derivationFile "staging-next"
     assertNotUpdatedOn updateEnv derivationFile "python-unstable"
     --
-    -- Get the original derivation file for diffing purposes
+    -- Calculate output paths for rebuilds and our merge base
     Git.checkoutAtMergeBase (branchName updateEnv)
     let calcOutpaths = calculateOutpaths . options $ updateEnv
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
@@ -200,12 +200,11 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
           if calcOutpaths
             then return $ mergeBaseOutpaths mergeBaseOutpathsInfo
             else return $ dummyOutpathSetBefore attrPath
-    derivationContents <- liftIO $ T.readFile derivationFile
-    oldSrcUrl <- Nix.getSrcUrl attrPath
     --
-    -- Current limitations that we may re-visit in the future
-    Nix.assertOneOrFewerFetcher derivationContents derivationFile
-    Nix.assertOneOrFewerHashes derivationContents derivationFile
+    -- Get the original values for diffing purposes
+    derivationContents <- liftIO $ T.readFile derivationFile
+    oldHash <- Nix.getOldHash attrPath
+    oldSrcUrl <- Nix.getSrcUrl attrPath
     --
     -- One final filter
     Blacklist.content derivationContents
@@ -221,19 +220,22 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     let msgs = catMaybes [msg1, msg2]
     ----------------------------------------------------------------------------
     --
-    -- Compute the diff, look at rebuilds, and publish the package
+    -- Compute the diff and get updated values
     diffAfterRewrites <- Git.diff
     lift . log $ "Diff after rewrites::\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
+    newSrcUrl <- Nix.getSrcUrl attrPath
+    newHash <- Nix.getHashFromBuild attrPath
+    -- Sanity checks to make sure the PR is worth opening
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
-    --
+    when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
+    when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
     Blacklist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
-    newSrcUrl <- Nix.getSrcUrl attrPath
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"

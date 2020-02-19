@@ -19,8 +19,8 @@ module Nix
     getDescription,
     getHomepage,
     cachix,
-    assertOneOrFewerFetcher,
-    assertOneOrFewerHashes,
+    numberOfFetchers,
+    numberOfHashes,
     getHashFromBuild,
     assertOldVersionOn,
     resultLink,
@@ -243,22 +243,10 @@ numberOfFetchers derivationContents =
   where
     countUp x = T.count x derivationContents
 
-assertOneOrFewerFetcher :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
-assertOneOrFewerFetcher derivationContents derivationFile =
-  tryAssert
-    ("More than one fetcher in " <> T.pack derivationFile)
-    (numberOfFetchers derivationContents <= 1)
-
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents = countUp "sha256 =" + countUp "sha256="
   where
     countUp x = T.count x derivationContents
-
-assertOneOrFewerHashes :: MonadIO m => Text -> FilePath -> ExceptT Text m ()
-assertOneOrFewerHashes derivationContents derivationFile =
-  tryAssert
-    ("More than one hash in " <> T.pack derivationFile)
-    (numberOfHashes derivationContents <= 1)
 
 assertOldVersionOn ::
   MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
