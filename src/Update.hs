@@ -155,6 +155,7 @@ updatePackage ::
   m (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
+    let dry = dryRun . options $ updateEnv
     --
     -- Filters that don't need git
     Blacklist.packageName (packageName updateEnv)
@@ -167,7 +168,10 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     --
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
-    GH.checkExistingUpdatePR updateEnv attrPath
+    -- If we're doing a dry run, we want to re-run locally even if there's
+    -- already a PR open upstream
+    unless dry $
+      GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
@@ -206,9 +210,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- At this point, we've stashed the old derivation contents and validated
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
-    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile
-    Rewrite.version rwArgs
-    Rewrite.quotedUrls rwArgs
+    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
+    Rewrite.version log rwArgs
+    Rewrite.quotedUrls log rwArgs
     ----------------------------------------------------------------------------
     --
     -- Compute the diff, look at rebuilds, and publish the package
@@ -223,8 +227,14 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Nix.build attrPath
     newSrcUrl <- Nix.getSrcUrl attrPath
     --
-    result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
+    -- Either publish the result, or just print a diff and quit
+    if dry
+      then do
+        gitDiff <- Git.diff
+        lift . log $ "Successfully finished processing, rewrote derivation with diff:\n" <> gitDiff
+      else do
+        result <- Nix.resultLink
+        publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
 
 publishPackage ::
   MonadIO m =>
@@ -248,11 +258,11 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
   let metaDescription =
         if d == T.empty
           then ""
-          else "\n\nmeta.description for " <> attrPath <> " is: '" <> d <> "'."
+          else "\n\nmeta.description for " <> attrPath <> " is: " <> d
   let metaHomepage =
         if u == T.empty
           then ""
-          else "\n\nmeta.homepage for " <> attrPath <> " is: '" <> u
+          else "\n\nmeta.homepage for " <> attrPath <> " is: " <> u
   releaseUrlMessage <-
     ( do
         msg <- GH.releaseUrl newSrcUrl

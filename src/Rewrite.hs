@@ -8,13 +8,13 @@ module Rewrite
 where
 
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import qualified File
 import qualified Nix
 import OurPrelude
 import qualified Utils
   ( UpdateEnv (..),
   )
+import Prelude hiding (log)
 
 -- This module contains rewrite functions that make some modification to the
 -- nix derivation. These are in the IO monad so that they can do things like
@@ -28,29 +28,35 @@ data Args
   = Args
       { updateEnv :: Utils.UpdateEnv,
         attrPath :: Text,
-        derivationFile :: FilePath
+        derivationFile :: FilePath,
+        derivationContents :: Text
       }
 
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
-version :: MonadIO m => Args -> ExceptT Text m ()
-version (Args env attrPth drvFile) = do
+version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m ()
+version log (Args env attrPth drvFile _) = do
+  lift $ log "[version] started"
   oldHash <- Nix.getOldHash attrPth
   -- Change the actual version
   lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
   lift $ File.replace oldHash Nix.sha256Zero drvFile
   newHash <- Nix.getHashFromBuild attrPth
   lift $ File.replace Nix.sha256Zero newHash drvFile
+  lift $ log "[version]: updated version and sha256"
 
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
 -- already, as per https://github.com/NixOS/rfcs/pull/45
-quotedUrls :: MonadIO m => Args -> ExceptT Text m ()
-quotedUrls (Args _ attrPth drvFile) = do
+quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m ()
+quotedUrls log (Args _ attrPth drvFile drvContents) = do
+  lift $ log "[quotedUrls] started"
   homepage <- Nix.getHomepage attrPth
-  contents <- liftIO $ T.readFile drvFile
-  -- The homepage that comes out of nix-env is *always* quoted by the nix eval,
-  -- so we drop the first and last characters. Bit of a hack but it works.
-  let stripped = T.init . T.tail $ homepage
-  unless (T.isInfixOf homepage contents) $
-    File.replace stripped homepage drvFile
+  if T.isInfixOf homepage drvContents
+    then lift $ log "meta.homepage is already correctly quoted"
+    else do
+      -- Bit of a hack, but the homepage that comes out of nix-env is *always*
+      -- quoted by the nix eval, so we drop the first and last characters.
+      let stripped = T.init . T.tail $ homepage
+      File.replace stripped homepage drvFile
+      lift $ log "[quotedUrls]: added quotes to meta.homepage"
