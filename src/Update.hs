@@ -122,7 +122,7 @@ updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
 updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOutpathsContext = do
   log (pName <> " " <> oldVer <> " -> " <> newVer)
   let updateEnv = UpdateEnv pName oldVer newVer url o
-  updated <- updatePackage o log updateEnv mergeBaseOutpathsContext
+  updated <- updatePackage log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
       log $ "FAIL " <> failure
@@ -149,13 +149,13 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
 -- - the commit for branches: master, staging, staging-next, python-unstable
 updatePackage ::
   MonadIO m =>
-  Options ->
   (Text -> m ()) ->
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
   m (Either Text ())
-updatePackage o log updateEnv mergeBaseOutpathsContext =
+updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
+    let dry = dryRun . options $ updateEnv
     --
     -- Filters that don't need git
     Blacklist.packageName (packageName updateEnv)
@@ -170,7 +170,7 @@ updatePackage o log updateEnv mergeBaseOutpathsContext =
     attrPath <- Nix.lookupAttrPath updateEnv
     -- If we're doing a dry run, we want to re-run locally even if there's
     -- already a PR open upstream
-    unless (dryRun o) $
+    unless dry $
       GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
@@ -228,7 +228,7 @@ updatePackage o log updateEnv mergeBaseOutpathsContext =
     newSrcUrl <- Nix.getSrcUrl attrPath
     --
     -- Either publish the result, or just print a diff and quit
-    if (dryRun o)
+    if dry
       then do
         gitDiff <- Git.diff
         lift . log $ "Successfully finished processing, rewrote derivation with diff:\n" <> gitDiff
