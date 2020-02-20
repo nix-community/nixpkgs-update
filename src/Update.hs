@@ -20,6 +20,7 @@ import qualified Check
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
+import Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -211,8 +212,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
-    Rewrite.version log rwArgs
-    Rewrite.quotedUrls log rwArgs
+    msg1 <- Rewrite.version log rwArgs
+    msg2 <- Rewrite.quotedUrls log rwArgs
+    let msgs = catMaybes [msg1, msg2]
     ----------------------------------------------------------------------------
     --
     -- Compute the diff, look at rebuilds, and publish the package
@@ -234,7 +236,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
         lift . log $ "Successfully finished processing, rewrote derivation with diff:\n" <> gitDiff
       else do
         result <- Nix.resultLink
-        publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff
+        publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
 
 publishPackage ::
   MonadIO m =>
@@ -245,8 +247,9 @@ publishPackage ::
   Text ->
   Text ->
   Set ResultLine ->
+  [Text] ->
   ExceptT Text m ()
-publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = do
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
@@ -263,6 +266,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
         if u == T.empty
           then ""
           else "\n\nmeta.homepage for " <> attrPath <> " is: " <> u
+  let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "" msgs
   releaseUrlMessage <-
     ( do
         msg <- GH.releaseUrl newSrcUrl
@@ -299,6 +303,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff = do
           isBroken
           metaDescription
           metaHomepage
+          rewriteMessages
           releaseUrlMessage
           compareUrlMessage
           resultCheckReport
@@ -335,8 +340,9 @@ prMessage ::
   Text ->
   Text ->
   Text ->
+  Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cachixTestInstructions =
+prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cachixTestInstructions =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
       sourceLinkInfo = maybe "" pattern $ sourceURL updateEnv
@@ -349,6 +355,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage releaseUrlMessage comp
        $brokenMsg
        $metaDescription
        $metaHomepage
+       $rewriteMessages
        $releaseUrlMessage
        $compareUrlMessage
        <details>

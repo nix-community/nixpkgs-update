@@ -34,7 +34,7 @@ data Args
 
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
-version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m ()
+version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 version log (Args env attrPth drvFile _) = do
   lift $ log "[version] started"
   oldHash <- Nix.getOldHash attrPth
@@ -44,19 +44,23 @@ version log (Args env attrPth drvFile _) = do
   newHash <- Nix.getHashFromBuild attrPth
   lift $ File.replace Nix.sha256Zero newHash drvFile
   lift $ log "[version]: updated version and sha256"
+  return Nothing
 
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
 -- already, as per https://github.com/NixOS/rfcs/pull/45
-quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m ()
+quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 quotedUrls log (Args _ attrPth drvFile drvContents) = do
   lift $ log "[quotedUrls] started"
   homepage <- Nix.getHomepage attrPth
   if T.isInfixOf homepage drvContents
-    then lift $ log "meta.homepage is already correctly quoted"
+    then do
+      lift $ log "meta.homepage is already correctly quoted"
+      return Nothing
     else do
       -- Bit of a hack, but the homepage that comes out of nix-env is *always*
       -- quoted by the nix eval, so we drop the first and last characters.
       let stripped = T.init . T.tail $ homepage
       File.replace stripped homepage drvFile
       lift $ log "[quotedUrls]: added quotes to meta.homepage"
+      return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
