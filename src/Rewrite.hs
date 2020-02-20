@@ -16,14 +16,22 @@ import qualified Utils
   )
 import Prelude hiding (log)
 
--- This module contains rewrite functions that make some modification to the
--- nix derivation. These are in the IO monad so that they can do things like
--- re-run nix-build to recompute hashes, but morally they should just stick to
--- editing the derivationFile for their one stated purpose.
--- TODO: This is a work in progress. The rewriteQuotedUrls rewriter should be
--- really easy to unit test, so we should setup a rewriters test framework that
--- uses some mock.nix files and rewrites them, then asserts the expected diff.
+{-
+ This module contains rewrite functions that make some modification to the
+ nix derivation. These are in the IO monad so that they can do things like
+ re-run nix-build to recompute hashes, but morally they should just stick to
+ editing the derivationFile for their one stated purpose.
 
+ The return contract is:
+ - If it makes a modification, it can (optionally) return a message to attach
+   to the pull request description to provide context or justification for
+   code reviewers (e.g., a GitHub issue or RFC).
+ - If it makes no modification or a straightforward modification, return None
+ - If it throws an exception, nixpkgs-update will be aborted for the package and
+   no other rewrite functions will run.
+
+  TODO: Setup some unit tests for these!
+-}
 data Args
   = Args
       { updateEnv :: Utils.UpdateEnv,
