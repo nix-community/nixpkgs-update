@@ -46,10 +46,14 @@ version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 version log (Args env attrPth drvFile _) = do
   lift $ log "[version] started"
   oldHash <- Nix.getOldHash attrPth
+  oldSrcUrl <- Nix.getSrcUrl attrPth
   -- Change the actual version
   lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
+  newSrcUrl <- Nix.getSrcUrl attrPth
+  when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
   lift $ File.replace oldHash Nix.sha256Zero drvFile
   newHash <- Nix.getHashFromBuild attrPth
+  tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
   lift $ File.replace Nix.sha256Zero newHash drvFile
   lift $ log "[version]: updated version and sha256"
   return Nothing
