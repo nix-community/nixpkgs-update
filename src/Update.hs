@@ -21,12 +21,12 @@ import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
 import Data.Maybe (catMaybes)
-import qualified Data.Vector as V
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
+import qualified Data.Vector as V
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
