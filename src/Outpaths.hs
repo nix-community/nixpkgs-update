@@ -6,7 +6,7 @@
 
 module Outpaths
   ( currentOutpathSet,
-    ResultLine,
+    ResultLine (..),
     numPackageRebuilds,
     outpathReport,
   )

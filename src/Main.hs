@@ -25,7 +25,8 @@ data UpdateOptions
   = UpdateOptions
       { dry :: Bool,
         cachix :: Bool,
-        additionalUpdates :: Text
+        additionalUpdates :: Text,
+        outpaths :: Bool
       }
 
 data Command
@@ -47,8 +48,9 @@ updateOptionsParser =
           <> O.help
             "Do everything except actually pushing the updates to the remote repository"
       )
-    <*> O.flag False True (O.long "cachix" <> O.help "Whether to push changes to Cachix")
+    <*> O.flag False True (O.long "cachix" <> O.help "Push changes to Cachix")
     <*> O.strOption (O.long "additional-updates" <> O.help "A string of updates formatted the same way as packages-to-update.txt" <> O.value "")
+    <*> O.flag False True (O.long "outpaths" <> O.help "Calculate outpaths to determine the branch to target")
 
 commandParser :: O.Parser Command
 commandParser =
@@ -125,19 +127,19 @@ main = do
       setupNixpkgs token
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
-    UpdateList UpdateOptions {dry, cachix, additionalUpdates} -> do
+    UpdateList UpdateOptions {dry, cachix, additionalUpdates, outpaths} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options dry token cachix) (updates <> "\n" <> additionalUpdates)
-    Update UpdateOptions {dry, cachix, additionalUpdates} -> do
+      updateAll (Options dry token cachix outpaths) (updates <> "\n" <> additionalUpdates)
+    Update UpdateOptions {dry, cachix, additionalUpdates, outpaths} -> do
       token <- getGithubToken
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options dry token cachix) additionalUpdates
+      updateAll (Options dry token cachix outpaths) additionalUpdates
     Version -> do
       v <- runExceptT Nix.version
       case v of
@@ -147,17 +149,17 @@ main = do
     CheckAllVulnerable -> do
       setupNixpkgs undefined
       updates <- T.readFile "packages-to-update.txt"
-      cveAll (Options undefined undefined undefined) updates
+      cveAll (Options undefined undefined undefined undefined) updates
     CheckVulnerable productID oldVersion newVersion -> do
       setupNixpkgs undefined
       report <-
         cveReport
-          (UpdateEnv productID oldVersion newVersion Nothing (Options False undefined False))
+          (UpdateEnv productID oldVersion newVersion Nothing (Options False undefined False False))
       T.putStrLn report
     SourceGithub -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      sourceGithubAll (Options False token False) updates
+      sourceGithubAll (Options False token False False) updates
     FetchRepology -> Repology.fetch

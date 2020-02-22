@@ -100,7 +100,8 @@ data Options
   = Options
       { dryRun :: Bool,
         githubToken :: Text,
-        pushToCachix :: Bool
+        pushToCachix :: Bool,
+        calculateOutpaths :: Bool
       }
   deriving (Show)
 

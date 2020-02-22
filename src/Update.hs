@@ -21,6 +21,7 @@ import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
 import Data.Maybe (catMaybes)
+import qualified Data.Vector as V
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -185,10 +186,11 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     --
     -- Get the original derivation file for diffing purposes
     Git.checkoutAtMergeBase (branchName updateEnv)
+    let calcOutpaths = calculateOutpaths . options $ updateEnv
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
     mergeBaseOutpathSet <-
-      if lastUpdated mergeBaseOutpathsInfo < oneHourAgo
+      if calcOutpaths && lastUpdated mergeBaseOutpathsInfo < oneHourAgo
         then do
           mbos <- currentOutpathSet
           now <- liftIO getCurrentTime
@@ -221,7 +223,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
     --
-    editedOutpathSet <- currentOutpathSet
+    editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ S.singleton (ResultLine attrPath "x86-64" V.empty)
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
     Blacklist.python numPRebuilds derivationContents
