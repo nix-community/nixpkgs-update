@@ -26,7 +26,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
-import qualified Data.Vector as V
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
@@ -197,7 +196,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
           liftIO $
             writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
           return mbos
-        else return $ mergeBaseOutpaths mergeBaseOutpathsInfo
+        else if calcOutpaths
+         then return $ mergeBaseOutpaths mergeBaseOutpathsInfo
+         else return $ dummyOutpathSetBefore attrPath
     derivationContents <- liftIO $ T.readFile derivationFile
     oldSrcUrl <- Nix.getSrcUrl attrPath
     --
@@ -223,7 +224,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
     --
-    editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ S.singleton (ResultLine attrPath "x86-64" V.empty)
+    editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
     Blacklist.python numPRebuilds derivationContents

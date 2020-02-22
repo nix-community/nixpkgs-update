@@ -6,7 +6,9 @@
 
 module Outpaths
   ( currentOutpathSet,
-    ResultLine (..),
+    ResultLine,
+    dummyOutpathSetBefore,
+    dummyOutpathSetAfter,
     numPackageRebuilds,
     outpathReport,
   )
@@ -118,6 +120,12 @@ currentOutpathSet :: MonadIO m => ExceptT Text m (Set ResultLine)
 currentOutpathSet = do
   op <- outPath
   parse parseResults "outpath" op & fmapL tshow & hoistEither
+
+dummyOutpathSetBefore :: Text -> Set ResultLine
+dummyOutpathSetBefore attrPath = S.singleton (ResultLine attrPath "x86-64" (V.singleton (Outpath (Just "attrPath") "fakepath")))
+
+dummyOutpathSetAfter :: Text -> Set ResultLine
+dummyOutpathSetAfter attrPath = S.singleton (ResultLine attrPath "x86-64" (V.singleton (Outpath (Just "attrPath") "fakepath-edited")))
 
 parseResults :: CharParsing m => m (Set ResultLine)
 parseResults = S.fromList <$> parseResultLine `sepEndBy` newline
