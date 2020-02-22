@@ -61,14 +61,18 @@ quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 quotedUrls log (Args _ attrPth drvFile drvContents) = do
   lift $ log "[quotedUrls] started"
   homepage <- Nix.getHomepage attrPth
-  if T.isInfixOf homepage drvContents
+  if "\"\"" == homepage
     then do
-      lift $ log "meta.homepage is already correctly quoted"
+      lift $ log "there is no meta.homepage"
       return Nothing
-    else do
-      -- Bit of a hack, but the homepage that comes out of nix-env is *always*
-      -- quoted by the nix eval, so we drop the first and last characters.
-      let stripped = T.init . T.tail $ homepage
-      File.replace stripped homepage drvFile
-      lift $ log "[quotedUrls]: added quotes to meta.homepage"
-      return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
+    else if T.isInfixOf homepage drvContents
+         then do
+           lift $ log "meta.homepage is already correctly quoted"
+           return Nothing
+         else do
+           -- Bit of a hack, but the homepage that comes out of nix-env is *always*
+           -- quoted by the nix eval, so we drop the first and last characters.
+           let stripped = T.init . T.tail $ homepage
+           File.replace stripped homepage drvFile
+           lift $ log "[quotedUrls]: added quotes to meta.homepage"
+           return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
