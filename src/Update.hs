@@ -217,15 +217,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
     msg1 <- Rewrite.version log rwArgs
-    diffAfterVersion <- Git.diff
-    lift . log $ "Diff after version rewrite:\n" <> diffAfterVersion
     msg2 <- Rewrite.quotedUrls log rwArgs
-    diffAfterQuoted <- Git.diff
-    lift . log $ "Diff after quotedUrls rewrite:\n" <> diffAfterQuoted
     let msgs = catMaybes [msg1, msg2]
     ----------------------------------------------------------------------------
     --
     -- Compute the diff, look at rebuilds, and publish the package
+    diffAfterRewrites <- Git.diff
+    lift . log $ "Diff after rewrites::\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
     --
@@ -237,14 +235,11 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     Nix.build attrPath
     newSrcUrl <- Nix.getSrcUrl attrPath
     --
-    -- Either publish the result, or just print a diff and quit
-    if dry
-      then do
-        gitDiff <- Git.diff
-        lift . log $ "Successfully finished processing, rewrote derivation with diff:\n" <> gitDiff
-      else do
-        result <- Nix.resultLink
-        publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
+    -- Publish the result
+    lift . log $ "Successfully finished processing"
+    unless dry $ do
+      result <- Nix.resultLink
+      publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
 
 publishPackage ::
   MonadIO m =>
