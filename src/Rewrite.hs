@@ -23,10 +23,10 @@ import Prelude hiding (log)
  editing the derivationFile for their one stated purpose.
 
  The return contract is:
- - If it makes a modification, it can (optionally) return a message to attach
-   to the pull request description to provide context or justification for
-   code reviewers (e.g., a GitHub issue or RFC).
- - If it makes no modification or a straightforward modification, return None
+ - If it makes a modification, it should return a simple message to attach to
+   the pull request description to provide context or justification for code
+   reviewers (e.g., a GitHub issue or RFC).
+ - If it makes no modification, return None
  - If it throws an exception, nixpkgs-update will be aborted for the package and
    no other rewrite functions will run.
 
@@ -56,7 +56,7 @@ version log (Args env attrPth drvFile _) = do
   tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
   lift $ File.replace Nix.sha256Zero newHash drvFile
   lift $ log "[version]: updated version and sha256"
-  return Nothing
+  return $ Just "Version update"
 
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
@@ -65,18 +65,19 @@ quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 quotedUrls log (Args _ attrPth drvFile drvContents) = do
   lift $ log "[quotedUrls] started"
   homepage <- Nix.getHomepage attrPth
-  if "\"\"" == homepage
+  -- Bit of a hack, but the homepage that comes out of nix-env is *always*
+  -- quoted by the nix eval, so we drop the first and last characters.
+  let stripped = T.init . T.tail $ homepage
+  if "\"\"" == homepage || (not $ T.isInfixOf stripped drvContents)
     then do
-      lift $ log "there is no meta.homepage"
+      lift $ log "[quotedUrls] there is no meta.homepage specified in the drv file"
       return Nothing
-    else if T.isInfixOf homepage drvContents
-         then do
-           lift $ log "meta.homepage is already correctly quoted"
-           return Nothing
-         else do
-           -- Bit of a hack, but the homepage that comes out of nix-env is *always*
-           -- quoted by the nix eval, so we drop the first and last characters.
-           let stripped = T.init . T.tail $ homepage
-           File.replace stripped homepage drvFile
-           lift $ log "[quotedUrls]: added quotes to meta.homepage"
-           return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
+    else
+      if T.isInfixOf homepage drvContents
+        then do
+          lift $ log "[quotedUrls] meta.homepage is already correctly quoted"
+          return Nothing
+        else do
+          File.replace stripped homepage drvFile
+          lift $ log "[quotedUrls]: added quotes to meta.homepage"
+          return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
