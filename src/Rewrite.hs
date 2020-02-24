@@ -68,16 +68,13 @@ quotedUrls log (Args _ attrPth drvFile drvContents) = do
   -- Bit of a hack, but the homepage that comes out of nix-env is *always*
   -- quoted by the nix eval, so we drop the first and last characters.
   let stripped = T.init . T.tail $ homepage
-  if "\"\"" == homepage || (not $ T.isInfixOf stripped drvContents)
+  -- If there's a homepage defined, and the unquoted version is in the file but
+  -- the quoted version is not, then we have something to replace.
+  if "\"\"" /= homepage && T.isInfixOf stripped drvContents && not (T.isInfixOf homepage drvContents)
     then do
-      lift $ log "[quotedUrls] there is no meta.homepage specified in the drv file"
+      File.replace stripped homepage drvFile
+      lift $ log "[quotedUrls]: added quotes to meta.homepage"
+      return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
+    else do
+      lift $ log "[quotedUrls] nothing found to replace"
       return Nothing
-    else
-      if T.isInfixOf homepage drvContents
-        then do
-          lift $ log "[quotedUrls] meta.homepage is already correctly quoted"
-          return Nothing
-        else do
-          File.replace stripped homepage drvFile
-          lift $ log "[quotedUrls]: added quotes to meta.homepage"
-          return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
