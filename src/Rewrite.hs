@@ -48,13 +48,13 @@ version log (Args env attrPth drvFile _) = do
   oldHash <- Nix.getOldHash attrPth
   oldSrcUrl <- Nix.getSrcUrl attrPth
   -- Change the actual version
-  lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
+  _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
   newSrcUrl <- Nix.getSrcUrl attrPth
   when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-  lift $ File.replace oldHash Nix.sha256Zero drvFile
+  _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
   newHash <- Nix.getHashFromBuild attrPth
   tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
-  lift $ File.replace Nix.sha256Zero newHash drvFile
+  _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
   lift $ log "[version]: updated version and sha256"
   return $ Just "Version update"
 
@@ -62,17 +62,19 @@ version log (Args env attrPth drvFile _) = do
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
 -- already, as per https://github.com/NixOS/rfcs/pull/45
 quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-quotedUrls log (Args _ attrPth drvFile drvContents) = do
+quotedUrls log (Args _ attrPth drvFile _) = do
   lift $ log "[quotedUrls] started"
   homepage <- Nix.getHomepage attrPth
   -- Bit of a hack, but the homepage that comes out of nix-env is *always*
   -- quoted by the nix eval, so we drop the first and last characters.
   let stripped = T.init . T.tail $ homepage
-  -- If there's a homepage defined, and the unquoted version is in the file but
-  -- the quoted version is not, then we have something to replace.
-  if "\"\"" /= homepage && T.isInfixOf stripped drvContents && not (T.isInfixOf homepage drvContents)
+  let goodHomepage = "homepage = " <> homepage <> ";"
+  urlReplaced1 <- File.replace ("homepage = " <> stripped <> ";") goodHomepage drvFile
+  urlReplaced2 <- File.replace ("homepage = " <> stripped <> " ;") goodHomepage drvFile
+  urlReplaced3 <- File.replace ("homepage =" <> stripped <> ";") goodHomepage drvFile
+  urlReplaced4 <- File.replace ("homepage =" <> stripped <> "; ") goodHomepage drvFile
+  if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
     then do
-      File.replace stripped homepage drvFile
       lift $ log "[quotedUrls]: added quotes to meta.homepage"
       return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
     else do
