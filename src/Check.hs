@@ -15,7 +15,6 @@ import OurPrelude
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.Exit
 import System.IO.Temp (withSystemTempDirectory)
-import System.Process.Typed (setEnv, setStdin, setWorkingDir)
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~), RE')
 import Utils (UpdateEnv (..), Version, nixBuildOptions)

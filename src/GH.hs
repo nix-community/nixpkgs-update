@@ -13,6 +13,7 @@ module GH
     openAutoUpdatePR,
     checkExistingUpdatePR,
     latestVersion,
+    authFromToken,
   )
 where
 
@@ -21,10 +22,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import GitHub
-import GitHub.Data.Name (Name (..), untagName)
-import GitHub.Endpoints.GitData.References (references')
-import GitHub.Endpoints.Repos.Releases (latestRelease', releaseByTagName)
-import GitHub.Endpoints.Search (searchIssues')
+import GitHub.Data.Name (Name (..))
 import OurPrelude
 import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
@@ -33,16 +31,16 @@ import qualified Utils as U
 
 default (T.Text)
 
-gReleaseUrl :: MonadIO m => URLParts -> ExceptT Text m Text
-gReleaseUrl (URLParts o r t) =
+gReleaseUrl :: MonadIO m => Auth -> URLParts -> ExceptT Text m Text
+gReleaseUrl auth (URLParts o r t) =
   ExceptT $
     bimap (T.pack . show) (getUrl . releaseHtmlUrl)
-      <$> liftIO (releaseByTagName o r t)
+      <$> liftIO (github auth (releaseByTagNameR o r t))
 
-releaseUrl :: MonadIO m => Text -> ExceptT Text m Text
-releaseUrl url = do
+releaseUrl :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Text
+releaseUrl env url = do
   urlParts <- parseURL url
-  gReleaseUrl urlParts
+  gReleaseUrl (authFrom env) urlParts
 
 pr :: MonadIO m => Text -> Text -> m ()
 pr base msg =
@@ -111,9 +109,10 @@ compareUrl urlOld urlNew = do
 
 --deleteDoneBranches :: IO ()
 --deleteDoneBranches = do
-autoUpdateRefs :: Text -> IO (Either Text (Vector Text))
-autoUpdateRefs githubToken =
-  references' (Just (OAuth (T.encodeUtf8 githubToken))) "r-ryantm" "nixpkgs"
+-- (OAuth (T.encodeUtf8 githubToken))
+autoUpdateRefs :: Auth -> IO (Either Text (Vector Text))
+autoUpdateRefs auth =
+  github auth (referencesR "r-ryantm" "nixpkgs" FetchAll)
     & fmap
       ( first (T.pack . show)
           >>> second (fmap gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix))
@@ -121,10 +120,10 @@ autoUpdateRefs githubToken =
   where
     prefix = "refs/heads/auto-update/"
 
-openPRWithAutoUpdateRefFromRRyanTM :: Text -> Text -> IO (Either Text Bool)
-openPRWithAutoUpdateRefFromRRyanTM githubToken ref =
+openPRWithAutoUpdateRefFromRRyanTM :: Auth -> Text -> IO (Either Text Bool)
+openPRWithAutoUpdateRefFromRRyanTM auth ref =
   executeRequest
-    (OAuth (T.encodeUtf8 githubToken))
+    auth
     ( pullRequestsForR
         "nixos"
         "nixpkgs"
@@ -133,16 +132,16 @@ openPRWithAutoUpdateRefFromRRyanTM githubToken ref =
     )
     & fmap (first (T.pack . show) >>> second (not . V.null))
 
-refShouldBeDeleted :: Text -> Text -> IO Bool
-refShouldBeDeleted githubToken ref =
+refShouldBeDeleted :: Auth -> Text -> IO Bool
+refShouldBeDeleted auth ref =
   not . either (const True) id
-    <$> openPRWithAutoUpdateRefFromRRyanTM githubToken ref
+    <$> openPRWithAutoUpdateRefFromRRyanTM auth ref
 
-closedAutoUpdateRefs :: Text -> IO (Either Text (Vector Text))
-closedAutoUpdateRefs githubToken =
+closedAutoUpdateRefs :: Auth -> IO (Either Text (Vector Text))
+closedAutoUpdateRefs auth =
   runExceptT $ do
-    aur :: Vector Text <- ExceptT $ autoUpdateRefs githubToken
-    ExceptT (Right <$> V.filterM (refShouldBeDeleted githubToken) aur)
+    aur :: Vector Text <- ExceptT $ autoUpdateRefs auth
+    ExceptT (Right <$> V.filterM (refShouldBeDeleted auth) aur)
 
 -- This is too slow
 openPullRequests :: Text -> IO (Either Text (Vector SimplePullRequest))
@@ -161,14 +160,18 @@ openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
           titleHasNewVersion = newVersion updateEnv `T.isSuffixOf` title
        in titleHasName && titleHasNewVersion
 
+authFromToken :: Text -> Auth
+authFromToken = OAuth . T.encodeUtf8
+
+authFrom :: UpdateEnv -> Auth
+authFrom = authFromToken . U.githubToken . options
+
 checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
-checkExistingUpdatePR ue attrPath = do
+checkExistingUpdatePR env attrPath = do
   searchResult <-
     ExceptT
       $ liftIO
-      $ searchIssues'
-        (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
-        search
+      $ github (authFrom env) (searchIssuesR search)
         & fmap (first (T.pack . show))
   if T.length (openPRReport searchResult) == 0
     then return ()
@@ -178,7 +181,7 @@ checkExistingUpdatePR ue attrPath = do
             <> openPRReport searchResult
         )
   where
-    title = U.prTitle ue attrPath
+    title = U.prTitle env attrPath
     search = [interpolate|repo:nixos/nixpkgs $title |]
     openPRReport searchResult =
       searchResultResults searchResult & V.filter (issueClosedAt >>> isNothing)
@@ -188,14 +191,11 @@ checkExistingUpdatePR ue attrPath = do
     report i = "- " <> issueTitle i <> "\n  " <> tshow (issueUrl i)
 
 latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
-latestVersion ue url = do
+latestVersion env url = do
   urlParts <- parseURL url
   r <-
-    ExceptT
+    fmapLT tshow $ ExceptT
       $ liftIO
-      $ latestRelease'
-        (Just (OAuth (T.encodeUtf8 (U.githubToken (options ue)))))
-        (owner urlParts)
-        (repo urlParts)
-        & fmap (first (T.pack . show))
+      $ executeRequest (authFrom env)
+      $ latestReleaseR (owner urlParts) (repo urlParts)
   return $ T.dropWhile (\c -> c == 'v' || c == 'V') (releaseTagName r)

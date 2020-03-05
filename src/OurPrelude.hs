@@ -38,7 +38,6 @@ import Data.Bifunctor
 import qualified Data.ByteString.Lazy as BSL
 import Data.Function ((&))
 import Data.Functor ((<&>))
-import Data.Semigroup ((<>))
 import Data.Set (Set)
 import Data.Text (Text, pack)
 import qualified Data.Text.Encoding as T

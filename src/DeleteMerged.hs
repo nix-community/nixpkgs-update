@@ -16,7 +16,7 @@ deleteDone githubToken = do
     runExceptT $ do
       Git.fetch
       Git.cleanAndResetTo "master"
-      refs <- ExceptT $ GH.closedAutoUpdateRefs githubToken
+      refs <- ExceptT $ GH.closedAutoUpdateRefs (GH.authFromToken githubToken)
       let branches = fmap (\r -> ("auto-update/" <> r)) refs
       liftIO $ Git.deleteBranchesEverywhere branches
   case result of

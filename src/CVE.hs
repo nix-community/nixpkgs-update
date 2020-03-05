@@ -25,7 +25,6 @@ import Data.Aeson
     withObject,
   )
 import Data.Aeson.Types (Parser, prependFailure)
-import Data.Bifunctor (bimap)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.List (intercalate)
 import qualified Data.Text as T

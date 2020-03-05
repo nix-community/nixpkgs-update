@@ -24,7 +24,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
-import OurPrelude
+import OurPrelude hiding (throw)
 import System.Directory (getModificationTime)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit

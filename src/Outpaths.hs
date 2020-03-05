@@ -1,6 +1,3 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -p nix -i "nix-env -qaP --no-name --out-path --arg checkMeta true --argstr path $$PWD -f"
-
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
@@ -27,9 +24,6 @@ import Text.Parser.Combinators
 outPathsExpr :: Text
 outPathsExpr =
   [interpolate|
-
-# When using as a callable script, passing `--argstr path some/path` overrides $$PWD.
-
 { checkMeta
 , path ? ./.
 }:

@@ -276,7 +276,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
   let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\nUpdates performed:" msgs
   releaseUrlMessage <-
     ( do
-        msg <- GH.releaseUrl newSrcUrl
+        msg <- GH.releaseUrl updateEnv newSrcUrl
         return ("\n[Release on GitHub](" <> msg <> ")\n\n")
       )
       <|> return ""

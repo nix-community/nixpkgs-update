@@ -22,9 +22,8 @@ import CVE
     parseFeed,
   )
 import Codec.Compression.GZip (decompress)
-import Control.Exception (SomeException, ioError, try)
+import Control.Exception (SomeException, try)
 import Crypto.Hash.SHA256 (hashlazy)
-import Data.Bifunctor (second)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Hex (hex, unhex)
 import Data.List (group)
@@ -59,7 +58,6 @@ import System.Directory
     removeFile,
   )
 import System.FilePath ((</>))
-import System.IO.Error (userError)
 import Utils (ProductID, Version)
 import Version (matchVersion)
 
