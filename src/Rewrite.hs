@@ -43,20 +43,21 @@ data Args
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
 version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-version log (Args env attrPth drvFile _) = do
+version log (Args env attrPth drvFile drvContents) = do
   lift $ log "[version] started"
-  oldHash <- Nix.getOldHash attrPth
-  oldSrcUrl <- Nix.getSrcUrl attrPth
-  -- Change the actual version
-  _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
-  newSrcUrl <- Nix.getSrcUrl attrPth
-  when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-  _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
-  newHash <- Nix.getHashFromBuild attrPth
-  tryAssert "Hashes equal; no update necessary" (oldHash /= newHash)
-  _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
-  lift $ log "[version]: updated version and sha256"
-  return $ Just "Version update"
+  if Nix.numberOfFetchers drvContents > 1 || Nix.numberOfHashes drvContents > 1
+    then do
+      lift $ log "[version]: generic version rewriter does not support multiple hashes"
+      return Nothing
+    else do
+      oldHash <- Nix.getOldHash attrPth
+      _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
+      _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
+      newHash <- Nix.getHashFromBuild attrPth
+      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+      _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
+      lift $ log "[version]: updated version and sha256"
+      return $ Just "Version update"
 
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
