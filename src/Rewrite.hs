@@ -4,6 +4,7 @@ module Rewrite
   ( Args (..),
     version,
     quotedUrls,
+    rustCrateVersion,
   )
 where
 
@@ -81,3 +82,33 @@ quotedUrls log (Args _ attrPth drvFile _) = do
     else do
       lift $ log "[quotedUrls] nothing found to replace"
       return Nothing
+
+--------------------------------------------------------------------------------
+-- Rewrite Rust on rustPlatform.buildRustPackage
+-- This is basically rewriteVersion above, but we do a second pass for the cargoSha256 vendor hash.
+rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+rustCrateVersion log (Args env attrPth drvFile drvContents) = do
+  lift $ log "[rustCrateVersion] Processing: rewriteRustCrateVersion"
+  if not (T.isInfixOf "cargoSha256" drvContents)
+    then do
+      lift $ log "[rustCrateVersion] No cargoSha256 found"
+      return Nothing
+    else do
+      oldHash <- Nix.getOldHash attrPth
+      -- This starts the same way rewriteVersion does, minus the assert
+      _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
+      _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
+      newHash <- Nix.getHashFromBuild attrPth
+      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+      _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
+      -- But then from there we need to do this a second time!
+      oldCargoSha256 <- Nix.getDrvAttr "cargoSha256" attrPth
+      _ <- lift $ File.replace oldCargoSha256 Nix.sha256Zero drvFile
+      newCargoSha256 <- Nix.getHashFromBuild attrPth
+      when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
+      lift . log $ "[rustCrateVersion] Replacing cargoSha256 with " <> newCargoSha256
+      _ <- lift $ File.replace Nix.sha256Zero newCargoSha256 drvFile
+      -- Ensure the package actually builds and passes its tests
+      Nix.build attrPth
+      lift $ log "[rustCrateVersion] Finished updating Crate version and replacing hashes"
+      return $ Just "Rust version update"
