@@ -4,6 +4,7 @@ module Rewrite
   ( Args (..),
     golangModuleVersion,
     quotedUrls,
+    quotedUrlsET,
     rustCrateVersion,
     version,
   )
@@ -13,8 +14,12 @@ import qualified Data.Text as T
 import qualified File
 import qualified Nix
 import OurPrelude
+import qualified Polysemy.Error as Error
+import Polysemy.Output (Output, output)
+import qualified Process
 import qualified Utils
   ( UpdateEnv (..),
+    runLog,
   )
 import Prelude hiding (log)
 
@@ -59,9 +64,12 @@ version log args@(Args _ _ _ drvContents) = do
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
 -- already, as per https://github.com/NixOS/rfcs/pull/45
-quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-quotedUrls log (Args _ attrPth drvFile _) = do
-  lift $ log "[quotedUrls]"
+quotedUrls ::
+  Members '[Process.Process, File.File, Error Text, Output Text] r =>
+  Args ->
+  Sem r (Maybe Text)
+quotedUrls (Args _ attrPth drvFile _) = do
+  output "[quotedUrls]"
   homepage <- Nix.getHomepage attrPth
   -- Bit of a hack, but the homepage that comes out of nix-env is *always*
   -- quoted by the nix eval, so we drop the first and last characters.
@@ -73,11 +81,23 @@ quotedUrls log (Args _ attrPth drvFile _) = do
   urlReplaced4 <- File.replace ("homepage =" <> stripped <> "; ") goodHomepage drvFile
   if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
     then do
-      lift $ log "[quotedUrls] added quotes to meta.homepage"
+      output "[quotedUrls]: added quotes to meta.homepage"
       return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
     else do
-      lift $ log "[quotedUrls] nothing found to replace"
+      output "[quotedUrls] nothing found to replace"
       return Nothing
+
+quotedUrlsET :: MonadIO m => (Text -> IO ()) -> Args -> ExceptT Text m (Maybe Text)
+quotedUrlsET log rwArgs =
+  ExceptT
+    $ liftIO
+      . runFinal
+      . embedToFinal @IO
+      . Error.runError
+      . Process.runIO
+      . File.runIO
+      . Utils.runLog log
+    $ quotedUrls rwArgs
 
 --------------------------------------------------------------------------------
 -- Rewrite Rust on rustPlatform.buildRustPackage
@@ -95,11 +115,11 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
       srcVersionFix args
       -- But then from there we need to do this a second time for the cargoSha256!
       oldCargoSha256 <- Nix.getAttr "cargoSha256" attrPth
-      _ <- lift $ File.replace oldCargoSha256 Nix.sha256Zero drvFile
+      _ <- lift $ File.replaceIO oldCargoSha256 Nix.sha256Zero drvFile
       newCargoSha256 <- Nix.getHashFromBuild attrPth
       when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
       lift . log $ "[rustCrateVersion] Replacing cargoSha256 with " <> newCargoSha256
-      _ <- lift $ File.replace Nix.sha256Zero newCargoSha256 drvFile
+      _ <- lift $ File.replaceIO Nix.sha256Zero newCargoSha256 drvFile
       -- Ensure the package actually builds and passes its tests
       Nix.build attrPth
       lift $ log "[rustCrateVersion] Finished updating Crate version and replacing hashes"
@@ -122,11 +142,11 @@ golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
       -- But then from there we need to do this a second time for the modSha256!
       oldModSha256 <- Nix.getAttr "modSha256" attrPth
       lift . log $ "[golangModuleVersion] Found old modSha256 = " <> oldModSha256
-      _ <- lift $ File.replace oldModSha256 Nix.sha256Zero drvFile
+      _ <- lift $ File.replaceIO oldModSha256 Nix.sha256Zero drvFile
       newModSha256 <- Nix.getHashFromBuild attrPth
       when (oldModSha256 == newModSha256) $ throwE "modSha256 hashes equal; no update necessary"
       lift . log $ "[golangModuleVersion] Replacing modSha256 with " <> newModSha256
-      _ <- lift $ File.replace Nix.sha256Zero newModSha256 drvFile
+      _ <- lift $ File.replaceIO Nix.sha256Zero newModSha256 drvFile
       -- Ensure the package actually builds and passes its tests
       Nix.build attrPth
       lift $ log "[golangModuleVersion] Finished updating modSha256"
@@ -139,9 +159,9 @@ golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
 srcVersionFix :: MonadIO m => Args -> ExceptT Text m ()
 srcVersionFix (Args env attrPth drvFile _) = do
   oldHash <- Nix.getOldHash attrPth
-  _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
-  _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
+  _ <- lift $ File.replaceIO (Utils.oldVersion env) (Utils.newVersion env) drvFile
+  _ <- lift $ File.replaceIO oldHash Nix.sha256Zero drvFile
   newHash <- Nix.getHashFromBuild attrPth
   when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-  _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
+  _ <- lift $ File.replaceIO Nix.sha256Zero newHash drvFile
   return ()

@@ -20,7 +20,6 @@ import qualified Check
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
-import Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -74,6 +73,9 @@ updateAll o updates = do
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of nixpkgs-update"
+  when (dryRun o) $ log "Dry Run."
+  when (pushToCachix o) $ log "Will push to cachix."
+  when (calculateOutpaths o) $ log "Will calculate outpaths."
   twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
   mergeBaseOutpathSet <-
     liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
@@ -115,12 +117,11 @@ sourceGithubAll o updates = do
     u'
 
 updateLoop ::
-  MonadIO m =>
   Options ->
-  (Text -> m ()) ->
+  (Text -> IO ()) ->
   [Either Text (Text, Version, Version, Maybe URL)] ->
   IORef MergeBaseOutpathsInfo ->
-  m ()
+  IO ()
 updateLoop _ log [] _ = log "nixpkgs-update finished"
 updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
   log e
@@ -154,11 +155,10 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
 -- - the merge base context should be updated externally to this function
 -- - the commit for branches: master, staging, staging-next, python-unstable
 updatePackage ::
-  MonadIO m =>
-  (Text -> m ()) ->
+  (Text -> IO ()) ->
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
-  m (Either Text ())
+  IO (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     let dry = dryRun . options $ updateEnv
@@ -169,7 +169,10 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     --
     -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-    Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
+    -- If we're doing a dry run, we want to re-run locally even if there's
+    -- already a PR open upstream
+    unless dry $
+      Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
     --
     -- Filters: various cases where we shouldn't update the package
@@ -223,13 +226,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     msg1 <- Rewrite.version log rwArgs
     msg2 <- Rewrite.rustCrateVersion log rwArgs
     msg3 <- Rewrite.golangModuleVersion log rwArgs
-    msg4 <- Rewrite.quotedUrls log rwArgs
+    msg4 <- Rewrite.quotedUrlsET log rwArgs
     let msgs = catMaybes [msg1, msg2, msg3, msg4]
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
     diffAfterRewrites <- Git.diff
-    lift . log $ "Diff after rewrites::\n" <> diffAfterRewrites
+    lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
     newHash <- Nix.getHash attrPath
@@ -268,7 +271,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
       Right () -> lift $ Check.result updateEnv (T.unpack result)
       Left msg -> pure msg
   d <- Nix.getDescription attrPath <|> return T.empty
-  u <- Nix.getHomepage attrPath <|> return T.empty
+  u <- Nix.getHomepageET attrPath <|> return T.empty
   cveRep <- liftIO $ cveReport updateEnv
   let metaDescription =
         if d == T.empty

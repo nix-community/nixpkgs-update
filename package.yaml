@@ -16,8 +16,7 @@ extra-source-files:
 
 github: ryantm/nixpkgs-update
 
-ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively
-
+ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
 
 default-extensions:
   - DataKinds
@@ -54,6 +53,7 @@ dependencies:
   - parsers
   - partial-order
   - polysemy
+  - polysemy-plugin
   - regex-applicative-text
   - servant
   - servant-client
@@ -82,9 +82,8 @@ tests:
     dependencies:
       - hspec
       - hspec-discover
-      - doctest
-      - raw-strings-qq
       - nixpkgs-update
+      - doctest
 
 executables:
   nixpkgs-update:
