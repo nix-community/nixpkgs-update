@@ -225,7 +225,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     lift . log $ "Diff after rewrites::\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
-    newHash <- Nix.getHashFromBuild attrPath
+    newHash <- Nix.getHash attrPath
     -- Sanity checks to make sure the PR is worth opening
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
     when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "

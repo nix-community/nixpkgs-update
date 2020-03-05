@@ -54,6 +54,7 @@ version log (Args env attrPth drvFile drvContents) = do
       _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
       _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
       newHash <- Nix.getHashFromBuild attrPth
+      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
       _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
       lift $ log "[version]: updated version and sha256"
       return $ Just "Version update"

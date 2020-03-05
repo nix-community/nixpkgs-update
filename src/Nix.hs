@@ -9,6 +9,7 @@ module Nix
     lookupAttrPath,
     getDerivationFile,
     getMaintainers,
+    getHash,
     getOldHash,
     getSrcUrl,
     getSrcUrls,
