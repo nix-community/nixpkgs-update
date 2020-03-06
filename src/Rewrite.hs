@@ -45,10 +45,10 @@ data Args
 -- The canonical updater: updates the src attribute and recomputes the sha256
 version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 version log (Args env attrPth drvFile drvContents) = do
-  lift $ log "[version] started"
+  lift $ log "[version]"
   if Nix.numberOfFetchers drvContents > 1 || Nix.numberOfHashes drvContents > 1
     then do
-      lift $ log "[version]: generic version rewriter does not support multiple hashes"
+      lift $ log "[version] generic version rewriter does not support multiple hashes"
       return Nothing
     else do
       oldHash <- Nix.getOldHash attrPth
@@ -57,7 +57,7 @@ version log (Args env attrPth drvFile drvContents) = do
       newHash <- Nix.getHashFromBuild attrPth
       when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
       _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
-      lift $ log "[version]: updated version and sha256"
+      lift $ log "[version] updated version and sha256"
       return $ Just "Version update"
 
 --------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ version log (Args env attrPth drvFile drvContents) = do
 -- already, as per https://github.com/NixOS/rfcs/pull/45
 quotedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 quotedUrls log (Args _ attrPth drvFile _) = do
-  lift $ log "[quotedUrls] started"
+  lift $ log "[quotedUrls]"
   homepage <- Nix.getHomepage attrPth
   -- Bit of a hack, but the homepage that comes out of nix-env is *always*
   -- quoted by the nix eval, so we drop the first and last characters.
@@ -77,7 +77,7 @@ quotedUrls log (Args _ attrPth drvFile _) = do
   urlReplaced4 <- File.replace ("homepage =" <> stripped <> "; ") goodHomepage drvFile
   if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
     then do
-      lift $ log "[quotedUrls]: added quotes to meta.homepage"
+      lift $ log "[quotedUrls] added quotes to meta.homepage"
       return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
     else do
       lift $ log "[quotedUrls] nothing found to replace"
@@ -88,7 +88,7 @@ quotedUrls log (Args _ attrPth drvFile _) = do
 -- This is basically rewriteVersion above, but we do a second pass for the cargoSha256 vendor hash.
 rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 rustCrateVersion log (Args env attrPth drvFile drvContents) = do
-  lift $ log "[rustCrateVersion] Processing: rewriteRustCrateVersion"
+  lift $ log "[rustCrateVersion]"
   if not (T.isInfixOf "cargoSha256" drvContents)
     then do
       lift $ log "[rustCrateVersion] No cargoSha256 found"
