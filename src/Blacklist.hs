@@ -114,19 +114,18 @@ nameList =
 
 contentList :: Blacklist
 contentList =
-  [ infixOf "DO NOT EDIT" "Derivation file says not to edit it."
-  , infixOf "Do not edit!" "Derivation file says not to edit it."
+  [ infixOf "nixpkgs-update: no auto update" "Derivation file opts-out of auto-updates"
+  , infixOf "DO NOT EDIT" "Derivation file says not to edit it"
+  , infixOf "Do not edit!" "Derivation file says not to edit it"
     -- Skip packages that have special builders
-  , infixOf "buildGoPackage" "Derivation contains buildGoPackage."
-  , infixOf "buildRustCrate" "Derivation contains buildRustCrate."
-  --, infixOf "buildPythonPackage" "Derivation contains buildPythonPackage." -- FRidh says lets' try python
-  , infixOf "buildRubyGem" "Derivation contains buildRubyGem."
-  , infixOf "bundlerEnv" "Derivation contains bundlerEnv."
-  , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage."
-  , infixOf
-      "nixpkgs-update: no auto update"
-      "Derivation file asks not to auto update it"
-  , infixOf "gnome" "do not update GNOME during a release cycle"
+  , infixOf "buildGoPackage" "Derivation contains buildGoPackage"
+  , infixOf "buildRustCrate" "Derivation contains buildRustCrate"
+  , infixOf "buildRubyGem" "Derivation contains buildRubyGem"
+  , infixOf "bundlerEnv" "Derivation contains bundlerEnv"
+  , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage"
+    -- Specific skips for classes of packages
+  , infixOf "https://downloads.haskell.org/ghc/" "GHC packages are versioned per file"
+  , infixOf "gnome" "Do not update GNOME during a release cycle"
   ]
 
 checkResultList :: Blacklist
@@ -142,10 +141,10 @@ checkResultList =
       "- x2goclient result is not automatically checked, because some binaries don't timeout properly"
   , infixOf
       "kicad"
-      "- kicad result is not automatically checekd, because some binaries don't timeout properly"
+      "- kicad result is not automatically checked, because some binaries don't timeout properly"
   , infixOf
       "gjs"
-      "- gjs result is not automatically checekd, because some tests take a long time to run"
+      "- gjs result is not automatically checked, because some tests take a long time to run"
   ]
 
 blacklister :: Blacklist -> TextBlacklister m
