@@ -272,7 +272,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
         if u == T.empty
           then ""
           else "\n\nmeta.homepage for " <> attrPath <> " is: " <> u
-  let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "Updates performed:" msgs
+  let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\nUpdates performed:" msgs
   releaseUrlMessage <-
     ( do
         msg <- GH.releaseUrl newSrcUrl

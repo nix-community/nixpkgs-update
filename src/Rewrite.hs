@@ -51,12 +51,7 @@ version log (Args env attrPth drvFile drvContents) = do
       lift $ log "[version] generic version rewriter does not support multiple hashes"
       return Nothing
     else do
-      oldHash <- Nix.getOldHash attrPth
-      _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
-      _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
-      newHash <- Nix.getHashFromBuild attrPth
-      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-      _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
+      srcVersionFix (Args env attrPth drvFile drvContents)
       lift $ log "[version] updated version and sha256"
       return $ Just "Version update"
 
@@ -94,14 +89,9 @@ rustCrateVersion log (Args env attrPth drvFile drvContents) = do
       lift $ log "[rustCrateVersion] No cargoSha256 found"
       return Nothing
     else do
-      oldHash <- Nix.getOldHash attrPth
-      -- This starts the same way rewriteVersion does, minus the assert
-      _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
-      _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
-      newHash <- Nix.getHashFromBuild attrPth
-      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-      _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
-      -- But then from there we need to do this a second time!
+      -- This starts the same way `version` does, minus the assert
+      srcVersionFix (Args env attrPth drvFile drvContents)
+      -- But then from there we need to do this a second time for the cargoSha256!
       oldCargoSha256 <- Nix.getDrvAttr "cargoSha256" attrPth
       _ <- lift $ File.replace oldCargoSha256 Nix.sha256Zero drvFile
       newCargoSha256 <- Nix.getHashFromBuild attrPth
@@ -112,3 +102,17 @@ rustCrateVersion log (Args env attrPth drvFile drvContents) = do
       Nix.build attrPth
       lift $ log "[rustCrateVersion] Finished updating Crate version and replacing hashes"
       return $ Just "Rust version update"
+
+--------------------------------------------------------------------------------
+-- Common helper functions and utilities
+-- Helper to update version and src attributes, re-computing the sha256.
+-- This is done by the generic version upgrader, but is also a sub-component of some of the others.
+srcVersionFix :: MonadIO m => Args -> ExceptT Text m ()
+srcVersionFix (Args env attrPth drvFile _) = do
+  oldHash <- Nix.getOldHash attrPth
+  _ <- lift $ File.replace (Utils.oldVersion env) (Utils.newVersion env) drvFile
+  _ <- lift $ File.replace oldHash Nix.sha256Zero drvFile
+  newHash <- Nix.getHashFromBuild attrPth
+  when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+  _ <- lift $ File.replace Nix.sha256Zero newHash drvFile
+  return ()
