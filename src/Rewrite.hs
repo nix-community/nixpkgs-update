@@ -2,9 +2,9 @@
 
 module Rewrite
   ( Args (..),
-    version,
     quotedUrls,
     rustCrateVersion,
+    version,
   )
 where
 
@@ -44,7 +44,7 @@ data Args
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
 version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-version log args@(Args env attrPth drvFile drvContents) = do
+version log args@(Args _ _ _ drvContents) = do
   lift $ log "[version]"
   if Nix.numberOfFetchers drvContents > 1 || Nix.numberOfHashes drvContents > 1
     then do
@@ -80,9 +80,10 @@ quotedUrls log (Args _ attrPth drvFile _) = do
 
 --------------------------------------------------------------------------------
 -- Rewrite Rust on rustPlatform.buildRustPackage
--- This is basically rewriteVersion above, but we do a second pass for the cargoSha256 vendor hash.
+-- This is basically `version` above, but with a second pass to also update the
+-- cargoSha256 vendor hash.
 rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-rustCrateVersion log args@(Args env attrPth drvFile drvContents) = do
+rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
   lift $ log "[rustCrateVersion]"
   if not (T.isInfixOf "cargoSha256" drvContents)
     then do
