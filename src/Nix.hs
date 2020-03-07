@@ -8,6 +8,7 @@ module Nix
     assertOldVersionOn,
     build,
     cachix,
+    getAttr,
     getDerivationFile,
     getDescription,
     getDrvAttr,
@@ -116,6 +117,13 @@ getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getDrvAttr drvAttr =
   srcOrMain
     (\attrPath -> nixEvalET (EvalOptions Raw (Env [])) ("pkgs." <> attrPath <> ".drvAttrs." <> drvAttr))
+
+-- Get an attribute that can be evaluated off a derivation, as in:
+-- getAttr "cargoSha256" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
+getAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
+getAttr attr =
+  srcOrMain
+    (\attrPath -> nixEvalET (EvalOptions Raw (Env [])) (attrPath <> "." <> attr))
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash =
