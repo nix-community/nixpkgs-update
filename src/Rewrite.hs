@@ -44,14 +44,14 @@ data Args
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
 version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-version log (Args env attrPth drvFile drvContents) = do
+version log args@(Args env attrPth drvFile drvContents) = do
   lift $ log "[version]"
   if Nix.numberOfFetchers drvContents > 1 || Nix.numberOfHashes drvContents > 1
     then do
       lift $ log "[version] generic version rewriter does not support multiple hashes"
       return Nothing
     else do
-      srcVersionFix (Args env attrPth drvFile drvContents)
+      srcVersionFix args
       lift $ log "[version] updated version and sha256"
       return $ Just "Version update"
 
@@ -82,7 +82,7 @@ quotedUrls log (Args _ attrPth drvFile _) = do
 -- Rewrite Rust on rustPlatform.buildRustPackage
 -- This is basically rewriteVersion above, but we do a second pass for the cargoSha256 vendor hash.
 rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-rustCrateVersion log (Args env attrPth drvFile drvContents) = do
+rustCrateVersion log args@(Args env attrPth drvFile drvContents) = do
   lift $ log "[rustCrateVersion]"
   if not (T.isInfixOf "cargoSha256" drvContents)
     then do
@@ -90,7 +90,7 @@ rustCrateVersion log (Args env attrPth drvFile drvContents) = do
       return Nothing
     else do
       -- This starts the same way `version` does, minus the assert
-      srcVersionFix (Args env attrPth drvFile drvContents)
+      srcVersionFix args
       -- But then from there we need to do this a second time for the cargoSha256!
       oldCargoSha256 <- Nix.getDrvAttr "cargoSha256" attrPth
       _ <- lift $ File.replace oldCargoSha256 Nix.sha256Zero drvFile
