@@ -216,8 +216,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
     msg1 <- Rewrite.version log rwArgs
-    msg2 <- Rewrite.quotedUrls log rwArgs
-    msg3 <- Rewrite.rustCrateVersion log rwArgs
+    msg2 <- Rewrite.rustCrateVersion log rwArgs
+    msg3 <- Rewrite.quotedUrls log rwArgs
     let msgs = catMaybes [msg1, msg2, msg3]
     ----------------------------------------------------------------------------
     --
