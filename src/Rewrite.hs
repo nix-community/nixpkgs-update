@@ -2,6 +2,7 @@
 
 module Rewrite
   ( Args (..),
+    golangModuleVersion,
     quotedUrls,
     rustCrateVersion,
     version,
@@ -93,7 +94,7 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
       -- This starts the same way `version` does, minus the assert
       srcVersionFix args
       -- But then from there we need to do this a second time for the cargoSha256!
-      oldCargoSha256 <- Nix.getDrvAttr "cargoSha256" attrPth
+      oldCargoSha256 <- Nix.getAttr "cargoSha256" attrPth
       _ <- lift $ File.replace oldCargoSha256 Nix.sha256Zero drvFile
       newCargoSha256 <- Nix.getHashFromBuild attrPth
       when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
@@ -103,6 +104,33 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
       Nix.build attrPth
       lift $ log "[rustCrateVersion] Finished updating Crate version and replacing hashes"
       return $ Just "Rust version update"
+
+--------------------------------------------------------------------------------
+-- Rewrite Golang packages with buildGoModule
+-- This is basically `version` above, but with a second pass to also update the
+-- modSha256 go vendor hash.
+golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
+  lift $ log "[golangModuleVersion]"
+  if not (T.isInfixOf "buildGoModule" drvContents && T.isInfixOf "modSha256" drvContents)
+    then do
+      lift $ log "[golangModuleVersion] Not a buildGoModule package with modSha256"
+      return Nothing
+    else do
+      -- This starts the same way `version` does, minus the assert
+      srcVersionFix args
+      -- But then from there we need to do this a second time for the modSha256!
+      oldModSha256 <- Nix.getAttr "modSha256" attrPth
+      lift . log $ "[golangModuleVersion] Found old modSha256 = " <> oldModSha256
+      _ <- lift $ File.replace oldModSha256 Nix.sha256Zero drvFile
+      newModSha256 <- Nix.getHashFromBuild attrPth
+      when (oldModSha256 == newModSha256) $ throwE "modSha256 hashes equal; no update necessary"
+      lift . log $ "[golangModuleVersion] Replacing modSha256 with " <> newModSha256
+      _ <- lift $ File.replace Nix.sha256Zero newModSha256 drvFile
+      -- Ensure the package actually builds and passes its tests
+      Nix.build attrPth
+      lift $ log "[golangModuleVersion] Finished updating modSha256"
+      return $ Just "Golang update"
 
 --------------------------------------------------------------------------------
 -- Common helper functions and utilities

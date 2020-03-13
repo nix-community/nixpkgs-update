@@ -217,8 +217,9 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
     msg1 <- Rewrite.version log rwArgs
     msg2 <- Rewrite.rustCrateVersion log rwArgs
-    msg3 <- Rewrite.quotedUrls log rwArgs
-    let msgs = catMaybes [msg1, msg2, msg3]
+    msg3 <- Rewrite.golangModuleVersion log rwArgs
+    msg4 <- Rewrite.quotedUrls log rwArgs
+    let msgs = catMaybes [msg1, msg2, msg3, msg4]
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
