@@ -16,4 +16,3 @@ jobs:
         name: nixpkgs-update
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: nix-build
