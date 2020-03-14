@@ -1,8 +1,0 @@
-sudo: true
-language: nix
-
-script:
-  - nix-env -iA cachix -f https://cachix.org/api/v1/install
-  - cachix use nixpkgs-update
-  - cachix push nixpkgs-update --watch-store&
-  - nix-build
