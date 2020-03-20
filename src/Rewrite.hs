@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Rewrite
   ( Args (..),
@@ -8,11 +9,15 @@ module Rewrite
     quotedUrlsET,
     rustCrateVersion,
     version,
+    redirectedUrls,
   )
 where
 
 import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8)
 import qualified File
+import qualified Network.HTTP.Client as HTTP
+import Network.HTTP.Types.Status (statusCode)
 import qualified Nix
 import OurPrelude
 import qualified Polysemy.Error as Error
@@ -107,6 +112,39 @@ quotedUrlsET log rwArgs =
       . File.runIO
       . Utils.runLog log
     $ quotedUrls rwArgs
+
+--------------------------------------------------------------------------------
+-- Redirect homepage when moved.
+redirectedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+redirectedUrls log (Args _ attrPth drvFile _) = do
+  let log' msg = lift $ log $ "[redirectedUrls] " <> msg
+  log' ""
+  homepage <- Nix.getHomepageET attrPth
+  response <- liftIO $ do
+    manager <- HTTP.newManager HTTP.defaultManagerSettings
+    request <- HTTP.parseRequest (T.unpack homepage)
+    HTTP.httpLbs request manager
+  let status = statusCode $ HTTP.responseStatus response
+  if status `elem` [301, 308]
+    then do
+      log' "Redirecting URL"
+      let headers = HTTP.responseHeaders response
+          location = lookup "Location" headers
+      case location of
+        Nothing -> do
+          log' "Server did not return a location"
+          return Nothing
+        Just (decodeUtf8 -> newHomepage) -> do
+          File.replaceIO homepage newHomepage drvFile
+          log' "Replaced homepage"
+          return $ Just $
+            "Replaced homepage by "
+              <> newHomepage
+              <> " due http "
+              <> (T.pack . show) status
+    else do
+      log' "URL not redirected"
+      return Nothing
 
 --------------------------------------------------------------------------------
 -- Rewrite Rust on rustPlatform.buildRustPackage
