@@ -20,7 +20,7 @@ find-replaces the old version number with the new one, uses
 `nix-build` to try to get the new hash, then tries to build the
 package. If it succeeds, it checks the outputs and makes a pull
 request. It also uploads the built package to
-[Cachix](https://r-ryantm.cachix.org/), which people can use to
+[Cachix](https://nixpkgs-update.cachix.org/), which people can use to
 manually test the package without building it themselves.
 
 
