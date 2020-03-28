@@ -1,6 +1,6 @@
 # nixpkgs-update
 
-[![Build Status](https://travis-ci.org/ryantm/nixpkgs-update.svg?branch=master)](https://travis-ci.org/ryantm/nixpkgs-update)
+[![Build Status](https://github.com/ryantm/nixpkgs-update/workflows/Test/badge.svg)](https://github.com/ryantm/nixpkgs-update/actions)
 [![Patreon](https://img.shields.io/badge/patreon-donate-blue.svg)](https://www.patreon.com/nixpkgsupdate)
 
 > The future is here; let's evenly distribute it!
@@ -84,9 +84,8 @@ is made against staging.
 
 ## Logs
 
-[Logs from r-ryantm's
-runs](https://discourse.nixos.org/t/nixpkgs-update-r-ryantm-logs) are
-available on Discourse. There are a lot of packages `nixpkgs-update`
+[Logs from r-ryantm's runs](https://r.ryantm.com/log/) are
+available online. There are a lot of packages `nixpkgs-update`
 currently has no hope of updating. Please dredge the logs to find out
 why your pet package is not receiving updates.
 
