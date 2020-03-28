@@ -24,7 +24,7 @@ import Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Data.Time.Calendar (toGregorian)
+import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
 import qualified GH
 import qualified Git
@@ -60,12 +60,17 @@ log' logFile msg = do
   runDate <- liftIO $ runM $ Time.runIO Time.runDate
   liftIO $ T.appendFile logFile (runDate <> " " <> msg <> "\n")
 
+logFileName :: IO String
+logFileName = do
+  lDir <- logDir
+  now <- getCurrentTime
+  let logFile = lDir <> "/" <> showGregorian (utctDay now) <> ".log"
+  putStrLn ("Using log file: " <> logFile)
+  return logFile
+
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
-  (year, month, day) <- getCurrentTime >>= return . toGregorian . utctDay
-  lDir <- logDir
-  let logFile = lDir <> "/" <> show year <> show month <> show day <> ".log"
-  putStrLn ("Using log file: " <> logFile)
+  logFile <- logFileName
   let log = log' logFile
   T.appendFile logFile "\n\n"
   log "New run of nixpkgs-update"
