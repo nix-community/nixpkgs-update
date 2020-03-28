@@ -1,6 +1,6 @@
 { mkDerivation, aeson, base, bytestring, conduit, containers
 , cryptohash-sha256, directory, doctest, errors, filepath, github
-, hex, hpack, http-client-tls, http-conduit, iso8601-time
+, hex, hpack, hspec, http-client-tls, http-conduit, iso8601-time
 , lifted-base, mtl, neat-interpolation, optparse-applicative
 , parsec, parsers, partial-order, polysemy, polysemy-plugin
 , regex-applicative-text, servant, servant-client, sqlite-simple
@@ -27,7 +27,7 @@ mkDerivation {
   ];
   testHaskellDepends = [
     aeson base bytestring conduit containers cryptohash-sha256
-    directory doctest errors filepath github hex http-client-tls
+    directory doctest errors filepath github hex hspec http-client-tls
     http-conduit iso8601-time lifted-base mtl neat-interpolation
     optparse-applicative parsec parsers partial-order polysemy
     polysemy-plugin regex-applicative-text servant servant-client

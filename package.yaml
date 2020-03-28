@@ -83,3 +83,9 @@ tests:
     source-dirs: test
     dependencies:
       - doctest
+  spec:
+    main: NixPkgsUpdateSpec.hs
+    ghc-options: -threaded
+    source-dirs: test
+    dependencies:
+      - hspec
