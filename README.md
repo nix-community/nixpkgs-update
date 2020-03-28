@@ -1,6 +1,6 @@
 # nixpkgs-update
 
-[![Build Status](https://github.com/ryantm/nixpkgs-update/workflows/Test/badge.svg)](https://github.com/ryantm/nixpkgs-update/actions)
+[![Build Status](https://github.com/ryantm/nixpkgs-update/workflows/CI/badge.svg)](https://github.com/ryantm/nixpkgs-update/actions)
 [![Patreon](https://img.shields.io/badge/patreon-donate-blue.svg)](https://www.patreon.com/nixpkgsupdate)
 
 > The future is here; let's evenly distribute it!
