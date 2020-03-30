@@ -16,7 +16,8 @@ extra-source-files:
 
 github: ryantm/nixpkgs-update
 
-ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
+ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively
+
 
 default-extensions:
   - DataKinds
@@ -29,31 +30,30 @@ default-extensions:
   - TypeApplications
   - TypeFamilies
   - TypeOperators
+  - BlockArguments
 
 dependencies:
   - aeson
-  - base >= 4.7 && < 5
+  - base >= 4.13 && < 5
   - bytestring
   - conduit
   - containers
   - cryptohash-sha256
-  - directory >= 1.3 && < 1.4
+  - directory
   - errors
   - filepath
   - github
-  - hex
   - http-client-tls
   - http-conduit
   - iso8601-time
   - lifted-base
   - mtl
-  - neat-interpolation >= 0.3 && < 0.4
+  - neat-interpolation
   - optparse-applicative
   - parsec
   - parsers
   - partial-order
   - polysemy
-  - polysemy-plugin
   - regex-applicative-text
   - servant
   - servant-client
@@ -61,7 +61,7 @@ dependencies:
   - template-haskell
   - temporary
   - text
-  - time >= 1.8 && < 1.10
+  - time
   - transformers
   - typed-process
   - unix
@@ -71,15 +71,24 @@ dependencies:
   - xdg-basedir
   - zlib
 
-executables:
-  nixpkgs-update:
-    source-dirs: src
-    main: Main.hs
+library:
+  source-dirs: src
 
 tests:
-  doctests:
-    main: doctests.hs
-    ghc-options: -threaded
-    source-dirs: test
+  spec:
+    main: Spec.hs
+    source-dirs:
+      - test
     dependencies:
+      - hspec
+      - hspec-discover
       - doctest
+      - raw-strings-qq
+      - nixpkgs-update
+
+executables:
+  nixpkgs-update:
+    source-dirs: app
+    main: Main.hs
+    dependencies:
+      - nixpkgs-update

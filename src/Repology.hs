@@ -4,15 +4,12 @@
 
 module Repology where
 
-import Control.Category ((>>>))
 import Data.Aeson
 import Data.HashMap.Strict
 import Data.List
 import Data.Proxy
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO
-import Data.Vector (Vector)
 import qualified Data.Vector as V
 import GHC.Generics
 import Network.HTTP.Client.TLS (newTlsManager)
