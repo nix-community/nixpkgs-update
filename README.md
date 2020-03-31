@@ -124,6 +124,13 @@ test a package with one command.
   ```
   ./result/bin/nixpkgs-update fetch-repology > packages-to-update.txt
   ```
+  
+  There also exist alternative sources of updates, these include:
+  
+   - PyPI, the Python Package Index: 
+     [nixpkgs-update-pypi-releases](https://github.com/jonringer/nixpkgs-update-pypi-releases)
+   - GitHub releases: 
+     [nixpkgs-update-github-releases](https://github.com/synthetica9/nixpkgs-update-github-releases)
 
 5. Run the tool in batch mode with `update-list`:
 
@@ -154,6 +161,8 @@ nix-shell --run ghcid
 ```
 
 Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
+
+There is also a [Cachix cache](https://nixpkgs-update.cachix.org/) available for the dependencies of this program.
 
 # Prior work
 
