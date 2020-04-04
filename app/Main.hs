@@ -17,7 +17,7 @@ import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updateAll)
-import Utils (Options (..), UpdateEnv (..), setupNixpkgs)
+import Utils (Options (..), UpdateEnv (..), getGithubToken, setupNixpkgs)
 
 default (T.Text)
 
@@ -112,9 +112,6 @@ programInfo =
         <> O.progDesc "Update packages in the Nixpkgs repository"
         <> O.header "nixpkgs-update"
     )
-
-getGithubToken :: IO Text
-getGithubToken = T.strip <$> T.readFile "github_token.txt"
 
 main :: IO ()
 main = do

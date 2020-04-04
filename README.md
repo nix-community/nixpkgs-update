@@ -102,8 +102,7 @@ test a package with one command.
     nix-build
     ```
 
-2. Setup [hub](https://github.com/github/hub) and copy the oauth token to
-   `github_token.txt` in the root of this repository.
+2. Setup [hub](https://github.com/github/hub) and give it your GitHub credentials, so it saves an oauth token.
 
 3. To test your config, try to update a single package:
 

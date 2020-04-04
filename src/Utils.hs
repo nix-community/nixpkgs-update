@@ -22,12 +22,15 @@ module Utils
     prTitle,
     nixBuildOptions,
     nixCommonOptions,
-    runLog
+    runLog,
+    getGithubToken,
   )
 where
 
 import Data.Bits ((.|.))
+import Data.Maybe (fromJust)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Database.SQLite.Simple (ResultError (..), SQLData (..))
 import Database.SQLite.Simple.FromField
   ( FieldParser,
@@ -39,6 +42,7 @@ import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (..))
 import Database.SQLite.Simple.ToField (ToField, toField)
 import OurPrelude
+import Polysemy.Output
 import System.Directory (doesDirectoryExist, setCurrentDirectory)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Posix.Directory (createDirectory)
@@ -56,7 +60,6 @@ import System.Posix.Types (FileMode)
 import qualified System.Process.Typed
 import Text.Read (readEither)
 import Type.Reflection (Typeable)
-import Polysemy.Output
 
 default (T.Text)
 
@@ -250,3 +253,41 @@ runLog ::
 runLog logger =
   interpret \case
     Output o -> embed $ logger o
+
+envToken :: IO (Maybe Text)
+envToken = fmap tshow <$> getEnv "GITHUB_TOKEN"
+
+localToken :: IO (Maybe Text)
+localToken = do
+  exists <- fileExist "github_token.txt"
+  if exists
+    then (Just . T.strip <$> T.readFile "github_token.txt")
+    else (return Nothing)
+
+hubFileLocation :: IO (Maybe FilePath)
+hubFileLocation = do
+  xloc <- fmap (<> "/hub") <$> getEnv "XDG_CONFIG_HOME"
+  hloc <- fmap (<> "/.config/hub") <$> getEnv "HOME"
+  return (xloc <|> hloc)
+
+hubConfigToken :: IO (Maybe Text)
+hubConfigToken = do
+  hubFile <- hubFileLocation
+  case hubFile of
+    Nothing -> return Nothing
+    Just file -> do
+      exists <- fileExist file
+      if not exists
+        then return Nothing
+        else do
+          contents <- T.readFile file
+          let splits = T.splitOn "oauth_token: " contents
+              token = T.takeWhile (/= '\n') $ head (drop 1 splits)
+          return $ Just token
+
+getGithubToken :: IO Text
+getGithubToken = do
+  et <- envToken
+  lt <- localToken
+  ht <- hubConfigToken
+  return $ fromJust (et <|> lt <|> ht)
