@@ -105,28 +105,36 @@ test a package with one command.
 2. Setup [hub](https://github.com/github/hub) and copy the oauth token to
    `github_token.txt` in the root of this repository.
 
-3. To test your config, try to update a single package:
+3. To test your config, try to update a single package, like this:
 
    ```
-   ./result/bin/nixpkgs-update update --dry-run --additional-updates "X oldVer newVer"`,
+   ./result/bin/nixpkgs-update update --dry-run --additional-updates "pkg oldVer newVer update-page"`
+
+   # Example:
+   ./result/bin/nixpkgs-update update --dry-run --additional-updates "tflint 0.15.0 0.15.1 repology.org"`
    ```
 
-   where `X` is the attribute name, and `oldver` and `newVer` are the versions.
+   replacing `tflint` with the attribute name of the package you actually want
+   to update, and the old version and new version accordingly.
 
-   If this works, you are now setup to hack on `nixpkgs-update`! To send a batch of
-   updates, proceed as follows:
+   If this works, you are now setup to hack on `nixpkgs-update`! Since we passed
+   `--dry-run`, it will just print a `diff` of the updated nix expression, then
+   exit. If you run it without `--dry-run`, it will actually send a pull
+   request, which looks like this: https://github.com/NixOS/nixpkgs/pull/82465
 
-4. Get a list of outdated packages and place them in a `packages-to-update.txt` file:
+
+4. If you'd like to send a batch of updates, get a list of outdated packages and
+   place them in a `packages-to-update.txt` file:
 
   ```
   ./result/bin/nixpkgs-update fetch-repology > packages-to-update.txt
   ```
-  
+
   There also exist alternative sources of updates, these include:
-  
-   - PyPI, the Python Package Index: 
+
+   - PyPI, the Python Package Index:
      [nixpkgs-update-pypi-releases](https://github.com/jonringer/nixpkgs-update-pypi-releases)
-   - GitHub releases: 
+   - GitHub releases:
      [nixpkgs-update-github-releases](https://github.com/synthetica9/nixpkgs-update-github-releases)
 
 5. Run the tool in batch mode with `update-list`:
