@@ -8,18 +8,15 @@
 # Introduction
 
 [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) is the code
-used by [@r-ryantm](https://github.com/r-ryantm) to semi-automatically
+used by [@r-ryantm](https://github.com/r-ryantm) to automatically
 update nixpkgs. It uses package repository information from
-[Repology.org](https://repology.org/repository/nix_unstable) to
-generate a list of outdated packages. A package is considered
-"outdated" if a newer version of the package is available at any other
-[repository tracked by
-Repology](https://repology.org/repositories/statistics/newest). nixpkgs-update
-tries to update each package in the dumbest way that could work. It
-find-replaces the old version number with the new one, uses
-`nix-build` to try to get the new hash, then tries to build the
-package. If it succeeds, it checks the outputs and makes a pull
-request. It also uploads the built package to
+[Repology.org](https://repology.org/repository/nix_unstable), the
+GitHub releases API, and PyPI to generate a lists of outdated
+packages. nixpkgs-update tries to update each package in the dumbest
+way that could work. It find-replaces the old version number with the
+new one, uses `nix-build` to try to get the new hash, then tries to
+build the package. If it succeeds, it checks the outputs and makes a
+pull request. It also uploads the built package to
 [Cachix](https://r-ryantm.cachix.org/), which people can use to
 manually test the package without building it themselves.
 
