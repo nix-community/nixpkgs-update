@@ -22,6 +22,7 @@ module Utils
     prTitle,
     nixBuildOptions,
     nixCommonOptions,
+    runLog
   )
 where
 
@@ -55,6 +56,7 @@ import System.Posix.Types (FileMode)
 import qualified System.Process.Typed
 import Text.Read (readEither)
 import Type.Reflection (Typeable)
+import Polysemy.Output
 
 default (T.Text)
 
@@ -239,3 +241,12 @@ nixBuildOptions =
     "true"
   ]
     <> nixCommonOptions
+
+runLog ::
+  Member (Embed IO) r =>
+  (Text -> IO ()) ->
+  Sem ((Output Text) ': r) a ->
+  Sem r a
+runLog logger =
+  interpret \case
+    Output o -> embed $ logger o

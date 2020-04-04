@@ -1,6 +1,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Nix
@@ -15,6 +16,7 @@ module Nix
     getHash,
     getHashFromBuild,
     getHomepage,
+    getHomepageET,
     getIsBroken,
     getMaintainers,
     getOldHash,
@@ -40,6 +42,9 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
 import OurPrelude
+import qualified Polysemy.Error as Error
+import qualified Process as P
+import qualified Process
 import System.Exit
 import Text.Parsec (parse)
 import Text.Parser.Combinators
@@ -49,15 +54,25 @@ import Prelude hiding (log)
 
 data Env = Env [(String, String)]
 
-data EvalOptions = EvalOptions Raw Env
-
 data Raw
   = Raw
   | NoRaw
 
+data EvalOptions = EvalOptions Raw Env
+
 rawOpt :: Raw -> [String]
 rawOpt Raw = ["--raw"]
 rawOpt NoRaw = []
+
+nixEvalSem ::
+  Members '[P.Process, Error Text] r =>
+  EvalOptions ->
+  Text ->
+  Sem r Text
+nixEvalSem (EvalOptions raw (Env env)) expr =
+  T.strip
+    <$> ourReadProcessInterleaved_Sem
+      (setEnv env (proc "nix" (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
 
 nixEvalET :: MonadIO m => EvalOptions -> Text -> ExceptT Text m Text
 nixEvalET (EvalOptions raw (Env env)) expr =
@@ -192,15 +207,27 @@ getDescription attrPath =
     )
     & overwriteErrorT ("Could not get meta.description for attrpath " <> attrPath)
 
-getHomepage :: MonadIO m => Text -> ExceptT Text m Text
+getHomepage ::
+  Members '[P.Process, Error Text] r =>
+  Text ->
+  Sem r Text
 getHomepage attrPath =
-  nixEvalET
+  nixEvalSem
     (EvalOptions NoRaw (Env []))
     ( "(let pkgs = import ./. {}; in pkgs."
         <> attrPath
         <> ".meta.homepage or \"\")"
     )
-    & overwriteErrorT ("Could not get meta.homepage for attrpath " <> attrPath)
+
+getHomepageET :: MonadIO m => Text -> ExceptT Text m Text
+getHomepageET attrPath =
+  ExceptT
+    . liftIO
+    . runFinal
+    . embedToFinal @IO
+    . Error.runError
+    . Process.runIO
+    $ getHomepage attrPath
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrl =

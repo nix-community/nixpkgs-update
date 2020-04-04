@@ -4,7 +4,7 @@ returnShellEnv ? pkgs.lib.inNixShell
 
 let
 
-  compiler = pkgs.haskell.packages.ghc882;
+  compiler = pkgs.haskell.packages.ghc883;
 
   inherit (pkgs.haskell.lib) dontCheck doJailbreak overrideCabal;
 
