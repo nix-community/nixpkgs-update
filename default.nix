@@ -4,16 +4,20 @@ returnShellEnv ? pkgs.lib.inNixShell
 
 let
 
+  gitignore = import (import ./nix/sources.nix).gitignore { inherit (pkgs) lib; };
+  inherit (gitignore) gitignoreSource;
+
   compiler = pkgs.haskell.packages.ghc883;
 
   inherit (pkgs.haskell.lib) dontCheck doJailbreak overrideCabal;
 
+  root = gitignoreSource ./.;
+
   pkg = compiler.developPackage {
     name = "nixpkgs-update";
-    root = builtins.path { name = "nixpgks-update-src"; path = ./.; };
     overrides = self: super: { };
     source-overrides = { };
-    inherit returnShellEnv;
+    inherit root returnShellEnv;
   };
 
 in pkg.overrideAttrs (attrs: {
