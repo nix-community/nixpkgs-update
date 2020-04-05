@@ -1,23 +1,18 @@
-{ pkgs ? import (import ./nix/sources.nix).nixpkgs {config = { allowBroken = true; };},
-returnShellEnv ? pkgs.lib.inNixShell
-}:
-
 let
+  sources = import ./nix/sources.nix;
+  pkgs = import sources.nixpkgs {config = { allowBroken = true; }; };
 
-  gitignore = import (import ./nix/sources.nix).gitignore { inherit (pkgs) lib; };
+  gitignore = import sources.gitignore { inherit (pkgs) lib; };
   inherit (gitignore) gitignoreSource;
 
   compiler = pkgs.haskell.packages.ghc883;
-
   inherit (pkgs.haskell.lib) dontCheck doJailbreak overrideCabal;
-
-  root = gitignoreSource ./.;
 
   pkg = compiler.developPackage {
     name = "nixpkgs-update";
+    root = gitignoreSource ./.;
     overrides = self: super: { };
     source-overrides = { };
-    inherit root returnShellEnv;
   };
 
 in pkg.overrideAttrs (attrs: {
