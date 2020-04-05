@@ -176,7 +176,7 @@ For incremental building, first make a Cabal file with the above command, then u
 ```
 nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
 nix-shell
-cabal new-repl
+cabal v2-repl
 ```
 
 Run a type checker in the background for quicker type checking feedback:
