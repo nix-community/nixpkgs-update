@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: cachix/install-nix-action@v8
     - name: Remove .git dir
-      run: rm .git
+      run: rm -r .git
       shell: bash
     - uses: cachix/cachix-action@v5
       with:
