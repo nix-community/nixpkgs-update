@@ -9,6 +9,7 @@ let
   inherit (pkgs.haskell.lib) dontCheck doJailbreak overrideCabal;
 
   pkg = compiler.developPackage {
+    name = "nixpkgs-update";
     root = ./.;
     overrides = self: super: { };
     source-overrides = { };
