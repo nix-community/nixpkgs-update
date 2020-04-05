@@ -13,7 +13,7 @@ Run without installing:
 nix run \
   --option substituters 'https://nixpkgs-update.cachix.org/' \
   --option trusted-public-keys 'nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=' \
-  -f https://github.com/ryantm/nixpkgs-update/archive/master.tar.gz \
+  -f https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz \
   -c nixpkgs-update --help
 ```
 
@@ -23,7 +23,7 @@ Install into your Nix profile:
 nix-env \
   --option substituters 'https://nixpkgs-update.cachix.org/' \
   --option trusted-public-keys 'nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=' \
-  -if https://github.com/ryantm/nixpkgs-update/archive/master.tar.gz
+  -if https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz
 ```
 
 # Introduction
