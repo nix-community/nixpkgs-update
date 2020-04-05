@@ -17,6 +17,6 @@ jobs:
         skipNixBuild: true
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-   - name: nix-instantiate
-     run: nix-instantiate && cat $(nix-instantiate)
-     shell: bash
+    - name: nix-instantiate
+      run: 'nix-instantiate && cat $(nix-instantiate)'
+      shell: bash
