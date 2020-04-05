@@ -14,9 +14,5 @@ jobs:
     - uses: cachix/cachix-action@v5
       with:
         name: nixpkgs-update
-        skipNixBuild: true
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - name: nix-instantiate
-      run: 'nix-instantiate default.nix && cat $(nix-instantiate default.nix)'
-      shell: bash
