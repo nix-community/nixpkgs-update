@@ -10,7 +10,7 @@ let
 
   pkg = compiler.developPackage {
     name = "nixpkgs-update";
-    root = ./.;
+    root = builtins.path { name = "nixpgks-update-src"; path = ./.; };
     overrides = self: super: { };
     source-overrides = { };
     inherit returnShellEnv;
