@@ -16,7 +16,7 @@ import OurPrelude
 import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
-import Update (cveAll, cveReport, sourceGithubAll, updateAll)
+import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
 import Utils (Options (..), UpdateEnv (..), getGithubToken, setupNixpkgs)
 
 default (T.Text)
@@ -131,12 +131,15 @@ main = do
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       updateAll (Options pr True token cachix outpaths) updates
-    Update UpdateOptions {pr, cachix, outpaths} update -> do
+    Update UpdateOptions {pr, cachix} update -> do
       token <- getGithubToken
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options pr False token cachix outpaths) update
+      result <- updatePackage (Options pr False token cachix False) update
+      case result of
+        Left e -> T.putStrLn e
+        Right () -> T.putStrLn "Done."
     Version -> do
       v <- runExceptT Nix.version
       case v of

@@ -7,6 +7,7 @@
 
 module Update
   ( updateAll,
+    updatePackage,
     cveReport,
     cveAll,
     sourceGithubAll,
@@ -33,6 +34,7 @@ import OurPrelude
 import Outpaths
 import qualified Rewrite
 import qualified Time
+import Data.Maybe (fromJust)
 import Utils
   ( Options (..),
     URL,
@@ -138,7 +140,7 @@ updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
 updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOutpathsContext = do
   log (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
   let updateEnv = UpdateEnv pName oldVer newVer url o
-  updated <- updatePackage log updateEnv mergeBaseOutpathsContext
+  updated <- updatePackageBatch log updateEnv mergeBaseOutpathsContext
   case updated of
     Left failure -> do
       log $ "FAIL " <> failure
@@ -163,12 +165,12 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
 -- - the merge base commit (should be updated externally to this function)
 -- - the merge base context should be updated externally to this function
 -- - the commit for branches: master, staging, staging-next, python-unstable
-updatePackage ::
+updatePackageBatch ::
   (Text -> IO ()) ->
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
   IO (Either Text ())
-updatePackage log updateEnv mergeBaseOutpathsContext =
+updatePackageBatch log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
     let pr = doPR . options $ updateEnv
     --
@@ -255,7 +257,7 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     -- Publish the result
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result (Just opDiff) msgs
 
 publishPackage ::
   MonadIO m =>
@@ -265,7 +267,7 @@ publishPackage ::
   Text ->
   Text ->
   Text ->
-  Set ResultLine ->
+  Maybe (Set ResultLine) ->
   [Text] ->
   ExceptT Text m ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = do
@@ -312,10 +314,6 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
   isBroken <- Nix.getIsBroken attrPath
   when (batchUpdate . options $ updateEnv)
     (lift untilOfBorgFree)
-  let base =
-        if numPackageRebuilds opDiff < 100
-          then "master"
-          else "staging"
   let prMsg = prMessage
           updateEnv
           isBroken
@@ -329,11 +327,15 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
           attrPath
           maintainersCc
           result
-          (outpathReport opDiff)
+          (fromMaybe "" (outpathReport <$> opDiff))
           cveRep
           cachixTestInstructions
   if (doPR . options $ updateEnv)
-  then lift $ GH.pr base prMsg
+  then do
+    let base = if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
+        then "master"
+        else "staging"
+    lift $ GH.pr base prMsg
   else liftIO $ T.putStrLn prMsg
   Git.cleanAndResetTo "master"
 
@@ -527,3 +529,52 @@ doCachix log updateEnv resultPath =
     else do
       lift $ log "skipping cachix"
       return "Build yourself:"
+
+updatePackage ::
+  Options ->
+  Text ->
+  IO (Either Text ())
+updatePackage o updateInfo = do
+  runExceptT $ do
+    let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
+    let updateEnv = UpdateEnv p oldV newV url o
+    let log = T.putStrLn
+    Nix.assertNewerVersion updateEnv
+    attrPath <- Nix.lookupAttrPath updateEnv
+    Version.assertCompatibleWithPathPin updateEnv attrPath
+    derivationFile <- Nix.getDerivationFile attrPath
+    --
+    -- Get the original values for diffing purposes
+    derivationContents <- liftIO $ T.readFile derivationFile
+    oldHash <- Nix.getOldHash attrPath
+    oldSrcUrl <- Nix.getSrcUrl attrPath
+    --
+    ----------------------------------------------------------------------------
+    -- UPDATES
+    -- At this point, we've stashed the old derivation contents and validated
+    -- that we actually should be touching this file. Get to work processing the
+    -- various rewrite functions!
+    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
+    msg1 <- Rewrite.version log rwArgs
+    msg2 <- Rewrite.rustCrateVersion log rwArgs
+    msg3 <- Rewrite.golangModuleVersion log rwArgs
+    msg4 <- Rewrite.quotedUrlsET log rwArgs
+    let msgs = catMaybes [msg1, msg2, msg3, msg4]
+    ----------------------------------------------------------------------------
+    --
+    -- Compute the diff and get updated values
+    diffAfterRewrites <- Git.diff
+    lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
+    updatedDerivationContents <- liftIO $ T.readFile derivationFile
+    newSrcUrl <- Nix.getSrcUrl attrPath
+    newHash <- Nix.getHash attrPath
+    -- Sanity checks to make sure the PR is worth opening
+    when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
+    when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
+    when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+    Nix.build attrPath
+    --
+    -- Publish the result
+    lift . log $ "Successfully finished processing"
+    result <- Nix.resultLink
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result Nothing msgs
