@@ -67,13 +67,22 @@ logFileName = do
   putStrLn ("Using log file: " <> logFile)
   return logFile
 
+getLog :: Options -> IO (Text -> IO ())
+getLog o = do
+  if batchUpdate o
+    then do
+      logFile <- logFileName
+      let log = log' logFile
+      T.appendFile logFile "\n\n"
+      return log
+    else
+      return T.putStrLn
+
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
-  logFile <- logFileName
-  let log = log' logFile
-  T.appendFile logFile "\n\n"
+  log <- getLog o
   log "New run of nixpkgs-update"
-  when (dryRun o) $ log "Dry Run."
+  when (doPR o) $ log "Will do push to origin and do PR on success."
   when (pushToCachix o) $ log "Will push to cachix."
   when (calculateOutpaths o) $ log "Will calculate outpaths."
   twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
@@ -127,7 +136,7 @@ updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
   log e
   updateLoop o log moreUpdates mergeBaseOutpathsContext
 updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOutpathsContext = do
-  log (pName <> " " <> oldVer <> " -> " <> newVer)
+  log (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
   let updateEnv = UpdateEnv pName oldVer newVer url o
   updated <- updatePackage log updateEnv mergeBaseOutpathsContext
   case updated of
@@ -161,7 +170,7 @@ updatePackage ::
   IO (Either Text ())
 updatePackage log updateEnv mergeBaseOutpathsContext =
   runExceptT $ do
-    let dry = dryRun . options $ updateEnv
+    let pr = doPR . options $ updateEnv
     --
     -- Filters that don't need git
     Blacklist.packageName (packageName updateEnv)
@@ -169,17 +178,13 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     --
     -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-    -- If we're doing a dry run, we want to re-run locally even if there's
-    -- already a PR open upstream
-    unless dry $
+    unless pr $
       Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
     --
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
-    -- If we're doing a dry run, we want to re-run locally even if there's
-    -- already a PR open upstream
-    unless dry $
+    unless pr $
       GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
@@ -249,9 +254,8 @@ updatePackage log updateEnv mergeBaseOutpathsContext =
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
-    unless dry $ do
-      result <- Nix.resultLink
-      publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
+    result <- Nix.resultLink
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs
 
 publishPackage ::
   MonadIO m =>
@@ -303,17 +307,16 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
   Git.commit commitMsg
   commitHash <- Git.headHash
   -- Try to push it three times
-  Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv
+  when (doPR . options $ updateEnv)
+    (Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv)
   isBroken <- Nix.getIsBroken attrPath
-  lift untilOfBorgFree
+  when (batchUpdate . options $ updateEnv)
+    (lift untilOfBorgFree)
   let base =
         if numPackageRebuilds opDiff < 100
           then "master"
           else "staging"
-  lift $
-    GH.pr
-      base
-      ( prMessage
+  let prMsg = prMessage
           updateEnv
           isBroken
           metaDescription
@@ -329,7 +332,9 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
           (outpathReport opDiff)
           cveRep
           cachixTestInstructions
-      )
+  if (doPR . options $ updateEnv)
+  then lift $ GH.pr base prMsg
+  else liftIO $ T.putStrLn prMsg
   Git.cleanAndResetTo "master"
 
 commitMessage :: UpdateEnv -> Text -> Text

@@ -128,19 +128,18 @@ test a package with one command.
 3. To test your config, try to update a single package, like this:
 
    ```
-   ./result/bin/nixpkgs-update update --dry-run --additional-updates "pkg oldVer newVer update-page"`
+   ./result/bin/nixpkgs-update update "pkg oldVer newVer update-page"`
 
    # Example:
-   ./result/bin/nixpkgs-update update --dry-run --additional-updates "tflint 0.15.0 0.15.1 repology.org"`
+   ./result/bin/nixpkgs-update update "tflint 0.15.0 0.15.1 repology.org"`
    ```
 
    replacing `tflint` with the attribute name of the package you actually want
    to update, and the old version and new version accordingly.
 
-   If this works, you are now setup to hack on `nixpkgs-update`! Since we passed
-   `--dry-run`, it will just print a `diff` of the updated nix expression, then
-   exit. If you run it without `--dry-run`, it will actually send a pull
-   request, which looks like this: https://github.com/NixOS/nixpkgs/pull/82465
+   If this works, you are now setup to hack on `nixpkgs-update`! If
+   you run it with `--pr`, it will actually send a pull request, which
+   looks like this: https://github.com/NixOS/nixpkgs/pull/82465
 
 
 4. If you'd like to send a batch of updates, get a list of outdated packages and
