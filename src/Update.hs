@@ -230,11 +230,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
-    msg1 <- Rewrite.version log rwArgs
-    msg2 <- Rewrite.rustCrateVersion log rwArgs
-    msg3 <- Rewrite.golangModuleVersion log rwArgs
-    msg4 <- Rewrite.quotedUrlsET log rwArgs
-    let msgs = catMaybes [msg1, msg2, msg3, msg4]
+    msgs <- Rewrite.runAll log rwArgs
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
@@ -555,11 +551,7 @@ updatePackage o updateInfo = do
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
-    msg1 <- Rewrite.version log rwArgs
-    msg2 <- Rewrite.rustCrateVersion log rwArgs
-    msg3 <- Rewrite.golangModuleVersion log rwArgs
-    msg4 <- Rewrite.quotedUrlsET log rwArgs
-    let msgs = catMaybes [msg1, msg2, msg3, msg4]
+    msgs <- Rewrite.runAll log rwArgs
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
