@@ -21,6 +21,7 @@ import qualified Check
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
+import Data.Maybe (fromJust)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -34,7 +35,6 @@ import OurPrelude
 import Outpaths
 import qualified Rewrite
 import qualified Time
-import Data.Maybe (fromJust)
 import Utils
   ( Options (..),
     URL,
@@ -77,8 +77,7 @@ getLog o = do
       let log = log' logFile
       T.appendFile logFile "\n\n"
       return log
-    else
-      return T.putStrLn
+    else return T.putStrLn
 
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
@@ -254,6 +253,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
     publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result (Just opDiff) msgs
+    Git.cleanAndResetTo "master"
 
 publishPackage ::
   MonadIO m =>
@@ -305,12 +305,15 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
   Git.commit commitMsg
   commitHash <- Git.headHash
   -- Try to push it three times
-  when (doPR . options $ updateEnv)
+  when
+    (doPR . options $ updateEnv)
     (Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv)
   isBroken <- Nix.getIsBroken attrPath
-  when (batchUpdate . options $ updateEnv)
+  when
+    (batchUpdate . options $ updateEnv)
     (lift untilOfBorgFree)
-  let prMsg = prMessage
+  let prMsg =
+        prMessage
           updateEnv
           isBroken
           metaDescription
@@ -327,13 +330,13 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
           cveRep
           cachixTestInstructions
   if (doPR . options $ updateEnv)
-  then do
-    let base = if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
-        then "master"
-        else "staging"
-    lift $ GH.pr base prMsg
-  else liftIO $ T.putStrLn prMsg
-  Git.cleanAndResetTo "master"
+    then do
+      let base =
+            if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
+              then "master"
+              else "staging"
+      lift $ GH.pr base prMsg
+    else liftIO $ T.putStrLn prMsg
 
 commitMessage :: UpdateEnv -> Text -> Text
 commitMessage updateEnv attrPath = prTitle updateEnv attrPath

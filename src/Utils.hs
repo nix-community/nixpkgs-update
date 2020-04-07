@@ -27,6 +27,7 @@ module Utils
   )
 where
 
+import Data.List (isSuffixOf)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
@@ -43,7 +44,7 @@ import Database.SQLite.Simple.Ok (Ok (..))
 import Database.SQLite.Simple.ToField (ToField, toField)
 import OurPrelude
 import Polysemy.Output
-import System.Directory (doesDirectoryExist, setCurrentDirectory)
+import System.Directory (doesDirectoryExist, getCurrentDirectory, setCurrentDirectory)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv, setEnv)
@@ -188,19 +189,26 @@ logDir = do
 
 setupNixpkgs :: Text -> IO ()
 setupNixpkgs githubt = do
-  fp <- getUserCacheDir "nixpkgs"
-  exists <- doesDirectoryExist fp
-  unless exists $ do
-    proc "hub" ["clone", "nixpkgs", fp]
-      & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
-        [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
-      & runProcess_
-    setCurrentDirectory fp
-    shell "git remote add upstream https://github.com/NixOS/nixpkgs"
-      & runProcess_
-    shell "git fetch upstream" & runProcess_
-  setCurrentDirectory fp
-  System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
+  currentDir <- getCurrentDirectory
+  if "nixpkgs" `isSuffixOf` currentDir
+    then do
+      T.putStrLn "Looks like current directory is a nixpkgs checkout, so using that."
+      System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> currentDir) True
+    else do
+      T.putStrLn "Looks like current directory is not a nixpkgs checkout, so trying to use .cache/nixpkgs."
+      fp <- getUserCacheDir "nixpkgs"
+      exists <- doesDirectoryExist fp
+      unless exists $ do
+        proc "hub" ["clone", "nixpkgs", fp]
+          & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
+          [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
+          & runProcess_
+      setCurrentDirectory fp
+      shell "git remote add upstream https://github.com/NixOS/nixpkgs"
+        & runProcess_
+      shell "git fetch upstream" & runProcess_
+      setCurrentDirectory fp
+      System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
 overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
 overwriteErrorT t = fmapLT (const t)
