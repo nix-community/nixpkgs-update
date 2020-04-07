@@ -40,7 +40,7 @@ list or you can use sudo since root is effectively trusted.
 
 Run without installing:
 
-```
+```bash
 nix run \
   --option extra-substituters 'https://nixpkgs-update.cachix.org/' \
   --option trusted-public-keys 'nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=' \
@@ -50,11 +50,37 @@ nix run \
 
 Install into your Nix profile:
 
-```
+```bash
 nix-env \
   --option extra-substituters 'https://nixpkgs-update.cachix.org/' \
   --option trusted-public-keys 'nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=' \
   -if https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz
+```
+
+Declaratively with [niv](https://github.com/nmattia/niv):
+
+```bash
+niv add ryantm/nixpkgs-update
+```
+
+NixOS config with Niv:
+
+```nix
+let
+  sources = import ./nix/sources.nix;
+  nixpkgs-update = import sources.nixpkgs-update;
+in
+    environment.systemPackages = [ nixpkgs-update ];
+```
+
+home-manager config with Niv:
+
+```nix
+let
+  sources = import ./nix/sources.nix;
+  nixpkgs-update = import sources.nixpkgs-update;
+in
+    home.packages = [ nixpkgs-update ];
 ```
 
 # Interactive updates
@@ -94,14 +120,14 @@ subcommand.
    to query the GitHub API.
 
 2. Clone this repository and build `nixpkgs-update`:
-    ```
+    ```bash
     git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
     nix-build
     ```
 
 3. To test your config, try to update a single package, like this:
 
-   ```
+   ```bash
    ./result/bin/nixpkgs-update update "pkg oldVer newVer update-page"`
 
    # Example:
@@ -119,7 +145,7 @@ subcommand.
 4. If you'd like to send a batch of updates, get a list of outdated packages and
    place them in a `packages-to-update.txt` file:
 
-  ```
+  ```bash
   ./result/bin/nixpkgs-update fetch-repology > packages-to-update.txt
   ```
 
@@ -132,7 +158,7 @@ subcommand.
 
 5. Run the tool in batch mode with `update-list`:
 
-  ```
+  ```bash
   ./result/bin/nixpkgs-update update-list
   ```
 
@@ -216,13 +242,13 @@ test a package with one command.
 
 Setup a Cabal file (also run this when adding new dependencies):
 
-```
+```bash
 nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
 ```
 
 For incremental building, first make a Cabal file with the above command, then use nix-shell
 
-```
+```bash
 nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
 nix-shell
 cabal v2-repl
@@ -230,19 +256,19 @@ cabal v2-repl
 
 Run a type checker in the background for quicker type checking feedback:
 
-```
+```bash
 nix-shell --run ghcid
 ```
 
 Run a type checker for the app code:
 
-```
+```bash
 nix-shell --run 'ghcid -c "cabal v2-repl exe:nixpkgs-update"'
 ```
 
 Run a type checker for the test code:
 
-```
+```bash
 nix-shell --run 'ghcid -c "cabal v2-repl tests"'
 ```
 
