@@ -201,7 +201,7 @@ nix-shell --run ghcid
 Run a type checker for the app code:
 
 ```
-nix-shell --run 'ghcid -c "cabal v2-repl :nixpkgs-update"'
+nix-shell --run 'ghcid -c "cabal v2-repl exe:nixpkgs-update"'
 ```
 
 Run a type checker for the test code:
