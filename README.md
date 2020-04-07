@@ -29,6 +29,17 @@ nix-env \
   -if https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz
 ```
 
+# Basic single update usage
+
+1. Go to your local checkout of nixpkgs, and make sure the working
+   directory is clean. Be on a branch you are okay committing to.
+2. Run it like: `nixpkgs-update update "postman 7.20.0 7.21.2 ryantm"`
+   which mean update the package "postman" from version 7.20.0
+   to version 7.21.2 based on information from ryantm.
+3. It will run the updater, and if the update builds, it will commit
+   the update to the branch and output a potential message you could
+   use for a pull request.
+
 # Introduction
 
 [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) is the code
