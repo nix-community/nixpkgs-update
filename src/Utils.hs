@@ -107,6 +107,7 @@ data Options
       { doPR :: Bool,
         batchUpdate :: Bool,
         githubToken :: Text,
+        makeCVEReport :: Bool,
         pushToCachix :: Bool,
         calculateOutpaths :: Bool
       }
