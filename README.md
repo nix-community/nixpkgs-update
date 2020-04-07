@@ -5,6 +5,34 @@
 
 > The future is here; let's evenly distribute it!
 
+# Contents
+
+* [Introduction](#introduction)
+* [Interactive updates](#interactive-updates)
+* [Batch updates](#batch-updates)
+* [Details](#details)
+* [Development](#development)
+
+# Introduction
+
+The [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) mission
+is to make [nixpkgs](https://github.com/nixos/nixpkgs) the most
+up-to-date repository of software in the world by the most ridiculous
+margin possible.
+
+It provides an interactive tool for automating single package
+updates. Given a package name, old version, and new version, it
+updates the version, and fetcher hashes, makes a commit, and
+optionally a pull request. Along the way, it does checks to make sure
+the update has a baseline quality.
+
+It is the code used by the GitHub bot
+[@r-ryantm](https://github.com/r-ryantm) to automatically update
+nixpkgs. It uses package repository information from
+[Repology.org](https://repology.org/repository/nix_unstable), the
+GitHub releases API, and PyPI to generate a lists of outdated
+packages.
+
 # Installation
 
 For the Cachix cache to work, your user must be in the trusted-users
@@ -29,34 +57,89 @@ nix-env \
   -if https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz
 ```
 
-# Basic single update usage
+# Interactive updates
 
-1. Go to your local checkout of nixpkgs, and make sure the working
-   directory is clean. Be on a branch you are okay committing to.
-2. Run it like: `nixpkgs-update update "postman 7.20.0 7.21.2"`
+nixpkgs-update supports interactive, single package updates via the
+`update` subcommand.
+
+# Update tutorial
+
+1. Setup [hub](https://github.com/github/hub) and give it your GitHub
+   credentials, so it saves an oauth token. This allows nixpkgs-update
+   to query the GitHub API.
+2. Go to your local checkout of nixpkgs, and **make sure the working
+   directory is clean**. Be on a branch you are okay committing to.
+3. Run it like: `nixpkgs-update update "postman 7.20.0 7.21.2"`
    which mean update the package "postman" from version 7.20.0
    to version 7.21.2.
-3. It will run the updater, and if the update builds, it will commit
-   the update to the branch and output a potential message you could
-   use for a pull request.
+4. It will run the updater, and, if the update builds, it will commit
+   the update and output a message you could use for a pull request.
 
-# Introduction
+# Flags
 
-[nixpkgs-update](https://github.com/ryantm/nixpkgs-update) is the code
-used by [@r-ryantm](https://github.com/r-ryantm) to automatically
-update nixpkgs. It uses package repository information from
-[Repology.org](https://repology.org/repository/nix_unstable), the
-GitHub releases API, and PyPI to generate a lists of outdated
-packages. nixpkgs-update tries to update each package in the dumbest
-way that could work. It find-replaces the old version number with the
-new one, uses `nix-build` to try to get the new hash, then tries to
-build the package. If it succeeds, it checks the outputs and makes a
-pull request. It also uploads the built package to
-[Cachix](https://r-ryantm.cachix.org/), which people can use to
-manually test the package without building it themselves.
+* `--pr`&mdash;uses Hub to submit a PR to GitHub.
+* `--cve`&mdash;adds CVE vulnerability reporting to the PR message. On
+  first invocation with this option, a CVE database is
+  built. Subsequent invocations will be much faster.
+
+# Batch updates
+
+nixpkgs-update supports batch updates via the `update-list`
+subcommand.
+
+## Update-List tutorial
+
+1. Setup [hub](https://github.com/github/hub) and give it your GitHub
+   credentials, so it saves an oauth token. This allows nixpkgs-update
+   to query the GitHub API.
+
+2. Clone this repository and build `nixpkgs-update`:
+    ```
+    git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
+    nix-build
+    ```
+
+3. To test your config, try to update a single package, like this:
+
+   ```
+   ./result/bin/nixpkgs-update update "pkg oldVer newVer update-page"`
+
+   # Example:
+   ./result/bin/nixpkgs-update update "tflint 0.15.0 0.15.1 repology.org"`
+   ```
+
+   replacing `tflint` with the attribute name of the package you actually want
+   to update, and the old version and new version accordingly.
+
+   If this works, you are now setup to hack on `nixpkgs-update`! If
+   you run it with `--pr`, it will actually send a pull request, which
+   looks like this: https://github.com/NixOS/nixpkgs/pull/82465
 
 
-# nixpkgs-update features
+4. If you'd like to send a batch of updates, get a list of outdated packages and
+   place them in a `packages-to-update.txt` file:
+
+  ```
+  ./result/bin/nixpkgs-update fetch-repology > packages-to-update.txt
+  ```
+
+  There also exist alternative sources of updates, these include:
+
+   - PyPI, the Python Package Index:
+     [nixpkgs-update-pypi-releases](https://github.com/jonringer/nixpkgs-update-pypi-releases)
+   - GitHub releases:
+     [nixpkgs-update-github-releases](https://github.com/synthetica9/nixpkgs-update-github-releases)
+
+5. Run the tool in batch mode with `update-list`:
+
+  ```
+  ./result/bin/nixpkgs-update update-list
+  ```
+
+# Details
+
+Some of these features only apply to the update-list sub-command or to
+features only available to the @r-ryantm bot.
 
 ## Checks
 
@@ -129,53 +212,6 @@ By uploading the build outputs to
 test a package with one command.
 
 
-# Instructions
-
-1. Clone this repository and build `nixpkgs-update`:
-    ```
-    git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
-    nix-build
-    ```
-
-2. Setup [hub](https://github.com/github/hub) and give it your GitHub credentials, so it saves an oauth token.
-
-3. To test your config, try to update a single package, like this:
-
-   ```
-   ./result/bin/nixpkgs-update update "pkg oldVer newVer update-page"`
-
-   # Example:
-   ./result/bin/nixpkgs-update update "tflint 0.15.0 0.15.1 repology.org"`
-   ```
-
-   replacing `tflint` with the attribute name of the package you actually want
-   to update, and the old version and new version accordingly.
-
-   If this works, you are now setup to hack on `nixpkgs-update`! If
-   you run it with `--pr`, it will actually send a pull request, which
-   looks like this: https://github.com/NixOS/nixpkgs/pull/82465
-
-
-4. If you'd like to send a batch of updates, get a list of outdated packages and
-   place them in a `packages-to-update.txt` file:
-
-  ```
-  ./result/bin/nixpkgs-update fetch-repology > packages-to-update.txt
-  ```
-
-  There also exist alternative sources of updates, these include:
-
-   - PyPI, the Python Package Index:
-     [nixpkgs-update-pypi-releases](https://github.com/jonringer/nixpkgs-update-pypi-releases)
-   - GitHub releases:
-     [nixpkgs-update-github-releases](https://github.com/synthetica9/nixpkgs-update-github-releases)
-
-5. Run the tool in batch mode with `update-list`:
-
-  ```
-  ./result/bin/nixpkgs-update update-list
-  ```
-
 # Development
 
 Setup a Cabal file (also run this when adding new dependencies):
@@ -214,8 +250,3 @@ nix-shell --run 'ghcid -c "cabal v2-repl tests"'
 Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
 
 There is also a [Cachix cache](https://nixpkgs-update.cachix.org/) available for the dependencies of this program.
-
-# Prior work
-
-* https://github.com/NixOS/nixpkgs/blob/master/pkgs/common-updater/scripts/update-source-version
-* https://github.com/NixOS/nixpkgs/tree/master/pkgs/build-support/upstream-updater
