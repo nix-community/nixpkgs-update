@@ -2,6 +2,7 @@
 
 module Rewrite
   ( Args (..),
+    runAll,
     golangModuleVersion,
     quotedUrls,
     quotedUrlsET,
@@ -46,6 +47,14 @@ data Args
         derivationFile :: FilePath,
         derivationContents :: Text
       }
+
+runAll :: (Text -> IO ()) -> Args -> ExceptT Text IO [Text]
+runAll log rwArgs = do
+  msg1 <- Rewrite.version log rwArgs
+  msg2 <- Rewrite.rustCrateVersion log rwArgs
+  msg3 <- Rewrite.golangModuleVersion log rwArgs
+  msg4 <- Rewrite.quotedUrlsET log rwArgs
+  return $ catMaybes [msg1, msg2, msg3, msg4]
 
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256

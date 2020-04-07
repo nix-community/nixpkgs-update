@@ -103,7 +103,8 @@ instance ToField VersionMatcher where
 
 data Options
   = Options
-      { dryRun :: Bool,
+      { doPR :: Bool,
+        batchUpdate :: Bool,
         githubToken :: Text,
         pushToCachix :: Bool,
         calculateOutpaths :: Bool

@@ -16,22 +16,21 @@ import OurPrelude
 import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
-import Update (cveAll, cveReport, sourceGithubAll, updateAll)
+import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
 import Utils (Options (..), UpdateEnv (..), getGithubToken, setupNixpkgs)
 
 default (T.Text)
 
 data UpdateOptions
   = UpdateOptions
-      { dry :: Bool,
+      { pr :: Bool,
         cachix :: Bool,
-        additionalUpdates :: Text,
         outpaths :: Bool
       }
 
 data Command
   = UpdateList UpdateOptions
-  | Update UpdateOptions
+  | Update UpdateOptions Text
   | DeleteDone
   | Version
   | UpdateVulnDB
@@ -43,14 +42,15 @@ data Command
 updateOptionsParser :: O.Parser UpdateOptions
 updateOptionsParser =
   UpdateOptions
-    <$> O.switch
-      ( O.long "dry-run"
-          <> O.help
-            "Do everything except actually pushing the updates to the remote repository"
-      )
+    <$> O.flag False True (O.long "pr" <> O.help "Make a pull request using Hub.")
     <*> O.flag False True (O.long "cachix" <> O.help "Push changes to Cachix")
-    <*> O.strOption (O.long "additional-updates" <> O.help "A string of updates formatted the same way as packages-to-update.txt" <> O.value "")
     <*> O.flag False True (O.long "outpaths" <> O.help "Calculate outpaths to determine the branch to target")
+
+updateParser :: O.Parser Command
+updateParser =
+  Update
+    <$> updateOptionsParser
+    <*> O.strArgument (O.metavar "UPDATE_INFO" <> O.help "update string of the form: 'pkg oldVer newVer update-page'\n\n example: 'tflint 0.15.0 0.15.1 repology.org'")
 
 commandParser :: O.Parser Command
 commandParser =
@@ -60,7 +60,7 @@ commandParser =
         (O.info (UpdateList <$> updateOptionsParser) (O.progDesc "Update a list of packages"))
         <> O.command
           "update"
-          (O.info (Update <$> updateOptionsParser) (O.progDesc "Update packages"))
+          (O.info (updateParser) (O.progDesc "Update one package"))
         <> O.command
           "delete-done"
           ( O.info
@@ -124,19 +124,22 @@ main = do
       setupNixpkgs token
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
-    UpdateList UpdateOptions {dry, cachix, additionalUpdates, outpaths} -> do
+    UpdateList UpdateOptions {pr, cachix, outpaths} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options dry token cachix outpaths) (updates <> "\n" <> additionalUpdates)
-    Update UpdateOptions {dry, cachix, additionalUpdates, outpaths} -> do
+      updateAll (Options pr True token cachix outpaths) updates
+    Update UpdateOptions {pr, cachix} update -> do
       token <- getGithubToken
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options dry token cachix outpaths) additionalUpdates
+      result <- updatePackage (Options pr False token cachix False) update
+      case result of
+        Left e -> T.putStrLn e
+        Right () -> T.putStrLn "Done."
     Version -> do
       v <- runExceptT Nix.version
       case v of
@@ -146,17 +149,17 @@ main = do
     CheckAllVulnerable -> do
       setupNixpkgs undefined
       updates <- T.readFile "packages-to-update.txt"
-      cveAll (Options undefined undefined undefined undefined) updates
+      cveAll (Options undefined undefined undefined undefined undefined) updates
     CheckVulnerable productID oldVersion newVersion -> do
       setupNixpkgs undefined
       report <-
         cveReport
-          (UpdateEnv productID oldVersion newVersion Nothing (Options False undefined False False))
+          (UpdateEnv productID oldVersion newVersion Nothing (Options False False undefined False False))
       T.putStrLn report
     SourceGithub -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      sourceGithubAll (Options False token False False) updates
+      sourceGithubAll (Options False False token False False) updates
     FetchRepology -> Repology.fetch
