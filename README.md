@@ -44,7 +44,7 @@ Run without installing:
 nix run \
   --option extra-substituters 'https://nixpkgs-update.cachix.org/' \
   --option trusted-public-keys 'nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=' \
-  -f https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz \
+  -f https://github.com/ryantm/nixpkgs-update/archive/master.tar.gz \
   -c nixpkgs-update --help
 ```
 
@@ -54,7 +54,7 @@ Install into your Nix profile:
 nix-env \
   --option extra-substituters 'https://nixpkgs-update.cachix.org/' \
   --option trusted-public-keys 'nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=' \
-  -if https://github.com/ryantm/nixpkgs-update/archive/latest.tar.gz
+  -if https://github.com/ryantm/nixpkgs-update/archive/master.tar.gz
 ```
 
 Declaratively with [niv](https://github.com/nmattia/niv):
