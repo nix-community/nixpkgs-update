@@ -165,7 +165,8 @@ python :: Monad m => Int -> Text -> ExceptT Text m ()
 python numPackageRebuilds derivationContents =
   tryAssert
     ("Python package with too many package rebuilds " <>
-     (T.pack . show) numPackageRebuilds <> "  > 10")
-    (not isPython || numPackageRebuilds <= 10)
+     (T.pack . show) numPackageRebuilds <> "  > " <> tshow maxPackageRebuild)
+    (not isPython || numPackageRebuilds <= maxPackageRebuild)
   where
     isPython = "buildPythonPackage" `T.isInfixOf` derivationContents
+    maxPackageRebuild = 25
