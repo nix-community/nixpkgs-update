@@ -240,24 +240,22 @@ test a package with one command.
 
 # Development
 
-Setup a Cabal file (also run this when adding new dependencies):
+Incremental development:
 
 ```bash
-nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
+nix-shell --run "cabal v2-repl"
 ```
 
-For incremental building, first make a Cabal file with the above command, then use nix-shell
+Run the tests:
 
 ```bash
-nix run nixpkgs.haskellPackages.hpack -c hpack && nix run nixpkgs.cabal2nix -c cabal2nix --hpack . > nixpkgs-update.nix
-nix-shell
-cabal v2-repl
+nix-shell --run "cabal v2-test"
 ```
 
 Run a type checker in the background for quicker type checking feedback:
 
 ```bash
-nix-shell --run ghcid
+nix-shell --run "ghcid"
 ```
 
 Run a type checker for the app code:
@@ -272,6 +270,11 @@ Run a type checker for the test code:
 nix-shell --run 'ghcid -c "cabal v2-repl tests"'
 ```
 
+Updating the Cabal file when adding new dependencies or options:
+
+```bash
+nix run nixpkgs.haskellPackages.hpack -c hpack
+```
 
 Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
 

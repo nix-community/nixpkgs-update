@@ -1,0 +1,202 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 09aa8671b0f8077c9c194e15f72bc2aec790275993b5122ab17c192622236836
+
+name:           nixpkgs-update
+version:        0.2.0
+synopsis:       Tool for semi-automatic updating of nixpkgs repository
+description:    nixpkgs-update provides tools for updating of nixpkgs packages in a semi-automatic way. Mainly, it is used to run the GitHub bot @r-ryantm, but the underlying update mechanisms should be generally useful and in a later version should be exposed as a command-line tool.
+category:       Web
+homepage:       https://github.com/ryantm/nixpkgs-update#readme
+bug-reports:    https://github.com/ryantm/nixpkgs-update/issues
+author:         Ryan Mulligan et al.
+maintainer:     ryan@ryantm.com
+copyright:      2018-2020 Ryan Mulligan et al.
+license:        CC0-1.0
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/ryantm/nixpkgs-update
+
+library
+  exposed-modules:
+      Blacklist
+      Check
+      CVE
+      Data.Hex
+      DeleteMerged
+      File
+      GH
+      Git
+      Nix
+      NVD
+      NVDRules
+      OurPrelude
+      Outpaths
+      Process
+      Repology
+      Rewrite
+      Time
+      Update
+      Utils
+      Version
+  other-modules:
+      Paths_nixpkgs_update
+  hs-source-dirs:
+      src
+  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
+  ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
+  build-depends:
+      aeson
+    , base >=4.13 && <5
+    , bytestring
+    , conduit
+    , containers
+    , cryptohash-sha256
+    , directory
+    , errors
+    , filepath
+    , github
+    , http-client-tls
+    , http-conduit
+    , iso8601-time
+    , lifted-base
+    , mtl
+    , neat-interpolation
+    , optparse-applicative
+    , parsec
+    , parsers
+    , partial-order
+    , polysemy
+    , polysemy-plugin
+    , regex-applicative-text
+    , servant
+    , servant-client
+    , sqlite-simple
+    , template-haskell
+    , temporary
+    , text
+    , time
+    , transformers
+    , typed-process
+    , unix
+    , unordered-containers
+    , vector
+    , versions
+    , xdg-basedir
+    , zlib
+  default-language: Haskell2010
+
+executable nixpkgs-update
+  main-is: Main.hs
+  other-modules:
+      Paths_nixpkgs_update
+  hs-source-dirs:
+      app
+  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
+  ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
+  build-depends:
+      aeson
+    , base >=4.13 && <5
+    , bytestring
+    , conduit
+    , containers
+    , cryptohash-sha256
+    , directory
+    , errors
+    , filepath
+    , github
+    , http-client-tls
+    , http-conduit
+    , iso8601-time
+    , lifted-base
+    , mtl
+    , neat-interpolation
+    , nixpkgs-update
+    , optparse-applicative
+    , parsec
+    , parsers
+    , partial-order
+    , polysemy
+    , polysemy-plugin
+    , regex-applicative-text
+    , servant
+    , servant-client
+    , sqlite-simple
+    , template-haskell
+    , temporary
+    , text
+    , time
+    , transformers
+    , typed-process
+    , unix
+    , unordered-containers
+    , vector
+    , versions
+    , xdg-basedir
+    , zlib
+  default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      DoctestSpec
+      RewriteSpec
+      Paths_nixpkgs_update
+  hs-source-dirs:
+      test
+  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
+  ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
+  build-depends:
+      aeson
+    , base >=4.13 && <5
+    , bytestring
+    , conduit
+    , containers
+    , cryptohash-sha256
+    , directory
+    , doctest
+    , errors
+    , filepath
+    , github
+    , hspec
+    , hspec-discover
+    , http-client-tls
+    , http-conduit
+    , iso8601-time
+    , lifted-base
+    , mtl
+    , neat-interpolation
+    , nixpkgs-update
+    , optparse-applicative
+    , parsec
+    , parsers
+    , partial-order
+    , polysemy
+    , polysemy-plugin
+    , regex-applicative-text
+    , servant
+    , servant-client
+    , sqlite-simple
+    , template-haskell
+    , temporary
+    , text
+    , time
+    , transformers
+    , typed-process
+    , unix
+    , unordered-containers
+    , vector
+    , versions
+    , xdg-basedir
+    , zlib
+  default-language: Haskell2010

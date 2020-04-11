@@ -3,7 +3,6 @@
 /result
 dist/
 dist-newstyle/
-/nixpkgs-update.cabal
 /nixpkgs-update.nix
 .ghc*
 store-path-pre-build
