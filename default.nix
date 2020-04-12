@@ -24,5 +24,7 @@ in pkg.overrideAttrs (attrs: {
     jq
     tree
     gist
+    (import sources.nixpkgs-review { inherit pkgs; })
+    cabal-install # just for develpoment
   ];
 })

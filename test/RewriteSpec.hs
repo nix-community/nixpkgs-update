@@ -23,13 +23,13 @@ spec = do
     it "quotes an unquoted meta.homepage URL" do
       nixQuotedHomepageBad <- T.readFile "test_data/quoted_homepage_bad.nix"
       nixQuotedHomepageGood <- T.readFile "test_data/quoted_homepage_good.nix"
-      let options = Utils.Options False False "" False False False
+      let options = Utils.Options False False "" False False False False
       let updateEnv = Utils.UpdateEnv "inadyn" "2.5" "2.6" Nothing options
       -- TODO test correct file is being read
       let rwArgs = Rewrite.Args updateEnv "inadyn" undefined undefined
       (logs, (newContents, result)) <-
         ( runFinal
-            . embedToFinal @IO
+            . embedToFinal
             . Output.runOutputList
             . File.runPure [nixQuotedHomepageBad]
             . Process.runPure ["\"http://troglobit.com/project/inadyn/\""]

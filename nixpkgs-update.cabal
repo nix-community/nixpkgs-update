@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 09aa8671b0f8077c9c194e15f72bc2aec790275993b5122ab17c192622236836
+-- hash: 7492d0fc2af5df377764d358317e0892c0bda2961943218f8dcdeef179700cd9
 
 name:           nixpkgs-update
 version:        0.2.0
@@ -37,6 +37,7 @@ library
       GH
       Git
       Nix
+      NixpkgsReview
       NVD
       NVDRules
       OurPrelude

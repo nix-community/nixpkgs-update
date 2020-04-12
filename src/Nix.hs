@@ -224,7 +224,7 @@ getHomepageET attrPath =
   ExceptT
     . liftIO
     . runFinal
-    . embedToFinal @IO
+    . embedToFinal
     . Error.runError
     . Process.runIO
     $ getHomepage attrPath

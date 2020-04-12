@@ -7,9 +7,11 @@ import qualified Data.ByteString.Lazy as BSL
 import Polysemy
 import Polysemy.Input
 import qualified System.Process.Typed as TP
+import System.Exit (ExitCode(..))
 
 data Process m a where
-  ReadInterleaved :: TP.ProcessConfig stdin stdout stderr -> Process m BSL.ByteString
+  ReadInterleaved_ :: TP.ProcessConfig stdin stdout stderr -> Process m BSL.ByteString
+  ReadInterleaved :: TP.ProcessConfig stdin stdout stderr -> Process m (ExitCode, BSL.ByteString)
 
 makeSem ''Process
 
@@ -19,7 +21,8 @@ runIO ::
   Sem r a
 runIO =
   interpret $ \case
-    ReadInterleaved config -> embed $ (TP.readProcessInterleaved_ config :: IO BSL.ByteString)
+    ReadInterleaved_ config -> embed $ (TP.readProcessInterleaved_ config)
+    ReadInterleaved config -> embed $ (TP.readProcessInterleaved config)
 
 runPure ::
   [BSL.ByteString] ->
@@ -28,4 +31,7 @@ runPure ::
 runPure outputList =
   runInputList outputList
     . reinterpret \case
-      ReadInterleaved _config -> maybe "" id <$> input
+      ReadInterleaved_ _config -> maybe "" id <$> input
+      ReadInterleaved _config -> do
+        r <- maybe "" id <$> input
+        return (ExitSuccess, r)

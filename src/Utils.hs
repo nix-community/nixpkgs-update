@@ -109,6 +109,7 @@ data Options
         githubToken :: Text,
         makeCVEReport :: Bool,
         pushToCachix :: Bool,
+        runNixpkgsReview :: Bool,
         calculateOutpaths :: Bool
       }
   deriving (Show)
@@ -204,10 +205,10 @@ setupNixpkgs githubt = do
           & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
           [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
           & runProcess_
-      setCurrentDirectory fp
-      shell "git remote add upstream https://github.com/NixOS/nixpkgs"
-        & runProcess_
-      shell "git fetch upstream" & runProcess_
+        setCurrentDirectory fp
+        shell "git remote add upstream https://github.com/NixOS/nixpkgs"
+          & runProcess_
+        shell "git fetch upstream" & runProcess_
       setCurrentDirectory fp
       System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
