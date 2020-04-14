@@ -186,13 +186,13 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     --
     -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-    unless pr $
+    when pr $
       Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
     --
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
-    unless pr $
+    when pr $
       GH.checkExistingUpdatePR updateEnv attrPath
     Blacklist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
