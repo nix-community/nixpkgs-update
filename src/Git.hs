@@ -98,7 +98,7 @@ push updateEnv =
             "origin",
             T.unpack (branchName updateEnv)
           ]
-            ++ ["--dry-run" | doPR (options updateEnv)]
+            ++ ["--dry-run" | not (doPR (options updateEnv))]
         )
     )
 
