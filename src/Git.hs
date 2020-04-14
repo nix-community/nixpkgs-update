@@ -124,7 +124,7 @@ commit ref =
   runProcessNoIndexIssue_ (proc "git" ["commit", "-am", T.unpack ref])
 
 headHash :: MonadIO m => ExceptT Text m Text
-headHash = readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
+headHash = T.strip <$> readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
 
 deleteBranchesEverywhere :: Vector Text -> IO ()
 deleteBranchesEverywhere branches = do

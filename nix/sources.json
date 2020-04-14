@@ -34,5 +34,17 @@
         "type": "tarball",
         "url": "https://github.com/nixos/nixpkgs/archive/78bfdbb291fd20df0f0f65061ee3081610b0a48f.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs-review": {
+        "branch": "master",
+        "description": "Review pull-requests on https://github.com/NixOS/nixpkgs",
+        "homepage": "",
+        "owner": "mic92",
+        "repo": "nixpkgs-review",
+        "rev": "370e90a8d20640cc8924dacb4f55a86dadcec57f",
+        "sha256": "026lmwbvqdp7a3nkd08rd0nfyb9yiic36w6s7mh2rpp0ihp7qsd6",
+        "type": "tarball",
+        "url": "https://github.com/mic92/nixpkgs-review/archive/370e90a8d20640cc8924dacb4f55a86dadcec57f.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

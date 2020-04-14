@@ -101,7 +101,7 @@ quotedUrlsET log rwArgs =
   ExceptT
     $ liftIO
       . runFinal
-      . embedToFinal @IO
+      . embedToFinal
       . Error.runError
       . Process.runIO
       . File.runIO

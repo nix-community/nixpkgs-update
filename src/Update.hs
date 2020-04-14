@@ -31,6 +31,7 @@ import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
 import qualified Nix
+import qualified NixpkgsReview
 import OurPrelude
 import Outpaths
 import qualified Rewrite
@@ -79,13 +80,19 @@ getLog o = do
       return log
     else return T.putStrLn
 
+notifyOptions :: (Text -> IO ()) -> Options -> IO ()
+notifyOptions log o = do
+  when (doPR o) $ log "Will do push to origin and do PR on success."
+  when (pushToCachix o) $ log "Will push to cachix."
+  when (calculateOutpaths o) $ log "Will calculate outpaths."
+  when (makeCVEReport o) $ log "Will make a CVE security report."
+  when (runNixpkgsReview o) $ log "Will run nixpkgs-review."
+
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
   log <- getLog o
   log "New run of nixpkgs-update"
-  when (doPR o) $ log "Will do push to origin and do PR on success."
-  when (pushToCachix o) $ log "Will push to cachix."
-  when (calculateOutpaths o) $ log "Will calculate outpaths."
+  notifyOptions log o
   twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
   mergeBaseOutpathSet <-
     liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
@@ -256,8 +263,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     Git.cleanAndResetTo "master"
 
 publishPackage ::
-  MonadIO m =>
-  (Text -> m ()) ->
+  (Text -> IO ()) ->
   UpdateEnv ->
   Text ->
   Text ->
@@ -265,7 +271,7 @@ publishPackage ::
   Text ->
   Maybe (Set ResultLine) ->
   [Text] ->
-  ExceptT Text m ()
+  ExceptT Text IO ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = do
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
@@ -304,6 +310,10 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
   let commitMsg = commitMessage updateEnv attrPath
   Git.commit commitMsg
   commitHash <- Git.headHash
+  nixpkgsReviewMsg <-
+    if runNixpkgsReview . options $ updateEnv
+      then liftIO $ NixpkgsReview.runReport log commitHash
+      else return ""
   -- Try to push it three times
   when
     (doPR . options $ updateEnv)
@@ -329,6 +339,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
           (fromMaybe "" (outpathReport <$> opDiff))
           cveRep
           cachixTestInstructions
+          nixpkgsReviewMsg
   if (doPR . options $ updateEnv)
     then do
       let base =
@@ -362,8 +373,9 @@ prMessage ::
   Text ->
   Text ->
   Text ->
+  Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cachixTestInstructions =
+prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
       sourceLinkInfo = maybe "" pattern $ sourceURL updateEnv
@@ -417,6 +429,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releas
        </details>
        <br/>
        $cveRep
+       $nixpkgsReviewMsg
 
        $maintainersCc
     |]
@@ -540,6 +553,7 @@ updatePackage o updateInfo = do
     let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
     let updateEnv = UpdateEnv p oldV newV url o
     let log = T.putStrLn
+    liftIO $ notifyOptions log o
     Nix.assertNewerVersion updateEnv
     attrPath <- Nix.lookupAttrPath updateEnv
     Version.assertCompatibleWithPathPin updateEnv attrPath

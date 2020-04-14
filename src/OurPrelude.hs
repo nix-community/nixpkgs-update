@@ -25,6 +25,7 @@ module OurPrelude
     ourReadProcessInterleavedBS_,
     ourReadProcessInterleaved,
     ourReadProcessInterleaved_Sem,
+    ourReadProcessInterleavedSem,
     silently,
     bytestringToText,
   )
@@ -81,11 +82,11 @@ ourReadProcessInterleaved_ =
   readProcessInterleaved_ >>> tryIOTextET >>> fmapRT bytestringToText
 
 ourReadProcessInterleaved_Sem ::
-  Members '[P.Process, Error Text] r =>
+  Members '[P.Process] r =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   Sem r Text
 ourReadProcessInterleaved_Sem =
-  P.readInterleaved >>> fmap bytestringToText
+  P.readInterleaved_ >>> fmap bytestringToText
 
 ourReadProcessInterleaved ::
   MonadIO m =>
@@ -95,6 +96,14 @@ ourReadProcessInterleaved =
   readProcessInterleaved
     >>> tryIOTextET
     >>> fmapRT (\(a, b) -> (a, bytestringToText b))
+
+ourReadProcessInterleavedSem ::
+  Members '[P.Process] r =>
+  ProcessConfig stdin stdoutIgnored stderrIgnored ->
+  Sem r (ExitCode, Text)
+ourReadProcessInterleavedSem =
+  P.readInterleaved
+    >>> fmap (\(a, b) -> (a, bytestringToText b))
 
 silently :: ProcessConfig stdin stdout stderr -> ProcessConfig () () ()
 silently = setStderr closed >>> setStdin closed >>> setStdout closed

@@ -53,6 +53,6 @@ replaceIO :: MonadIO m => Text -> Text -> FilePath -> m Bool
 replaceIO find replacement file =
   liftIO
     $ runFinal
-    $ embedToFinal @IO
+    $ embedToFinal
     $ runIO
     $ (replace find replacement file)
