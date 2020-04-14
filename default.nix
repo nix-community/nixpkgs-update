@@ -1,3 +1,5 @@
+{ returnShellEnv ? false } :
+
 let
   sources = import ./nix/sources.nix;
   pkgs = import sources.nixpkgs {config = { allowBroken = true; }; };
@@ -13,6 +15,7 @@ let
     root = gitignoreSource ./.;
     overrides = self: super: { };
     source-overrides = { };
+    inherit returnShellEnv;
   };
 
 in pkg.overrideAttrs (attrs: {

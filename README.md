@@ -68,9 +68,9 @@ NixOS config with Niv:
 ```nix
 let
   sources = import ./nix/sources.nix;
-  nixpkgs-update = import sources.nixpkgs-update;
+  nixpkgs-update = import sources.nixpkgs-update {};
 in
-    environment.systemPackages = [ nixpkgs-update ];
+  environment.systemPackages = [ nixpkgs-update ];
 ```
 
 home-manager config with Niv:
@@ -78,9 +78,9 @@ home-manager config with Niv:
 ```nix
 let
   sources = import ./nix/sources.nix;
-  nixpkgs-update = import sources.nixpkgs-update;
+  nixpkgs-update = import sources.nixpkgs-update {};
 in
-    home.packages = [ nixpkgs-update ];
+  home.packages = [ nixpkgs-update ];
 ```
 
 # Interactive updates
