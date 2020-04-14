@@ -19,6 +19,7 @@ where
 
 import Control.Applicative (some)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import GitHub
@@ -28,6 +29,7 @@ import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
 import Utils (UpdateEnv (..), Version)
 import qualified Utils as U
+import System.IO.Temp (withSystemTempFile)
 
 default (T.Text)
 
@@ -43,9 +45,13 @@ releaseUrl env url = do
   gReleaseUrl (authFrom env) urlParts
 
 pr :: MonadIO m => Text -> Text -> m ()
-pr base msg =
-  runProcess_ $
-    proc "hub" ["pull-request", "-b", T.unpack base, "-m", T.unpack msg]
+pr base msg = do
+  liftIO $ withSystemTempFile
+    (T.unpack $ base <> "-prmsg")
+    (\fp handle -> do
+        T.hPutStr handle msg
+        runProcess_ $
+          proc "hub" ["pull-request", "-b", T.unpack base, "-f", fp])
 
 data URLParts
   = URLParts
