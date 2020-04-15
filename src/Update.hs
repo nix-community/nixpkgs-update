@@ -347,7 +347,8 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
             if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
               then "master"
               else "staging"
-      lift $ GH.pr base prMsg
+      pullRequestUrl <- GH.pr updateEnv (prTitle updateEnv attrPath) prMsg ("r-ryantm:" <> (branchName updateEnv)) base
+      liftIO $ log pullRequestUrl
     else liftIO $ T.putStrLn prMsg
 
 commitMessage :: UpdateEnv -> Text -> Text

@@ -140,7 +140,7 @@ main = do
       setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      result <- updatePackage (Options pr False token cve cachix nixpkgsReview False) update
+      result <- updatePackage (Options False False token cve cachix nixpkgsReview False) update
       case result of
         Left e -> T.putStrLn e
         Right () -> T.putStrLn "Done."

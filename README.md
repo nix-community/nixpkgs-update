@@ -103,7 +103,6 @@ nixpkgs-update supports interactive, single package updates via the
 
 # Flags
 
-* `--pr`&mdash;uses Hub to submit a PR to GitHub.
 * `--cve`&mdash;adds CVE vulnerability reporting to the PR message. On
   first invocation with this option, a CVE database is
   built. Subsequent invocations will be much faster.
