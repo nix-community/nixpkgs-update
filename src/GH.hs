@@ -51,7 +51,7 @@ pr base msg = do
     (\fp handle -> do
         T.hPutStr handle msg
         runProcess_ $
-          proc "hub" ["pull-request", "-b", T.unpack base, "-f", fp])
+          proc "hub" ["pull-request", "-b", T.unpack base, "-F", fp])
 
 data URLParts
   = URLParts
