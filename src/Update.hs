@@ -340,6 +340,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
           cveRep
           cachixTestInstructions
           nixpkgsReviewMsg
+  liftIO $ log prMsg
   if (doPR . options $ updateEnv)
     then do
       let base =

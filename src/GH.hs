@@ -30,6 +30,7 @@ import Text.Regex.Applicative.Text ((=~))
 import Utils (UpdateEnv (..), Version)
 import qualified Utils as U
 import System.IO.Temp (withSystemTempFile)
+import System.IO (hFlush)
 
 default (T.Text)
 
@@ -50,6 +51,7 @@ pr base msg = do
     (T.unpack $ base <> "-prmsg")
     (\fp handle -> do
         T.hPutStr handle msg
+        hFlush handle
         runProcess_ $
           proc "hub" ["pull-request", "-b", T.unpack base, "-F", fp])
 
