@@ -288,18 +288,18 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
   let metaHomepage =
         if u == T.empty
           then ""
-          else "\n\nmeta.homepage for " <> attrPath <> " is: " <> u
-  let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\nUpdates performed:" msgs
+          else "\nmeta.homepage for " <> attrPath <> " is: " <> u
+  let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" msgs
   releaseUrlMessage <-
     ( do
         msg <- GH.releaseUrl updateEnv newSrcUrl
-        return ("\n[Release on GitHub](" <> msg <> ")\n\n")
+        return ("\n- [Release on GitHub](" <> msg <> ")")
       )
       <|> return ""
   compareUrlMessage <-
     ( do
         msg <- GH.compareUrl oldSrcUrl newSrcUrl
-        return ("\n[Compare changes on GitHub](" <> msg <> ")\n\n")
+        return ("\n- [Compare changes on GitHub](" <> msg <> ")\n\n")
       )
       <|> return "\n"
   maintainers <- Nix.getMaintainers attrPath
@@ -391,30 +391,44 @@ prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releas
        $metaDescription
        $metaHomepage
        $rewriteMessages
+
+       ###### To inspect upstream changes
+
        $releaseUrlMessage
        $compareUrlMessage
+
+       ###### Impact
+
        <details>
        <summary>
-       Checks done (click to expand)
+       <b>Checks done</b> (click to expand)
        </summary>
+
+       ---
 
        - built on NixOS
        $resultCheckReport
 
+       ---
+
        </details>
        <details>
        <summary>
-       Rebuild report (if merged into master) (click to expand)
+       <b>Rebuild report</b> (if merged into master) (click to expand)
        </summary>
 
+       ```
        $opReport
+       ```
 
        </details>
 
        <details>
        <summary>
-       Instructions to test this update (click to expand)
+       <b>Instructions to test this update</b> (click to expand)
        </summary>
+
+       ---
 
        $cachixTestInstructions
        ```
@@ -427,11 +441,25 @@ prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releas
        ls -la $resultPath/bin
        ```
 
+       ---
 
        </details>
        <br/>
+
        $cveRep
+
+       # Pre-merge build results
+
+       We have automatically built all packages that will get rebuilt due to this change.
+
+       This gives evidence on whether the upgrade will break dependent packages.
+       Note sometimes packages show up as _failed to build_ independent of the change, simply because they are already broken on the target branch.
+
        $nixpkgsReviewMsg
+
+       ---
+
+       ###### Maintainer pings
 
        $maintainersCc
     |]
@@ -501,6 +529,8 @@ cveReport updateEnv =
         else
           return
             [interpolate|
+      ###### Security vulnerability report
+
       <details>
       <summary>
       Security report (click to expand)
@@ -528,7 +558,7 @@ doCachix log updateEnv resultPath =
       Nix.cachix resultPath
       return
         [interpolate|
-       Either download from Cachix:
+       Either **download from Cachix**:
        ```
        nix-store -r $resultPath \
          --option binary-caches 'https://cache.nixos.org/ https://r-ryantm.cachix.org/' \
@@ -540,7 +570,7 @@ doCachix log updateEnv resultPath =
        (r-ryantm's Cachix cache is only trusted for this store-path realization.)
        For the Cachix download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
 
-       Or, build yourself:
+       Or, **build yourself**:
        |]
     else do
       lift $ log "skipping cachix"
