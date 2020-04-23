@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7492d0fc2af5df377764d358317e0892c0bda2961943218f8dcdeef179700cd9
+-- hash: 0401b3234ff350b39169d38415559f3fe383a70cd04480c173c8219d5177c8ca
 
 name:           nixpkgs-update
 version:        0.2.0
@@ -152,6 +152,7 @@ test-suite spec
   other-modules:
       DoctestSpec
       RewriteSpec
+      UpdateSpec
       Paths_nixpkgs_update
   hs-source-dirs:
       test
