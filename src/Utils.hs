@@ -127,7 +127,7 @@ prTitle :: UpdateEnv -> Text -> Text
 prTitle updateEnv attrPath =
   let oV = oldVersion updateEnv
       nV = newVersion updateEnv
-   in [interpolate| $attrPath: $oV -> $nV |]
+   in T.strip [interpolate| $attrPath: $oV -> $nV |]
 
 regDirMode :: FileMode
 regDirMode =
