@@ -6,12 +6,13 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
-  ( updateAll,
-    updatePackage,
-    cveReport,
+  ( addPatched,
     cveAll,
+    cveReport,
+    prMessage,
     sourceGithubAll,
-    addPatched,
+    updateAll,
+    updatePackage,
   )
 where
 
@@ -236,7 +237,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
     let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
-    msgs <- Rewrite.runAll log rwArgs
+    rewriteMsgs <- Rewrite.runAll log rwArgs
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
@@ -259,7 +260,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- Publish the result
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result (Just opDiff) msgs
+    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
     Git.cleanAndResetTo "master"
 
 publishPackage ::
@@ -272,41 +273,18 @@ publishPackage ::
   Maybe (Set ResultLine) ->
   [Text] ->
   ExceptT Text IO ()
-publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = do
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteMsgs = do
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
       Right () -> lift $ Check.result updateEnv (T.unpack result)
       Left msg -> pure msg
-  d <- Nix.getDescription attrPath <|> return T.empty
-  u <- Nix.getHomepageET attrPath <|> return T.empty
+  metaDescription <- Nix.getDescription attrPath <|> return T.empty
+  metaHomepage <- Nix.getHomepageET attrPath <|> return T.empty
   cveRep <- liftIO $ cveReport updateEnv
-  let metaDescription =
-        if d == T.empty
-          then ""
-          else "\n\nmeta.description for " <> attrPath <> " is: " <> d
-  let metaHomepage =
-        if u == T.empty
-          then ""
-          else "\nmeta.homepage for " <> attrPath <> " is: " <> u
-  let rewriteMessages = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" msgs
-  releaseUrlMessage <-
-    ( do
-        msg <- GH.releaseUrl updateEnv newSrcUrl
-        return ("\n- [Release on GitHub](" <> msg <> ")")
-      )
-      <|> return ""
-  compareUrlMessage <-
-    ( do
-        msg <- GH.compareUrl oldSrcUrl newSrcUrl
-        return ("\n- [Compare changes on GitHub](" <> msg <> ")\n\n")
-      )
-      <|> return "\n"
+  releaseUrl <- GH.releaseUrl updateEnv newSrcUrl <|> return ""
+  compareUrl <- GH.compareUrl oldSrcUrl newSrcUrl <|> return ""
   maintainers <- Nix.getMaintainers attrPath
-  let maintainersCc =
-        if not (T.null maintainers)
-          then "\n\ncc " <> maintainers <> " for testing."
-          else ""
   let commitMsg = commitMessage updateEnv attrPath
   Git.commit commitMsg
   commitHash <- Git.headHash
@@ -328,13 +306,13 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff msgs = d
           isBroken
           metaDescription
           metaHomepage
-          rewriteMessages
-          releaseUrlMessage
-          compareUrlMessage
+          rewriteMsgs
+          releaseUrl
+          compareUrl
           resultCheckReport
           commitHash
           attrPath
-          maintainersCc
+          maintainers
           result
           (fromMaybe "" (outpathReport <$> opDiff))
           cveRep
@@ -364,7 +342,7 @@ prMessage ::
   Bool ->
   Text ->
   Text ->
-  Text ->
+  [Text] ->
   Text ->
   Text ->
   Text ->
@@ -377,20 +355,44 @@ prMessage ::
   Text ->
   Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage rewriteMessages releaseUrlMessage compareUrlMessage resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
+prMessage updateEnv isBroken metaDescription metaHomepage rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainers resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
+  -- Some components of the PR description are pre-generated prior to calling
+  -- because they require IO, but in general try to put as much as possible for
+  -- the formatting into the pure function so that we can control the body
+  -- formatting in one place and unit test it.
   let brokenMsg = brokenWarning isBroken
       title = prTitle updateEnv attrPath
-      sourceLinkInfo = maybe "" pattern $ sourceURL updateEnv
-        where
-          pattern link = [interpolate|This update was made based on information from $link.|]
+      metaHomepageLine =
+        if metaHomepage == T.empty
+          then ""
+          else "\nmeta.homepage for " <> attrPath <> " is: " <> metaHomepage
+      metaDescriptionLine =
+        if metaDescription == T.empty
+          then ""
+          else "\n\nmeta.description for " <> attrPath <> " is: " <> metaDescription
+      rewriteMsgsLine = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" rewriteMsgs
+      maintainersCc =
+        if not (T.null maintainers)
+          then "\n\ncc " <> maintainers <> " for testing."
+          else ""
+      releaseUrlMessage =
+        if releaseUrl == T.empty
+          then ""
+          else "\n- [Release on GitHub](" <> releaseUrl <> ")"
+      compareUrlMessage =
+        if compareUrl == T.empty
+          then ""
+          else "\n- [Compare changes on GitHub](" <> compareUrl <> ")\n\n"
+      pat link = [interpolate|This update was made based on information from $link.|]
+      sourceLinkInfo = maybe "" pat $ sourceURL updateEnv
    in [interpolate|
        $title
 
        Semi-automatic update generated by [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) tools. $sourceLinkInfo
        $brokenMsg
-       $metaDescription
-       $metaHomepage
-       $rewriteMessages
+       $metaDescriptionLine
+       $metaHomepageLine
+       $rewriteMsgsLine
 
        ###### To inspect upstream changes
 

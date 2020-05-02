@@ -35,7 +35,7 @@ spec = do
             . Process.runPure ["\"http://troglobit.com/project/inadyn/\""]
             . Error.errorToIOFinal
             $ Rewrite.quotedUrls rwArgs
-        )
+          )
       T.putStrLn $ T.unlines logs
       head logs `shouldBe` "[quotedUrls]"
       result `shouldBe` Right (Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)")
