@@ -42,8 +42,10 @@ dependencies:
   - errors
   - filepath
   - github
+  - http-client
   - http-client-tls
   - http-conduit
+  - http-types
   - iso8601-time
   - lifted-base
   - mtl

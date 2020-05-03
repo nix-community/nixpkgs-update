@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Rewrite
   ( Args (..),
@@ -8,11 +9,15 @@ module Rewrite
     quotedUrlsET,
     rustCrateVersion,
     version,
+    redirectedUrls,
   )
 where
 
 import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8)
 import qualified File
+import qualified Network.HTTP.Client as HTTP
+import Network.HTTP.Types.Status (statusCode)
 import qualified Nix
 import OurPrelude
 import qualified Polysemy.Error as Error
@@ -50,24 +55,33 @@ data Args
 
 runAll :: (Text -> IO ()) -> Args -> ExceptT Text IO [Text]
 runAll log rwArgs = do
-  msg1 <- Rewrite.version log rwArgs
-  msg2 <- Rewrite.rustCrateVersion log rwArgs
-  msg3 <- Rewrite.golangModuleVersion log rwArgs
-  msg4 <- Rewrite.quotedUrlsET log rwArgs
-  return $ catMaybes [msg1, msg2, msg3, msg4]
+  let rewriters =
+        [ ("version", Rewrite.version),
+          ("rustCrateVersion", Rewrite.rustCrateVersion),
+          ("golangModuleVersion", Rewrite.golangModuleVersion),
+          ("", Rewrite.quotedUrlsET), -- Don't change the logger
+          ("redirectedUrl", Rewrite.redirectedUrls)
+        ]
+  msgs <- forM rewriters $ \(name, f) -> do
+    let log' msg =
+          if T.null name
+            then log msg
+            else log $ ("[" <> name <> "] ") <> msg
+    lift $ log' "" -- Print initial empty message to signal start of rewriter
+    f log' rwArgs
+  return $ catMaybes msgs
 
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
 version :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 version log args@(Args _ _ _ drvContents) = do
-  lift $ log "[version]"
   if Nix.numberOfFetchers drvContents > 1 || Nix.numberOfHashes drvContents > 1
     then do
-      lift $ log "[version] generic version rewriter does not support multiple hashes"
+      lift $ log "generic version rewriter does not support multiple hashes"
       return Nothing
     else do
       srcVersionFix args
-      lift $ log "[version] updated version and sha256"
+      lift $ log "updated version and sha256"
       return $ Just "Version update"
 
 --------------------------------------------------------------------------------
@@ -109,15 +123,46 @@ quotedUrlsET log rwArgs =
     $ quotedUrls rwArgs
 
 --------------------------------------------------------------------------------
+-- Redirect homepage when moved.
+redirectedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+redirectedUrls log (Args _ attrPth drvFile _) = do
+  lift $ log ""
+  homepage <- Nix.getHomepageET attrPth
+  response <- liftIO $ do
+    manager <- HTTP.newManager HTTP.defaultManagerSettings
+    request <- HTTP.parseRequest (T.unpack homepage)
+    HTTP.httpLbs request manager
+  let status = statusCode $ HTTP.responseStatus response
+  if status `elem` [301, 308]
+    then do
+      lift $ log "Redirecting URL"
+      let headers = HTTP.responseHeaders response
+          location = lookup "Location" headers
+      case location of
+        Nothing -> do
+          lift $ log "Server did not return a location"
+          return Nothing
+        Just (decodeUtf8 -> newHomepage) -> do
+          File.replaceIO homepage newHomepage drvFile
+          lift $ log "Replaced homepage"
+          return $ Just $
+            "Replaced homepage by "
+              <> newHomepage
+              <> " due http "
+              <> (T.pack . show) status
+    else do
+      lift $ log "URL not redirected"
+      return Nothing
+
+--------------------------------------------------------------------------------
 -- Rewrite Rust on rustPlatform.buildRustPackage
 -- This is basically `version` above, but with a second pass to also update the
 -- cargoSha256 vendor hash.
 rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
-  lift $ log "[rustCrateVersion]"
   if not (T.isInfixOf "cargoSha256" drvContents)
     then do
-      lift $ log "[rustCrateVersion] No cargoSha256 found"
+      lift $ log "No cargoSha256 found"
       return Nothing
     else do
       -- This starts the same way `version` does, minus the assert
@@ -127,11 +172,11 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
       _ <- lift $ File.replaceIO oldCargoSha256 Nix.sha256Zero drvFile
       newCargoSha256 <- Nix.getHashFromBuild attrPth
       when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
-      lift . log $ "[rustCrateVersion] Replacing cargoSha256 with " <> newCargoSha256
+      lift . log $ "Replacing cargoSha256 with " <> newCargoSha256
       _ <- lift $ File.replaceIO Nix.sha256Zero newCargoSha256 drvFile
       -- Ensure the package actually builds and passes its tests
       Nix.build attrPth
-      lift $ log "[rustCrateVersion] Finished updating Crate version and replacing hashes"
+      lift $ log "Finished updating Crate version and replacing hashes"
       return $ Just "Rust version update"
 
 --------------------------------------------------------------------------------
@@ -140,25 +185,24 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
 -- modSha256 go vendor hash.
 golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
-  lift $ log "[golangModuleVersion]"
   if not (T.isInfixOf "buildGoModule" drvContents && T.isInfixOf "modSha256" drvContents)
     then do
-      lift $ log "[golangModuleVersion] Not a buildGoModule package with modSha256"
+      lift $ log "Not a buildGoModule package with modSha256"
       return Nothing
     else do
       -- This starts the same way `version` does, minus the assert
       srcVersionFix args
       -- But then from there we need to do this a second time for the modSha256!
       oldModSha256 <- Nix.getAttr "modSha256" attrPth
-      lift . log $ "[golangModuleVersion] Found old modSha256 = " <> oldModSha256
+      lift . log $ "Found old modSha256 = " <> oldModSha256
       _ <- lift $ File.replaceIO oldModSha256 Nix.sha256Zero drvFile
       newModSha256 <- Nix.getHashFromBuild attrPth
       when (oldModSha256 == newModSha256) $ throwE "modSha256 hashes equal; no update necessary"
-      lift . log $ "[golangModuleVersion] Replacing modSha256 with " <> newModSha256
+      lift . log $ "Replacing modSha256 with " <> newModSha256
       _ <- lift $ File.replaceIO Nix.sha256Zero newModSha256 drvFile
       -- Ensure the package actually builds and passes its tests
       Nix.build attrPth
-      lift $ log "[golangModuleVersion] Finished updating modSha256"
+      lift $ log "Finished updating modSha256"
       return $ Just "Golang update"
 
 --------------------------------------------------------------------------------
