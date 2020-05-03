@@ -11,7 +11,6 @@ module Utils
     VersionMatcher (..),
     UpdateEnv (..),
     URL,
-    setupNixpkgs,
     tRead,
     parseUpdates,
     overwriteErrorT,
@@ -44,10 +43,9 @@ import Database.SQLite.Simple.Ok (Ok (..))
 import Database.SQLite.Simple.ToField (ToField, toField)
 import OurPrelude
 import Polysemy.Output
-import System.Directory (doesDirectoryExist, getCurrentDirectory, setCurrentDirectory)
-import System.Environment.XDG.BaseDir (getUserCacheDir)
+import System.Directory (doesDirectoryExist)
 import System.Posix.Directory (createDirectory)
-import System.Posix.Env (getEnv, setEnv)
+import System.Posix.Env (getEnv)
 import System.Posix.Files
   ( directoryMode,
     fileExist,
@@ -58,7 +56,6 @@ import System.Posix.Files
   )
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
-import qualified System.Process.Typed
 import Text.Read (readEither)
 import Type.Reflection (Typeable)
 
@@ -188,29 +185,6 @@ logDir = do
   case r of
     Right dir -> return dir
     Left e -> error $ T.unpack e
-
-setupNixpkgs :: Text -> IO ()
-setupNixpkgs githubt = do
-  currentDir <- getCurrentDirectory
-  if "nixpkgs" `isSuffixOf` currentDir
-    then do
-      T.putStrLn "Looks like current directory is a nixpkgs checkout, so using that."
-      System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> currentDir) True
-    else do
-      T.putStrLn "Looks like current directory is not a nixpkgs checkout, so trying to use .cache/nixpkgs."
-      fp <- getUserCacheDir "nixpkgs"
-      exists <- doesDirectoryExist fp
-      unless exists $ do
-        proc "hub" ["clone", "nixpkgs", fp]
-          & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
-          [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
-          & runProcess_
-        setCurrentDirectory fp
-        shell "git remote add upstream https://github.com/NixOS/nixpkgs"
-          & runProcess_
-        shell "git fetch upstream" & runProcess_
-      setCurrentDirectory fp
-      System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
 overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
 overwriteErrorT t = fmapLT (const t)
