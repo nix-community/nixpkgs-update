@@ -59,12 +59,15 @@ runAll log rwArgs = do
         [ ("version", Rewrite.version),
           ("rustCrateVersion", Rewrite.rustCrateVersion),
           ("golangModuleVersion", Rewrite.golangModuleVersion),
-          ("quotedUrlsET", Rewrite.quotedUrlsET),
-          ("redirectedUrl", Rewrite.redirectedUrl)
+          ("", Rewrite.quotedUrlsET), -- Don't change the logger
+          ("redirectedUrl", Rewrite.redirectedUrls)
         ]
-  msgs <- for rewriters $ \(name, f) -> do
-    let log' msg = log $ "[" <> name <> "] " <> msg
-    log' "" -- Print initial empty message to signal start of rewriter
+  msgs <- forM rewriters $ \(name, f) -> do
+    let log' msg =
+          if T.null name
+            then log msg
+            else log $ ("[" <> name <> "] ") <> msg
+    lift $ log' "" -- Print initial empty message to signal start of rewriter
     f log' rwArgs
   return $ catMaybes msgs
 
@@ -89,6 +92,7 @@ quotedUrls ::
   Args ->
   Sem r (Maybe Text)
 quotedUrls (Args _ attrPth drvFile _) = do
+  output "[quotedUrls]"
   homepage <- Nix.getHomepage attrPth
   -- Bit of a hack, but the homepage that comes out of nix-env is *always*
   -- quoted by the nix eval, so we drop the first and last characters.
@@ -100,10 +104,10 @@ quotedUrls (Args _ attrPth drvFile _) = do
   urlReplaced4 <- File.replace ("homepage =" <> stripped <> "; ") goodHomepage drvFile
   if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
     then do
-      output "added quotes to meta.homepage"
+      output "[quotedUrls]: added quotes to meta.homepage"
       return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
     else do
-      output "nothing found to replace"
+      output "[quotedUrls] nothing found to replace"
       return Nothing
 
 quotedUrlsET :: MonadIO m => (Text -> IO ()) -> Args -> ExceptT Text m (Maybe Text)
@@ -122,7 +126,7 @@ quotedUrlsET log rwArgs =
 -- Redirect homepage when moved.
 redirectedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 redirectedUrls log (Args _ attrPth drvFile _) = do
-  log' ""
+  lift $ log ""
   homepage <- Nix.getHomepageET attrPth
   response <- liftIO $ do
     manager <- HTTP.newManager HTTP.defaultManagerSettings
@@ -131,23 +135,23 @@ redirectedUrls log (Args _ attrPth drvFile _) = do
   let status = statusCode $ HTTP.responseStatus response
   if status `elem` [301, 308]
     then do
-      log' "Redirecting URL"
+      lift $ log "Redirecting URL"
       let headers = HTTP.responseHeaders response
           location = lookup "Location" headers
       case location of
         Nothing -> do
-          log' "Server did not return a location"
+          lift $ log "Server did not return a location"
           return Nothing
         Just (decodeUtf8 -> newHomepage) -> do
           File.replaceIO homepage newHomepage drvFile
-          log' "Replaced homepage"
+          lift $ log "Replaced homepage"
           return $ Just $
             "Replaced homepage by "
               <> newHomepage
               <> " due http "
               <> (T.pack . show) status
     else do
-      log' "URL not redirected"
+      lift $ log "URL not redirected"
       return Nothing
 
 --------------------------------------------------------------------------------
