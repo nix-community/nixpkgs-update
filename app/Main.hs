@@ -17,7 +17,8 @@ import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
-import Utils (Options (..), UpdateEnv (..), getGithubToken, setupNixpkgs)
+import Utils (Options (..), UpdateEnv (..), getGithubToken)
+import Git
 
 default (T.Text)
 
@@ -125,22 +126,22 @@ main = do
   case command of
     DeleteDone -> do
       token <- getGithubToken
-      setupNixpkgs token
+      Git.setupNixpkgs token
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       deleteDone token
     UpdateList UpdateOptions {pr, cachix, cve, nixpkgsReview, outpaths} -> do
       token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
-      setupNixpkgs token
+      Git.setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
       updateAll (Options pr True token cve cachix nixpkgsReview outpaths) updates
     Update UpdateOptions {pr, cve, cachix, nixpkgsReview} update -> do
       token <- getGithubToken
-      setupNixpkgs token
+      Git.setupNixpkgs token
       P.setEnv "PAGER" "" True
       P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      result <- updatePackage (Options False False token cve cachix nixpkgsReview False) update
+      result <- updatePackage (Options pr False token cve cachix nixpkgsReview False) update
       case result of
         Left e -> T.putStrLn e
         Right () -> T.putStrLn "Done."

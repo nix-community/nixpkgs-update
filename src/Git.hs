@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Git
-  ( cleanAndResetTo,
-    cleanup,
-    diff,
-    fetchIfStale,
-    fetch,
-    push,
+  ( checkAutoUpdateBranchDoesntExist,
     checkoutAtMergeBase,
-    checkAutoUpdateBranchDoesntExist,
+    cleanAndResetTo,
+    cleanup,
     commit,
-    headHash,
     deleteBranchesEverywhere,
+    diff,
+    fetch,
+    fetchIfStale,
+    headHash,
+    push,
+    setupNixpkgs,
   )
 where
 
@@ -20,12 +21,14 @@ import Control.Exception
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
+import qualified System.Process.Typed
 import qualified Data.Text.Encoding as T
+import System.Posix.Env (setEnv)
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import OurPrelude hiding (throw)
-import System.Directory (getModificationTime)
+import System.Directory (doesDirectoryExist, getModificationTime, setCurrentDirectory)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit
 import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
@@ -101,6 +104,26 @@ push updateEnv =
             ++ ["--dry-run" | not (doPR (options updateEnv))]
         )
     )
+
+-- Setup a NixPkgs clone in $XDG_CACHE_DIR/nixpkgs
+-- Since we are going to have to fetch, git reset, clean, and commit, we setup a
+-- cache dir to avoid destroying any uncommitted work the user may have in PWD.
+setupNixpkgs :: Text -> IO ()
+setupNixpkgs githubt = do
+  fp <- getUserCacheDir "nixpkgs"
+  exists <- doesDirectoryExist fp
+  unless exists $ do
+    proc "hub" ["clone", "nixpkgs", fp]
+      & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
+      [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
+      & runProcess_
+    setCurrentDirectory fp
+    shell "git remote add upstream https://github.com/NixOS/nixpkgs"
+      & runProcess_
+  setCurrentDirectory fp
+  _ <- runExceptT fetchIfStale
+  _ <- runExceptT $ cleanAndResetTo "master"
+  System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
 checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
 checkoutAtMergeBase bName = do
