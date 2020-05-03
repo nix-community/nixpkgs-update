@@ -54,7 +54,7 @@ data Args
       }
 
 runAll :: (Text -> IO ()) -> Args -> ExceptT Text IO [Text]
-runAll log rwArgs =
+runAll log rwArgs = do
   let rewriters =
         [ ("version", Rewrite.version),
           ("rustCrateVersion", Rewrite.rustCrateVersion),
@@ -62,13 +62,11 @@ runAll log rwArgs =
           ("quotedUrlsET", Rewrite.quotedUrlsET),
           ("redirectedUrl", Rewrite.redirectedUrl)
         ]
-   in do
-        msgs <- for rewriters $ \(name, f) ->
-          let log' msg = log $ "[" <> name <> "] " <> msg
-           in do
-                log' "" -- Print initial empty message to signal start of rewriter
-                f log' rwArgs
-        return $ catMaybes msgs
+  msgs <- for rewriters $ \(name, f) -> do
+    let log' msg = log $ "[" <> name <> "] " <> msg
+    log' "" -- Print initial empty message to signal start of rewriter
+    f log' rwArgs
+  return $ catMaybes msgs
 
 --------------------------------------------------------------------------------
 -- The canonical updater: updates the src attribute and recomputes the sha256
