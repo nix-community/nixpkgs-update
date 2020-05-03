@@ -284,6 +284,10 @@ publishPackage ::
   [Text] ->
   ExceptT Text IO ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteMsgs = do
+  let prBase =
+        if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
+        then "master"
+        else "staging"
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
@@ -299,7 +303,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
   Git.commit commitMsg
   commitHash <- Git.headHash
   nixpkgsReviewMsg <-
-    if runNixpkgsReview . options $ updateEnv
+    if prBase /= "staging" && (runNixpkgsReview . options $ updateEnv)
       then liftIO $ NixpkgsReview.runReport log commitHash
       else return ""
   -- Try to push it three times
@@ -331,13 +335,9 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
   liftIO $ log prMsg
   if (doPR . options $ updateEnv)
     then do
-      let base =
-            if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
-              then "master"
-              else "staging"
       -- FIXME: #192 This needs to be detected dynamically. Use the hub token or GH library?
       let ghUser = "r-ryantm"
-      pullRequestUrl <- GH.pr updateEnv (prTitle updateEnv attrPath) prMsg (ghUser <> ":" <> (branchName updateEnv)) base
+      pullRequestUrl <- GH.pr updateEnv (prTitle updateEnv attrPath) prMsg (ghUser <> ":" <> (branchName updateEnv)) prBase
       liftIO $ log pullRequestUrl
     else liftIO $ T.putStrLn prMsg
 
