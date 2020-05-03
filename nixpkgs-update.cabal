@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 07126c7eb0b21ed69827f9646252afa68266648544e4d54c4edf22d074c5bb19
+-- hash: 423912d97dc4b89c2c6324797efb0befbf8ddf7701f87d49c4da3e9ee426419f
 
 name:           nixpkgs-update
 version:        0.2.0
@@ -66,8 +66,10 @@ library
     , errors
     , filepath
     , github
+    , http-client
     , http-client-tls
     , http-conduit
+    , http-types
     , iso8601-time
     , lifted-base
     , mtl
@@ -115,8 +117,10 @@ executable nixpkgs-update
     , errors
     , filepath
     , github
+    , http-client
     , http-client-tls
     , http-conduit
+    , http-types
     , iso8601-time
     , lifted-base
     , mtl
@@ -173,8 +177,10 @@ test-suite spec
     , github
     , hspec
     , hspec-discover
+    , http-client
     , http-client-tls
     , http-conduit
+    , http-types
     , iso8601-time
     , lifted-base
     , mtl
