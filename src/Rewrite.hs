@@ -143,7 +143,7 @@ redirectedUrls log (Args _ attrPth drvFile _) = do
           lift $ log "Server did not return a location"
           return Nothing
         Just (decodeUtf8 -> newHomepage) -> do
-          File.replaceIO homepage newHomepage drvFile
+          _ <- File.replaceIO homepage newHomepage drvFile
           lift $ log "Replaced homepage"
           return $ Just $
             "Replaced homepage by "

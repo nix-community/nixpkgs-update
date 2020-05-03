@@ -26,7 +26,6 @@ module Utils
   )
 where
 
-import Data.List (isSuffixOf)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
 import qualified Data.Text as T

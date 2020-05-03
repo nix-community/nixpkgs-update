@@ -373,7 +373,6 @@ prMessage updateEnv isBroken metaDescription metaHomepage rewriteMsgs releaseUrl
   -- the formatting into the pure function so that we can control the body
   -- formatting in one place and unit test it.
   let brokenMsg = brokenWarning isBroken
-      title = prTitle updateEnv attrPath
       metaHomepageLine =
         if metaHomepage == T.empty
           then ""
