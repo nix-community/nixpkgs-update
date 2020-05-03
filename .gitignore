@@ -1,8 +1,9 @@
+.ghc*
 /github_token.txt
+/nixpkgs-update.nix
 /packages-to-update.txt
 /result
-dist/
 dist-newstyle/
-/nixpkgs-update.nix
-.ghc*
+dist/
 store-path-pre-build
+test_data/actual*

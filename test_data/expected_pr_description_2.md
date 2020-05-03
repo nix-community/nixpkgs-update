@@ -71,14 +71,7 @@ ls -la /nix/store/some-hash-path/bin
 
 ### Pre-merge build results
 
-We have automatically built all packages that will get rebuilt due to
-this change.
-
-This gives evidence on whether the upgrade will break dependent packages.
-Note sometimes packages show up as _failed to build_ independent of the
-change, simply because they are already broken on the target branch.
-
-nixpkgs-review comment body
+NixPkgs review skipped
 
 ---
 

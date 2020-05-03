@@ -394,6 +394,19 @@ prMessage updateEnv isBroken metaDescription metaHomepage rewriteMsgs releaseUrl
         if compareUrl == T.empty
           then ""
           else "\n- [Compare changes on GitHub](" <> compareUrl <> ")\n\n"
+      nixpkgsReviewSection =
+        if nixpkgsReviewMsg == T.empty
+          then "NixPkgs review skipped"
+          else [interpolate|
+            We have automatically built all packages that will get rebuilt due to
+            this change.
+
+            This gives evidence on whether the upgrade will break dependent packages.
+            Note sometimes packages show up as _failed to build_ independent of the
+            change, simply because they are already broken on the target branch.
+
+            $nixpkgsReviewMsg
+            |]
       pat link = [interpolate|This update was made based on information from $link.|]
       sourceLinkInfo = maybe "" pat $ sourceURL updateEnv
    in [interpolate|
@@ -459,14 +472,9 @@ prMessage updateEnv isBroken metaDescription metaHomepage rewriteMsgs releaseUrl
 
        $cveRep
 
-       # Pre-merge build results
+       ### Pre-merge build results
 
-       We have automatically built all packages that will get rebuilt due to this change.
-
-       This gives evidence on whether the upgrade will break dependent packages.
-       Note sometimes packages show up as _failed to build_ independent of the change, simply because they are already broken on the target branch.
-
-       $nixpkgsReviewMsg
+       $nixpkgsReviewSection
 
        ---
 
