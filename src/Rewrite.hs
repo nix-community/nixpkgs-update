@@ -26,6 +26,7 @@ import qualified Process
 import qualified Utils
   ( UpdateEnv (..),
     runLog,
+    stripQuotes,
   )
 import Prelude hiding (log)
 
@@ -59,8 +60,8 @@ runAll log rwArgs = do
         [ ("version", Rewrite.version),
           ("rustCrateVersion", Rewrite.rustCrateVersion),
           ("golangModuleVersion", Rewrite.golangModuleVersion),
-          ("", Rewrite.quotedUrlsET) -- Don't change the logger
-          -- ("redirectedUrl", Rewrite.redirectedUrls)
+          ("", Rewrite.quotedUrlsET), -- Don't change the logger
+          ("redirectedUrl", Rewrite.redirectedUrls)
         ]
   msgs <- forM rewriters $ \(name, f) -> do
     let log' msg =
@@ -94,9 +95,9 @@ quotedUrls ::
 quotedUrls (Args _ attrPth drvFile _) = do
   output "[quotedUrls]"
   homepage <- Nix.getHomepage attrPth
-  -- Bit of a hack, but the homepage that comes out of nix-env is *always*
-  -- quoted by the nix eval, so we drop the first and last characters.
-  let stripped = T.init . T.tail $ homepage
+  stripped <- case Utils.stripQuotes homepage of
+    Nothing -> throw "Could not strip url! This should never happen!"
+    Just x -> pure x
   let goodHomepage = "homepage = " <> homepage <> ";"
   urlReplaced1 <- File.replace ("homepage = " <> stripped <> ";") goodHomepage drvFile
   urlReplaced2 <- File.replace ("homepage = " <> stripped <> " ;") goodHomepage drvFile
@@ -126,8 +127,10 @@ quotedUrlsET log rwArgs =
 -- Redirect homepage when moved.
 redirectedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 redirectedUrls log (Args _ attrPth drvFile _) = do
-  lift $ log ""
-  homepage <- Nix.getHomepageET attrPth
+  unstripped <- Nix.getHomepageET attrPth
+  homepage <- case Utils.stripQuotes unstripped of
+    Nothing -> throwE "Could not strip homepage! This should never happen!"
+    Just x -> pure x
   response <- liftIO $ do
     manager <- HTTP.newManager HTTP.defaultManagerSettings
     request <- HTTP.parseRequest (T.unpack homepage)

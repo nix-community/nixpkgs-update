@@ -23,6 +23,7 @@ module Utils
     nixCommonOptions,
     runLog,
     getGithubToken,
+    stripQuotes,
   )
 where
 
@@ -275,3 +276,6 @@ getGithubToken = do
   lt <- localToken
   ht <- hubConfigToken
   return $ fromJust (et <|> lt <|> ht)
+
+stripQuotes :: Text -> Maybe Text
+stripQuotes = T.stripPrefix "\"" >=> T.stripSuffix "\""
