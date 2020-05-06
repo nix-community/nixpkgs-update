@@ -60,8 +60,8 @@ runAll log rwArgs = do
         [ ("version", Rewrite.version),
           ("rustCrateVersion", Rewrite.rustCrateVersion),
           ("golangModuleVersion", Rewrite.golangModuleVersion),
-          ("", Rewrite.quotedUrlsET), -- Don't change the logger
-          ("redirectedUrl", Rewrite.redirectedUrls)
+          ("", Rewrite.quotedUrlsET) -- Don't change the logger
+          --("redirectedUrl", Rewrite.redirectedUrls)
         ]
   msgs <- forM rewriters $ \(name, f) -> do
     let log' msg =
