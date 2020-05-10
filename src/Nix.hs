@@ -10,6 +10,7 @@ module Nix
     build,
     cachix,
     getAttr,
+    getChangelog,
     getDerivationFile,
     getDescription,
     getDrvAttr,
@@ -196,6 +197,16 @@ getIsBroken attrPath =
     )
     & readNixBool
     & overwriteErrorT ("Could not get meta.broken for attrpath " <> attrPath)
+
+getChangelog :: MonadIO m => Text -> ExceptT Text m Text
+getChangelog attrPath =
+  nixEvalET
+    (EvalOptions NoRaw (Env []))
+    ( "(let pkgs = import ./. {}; in pkgs."
+        <> attrPath
+        <> ".meta.changelog or \"\")"
+    )
+    & overwriteErrorT ("Could not get meta.changelog for attrpath " <> attrPath)
 
 getDescription :: MonadIO m => Text -> ExceptT Text m Text
 getDescription attrPath =
