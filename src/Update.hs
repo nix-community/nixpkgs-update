@@ -391,16 +391,16 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
       rewriteMsgsLine = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" rewriteMsgs
       maintainersCc =
         if not (T.null maintainers)
-          then "\n\ncc " <> maintainers <> " for testing."
+          then "cc " <> maintainers <> " for testing."
           else ""
       releaseUrlMessage =
         if releaseUrl == T.empty
           then ""
-          else "\n- [Release on GitHub](" <> releaseUrl <> ")"
+          else "- [Release on GitHub](" <> releaseUrl <> ")"
       compareUrlMessage =
         if compareUrl == T.empty
           then ""
-          else "\n- [Compare changes on GitHub](" <> compareUrl <> ")\n\n"
+          else "- [Compare changes on GitHub](" <> compareUrl <> ")"
       nixpkgsReviewSection =
         if nixpkgsReviewMsg == T.empty
           then "NixPkgs review skipped"
@@ -431,6 +431,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
        ###### To inspect upstream changes
 
        $releaseUrlMessage
+
        $compareUrlMessage
 
        ###### Impact

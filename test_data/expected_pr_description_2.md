@@ -14,11 +14,9 @@ meta.changelog for foobar is: "https://foobar-homepage.com/changelog/v1.2.3"
 
 ###### To inspect upstream changes
 
-
 - [Release on GitHub](https://github.com/foobar/releases)
 
 - [Compare changes on GitHub](https://github.com/foobar/compare)
-
 
 ###### Impact
 
@@ -78,7 +76,5 @@ NixPkgs review skipped
 ---
 
 ###### Maintainer pings
-
-
 
 cc @maintainer1 for testing.
