@@ -5,5 +5,4 @@
 /result
 dist-newstyle/
 dist/
-store-path-pre-build
 test_data/actual*
