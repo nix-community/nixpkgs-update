@@ -54,16 +54,40 @@ data Args = Args
     derivationContents :: Text
   }
 
+type Rewriter = (Text -> IO ()) -> Args -> ExceptT Text IO (Maybe Text)
+type Plan = [ (Text, Rewriter) ]
+
+standardPlan :: Plan
+standardPlan =
+  [ ("version", version),
+    ("rustCrateVersion", rustCrateVersion),
+    ("golangModuleVersion", golangModuleVersion),
+    ("", quotedUrlsET) -- Don't change the logger
+    --("redirectedUrl", Rewrite.redirectedUrls)
+  ]
+
+updateScriptPlan :: Plan
+updateScriptPlan =
+  [ ("updateScript", updateScript),
+    ("", Rewrite.quotedUrlsET) -- Don't change the logger
+    --("redirectedUrl", Rewrite.redirectedUrls)
+  ]
+
+getPlan :: (Text -> IO ()) -> Args -> ExceptT Text IO Plan
+getPlan log rwArgs = do
+  hasUpdateScript <- Nix.hasUpdateScript (attrPath rwArgs)
+  if hasUpdateScript
+    then do
+    lift $ log $ "Using updateScript plan"
+    return updateScriptPlan
+    else do
+    lift $ log $ "Using standard rewriter plan"
+    return standardPlan
+
 runAll :: (Text -> IO ()) -> Args -> ExceptT Text IO [Text]
 runAll log rwArgs = do
-  let rewriters =
-        [ ("version", Rewrite.version),
-          ("rustCrateVersion", Rewrite.rustCrateVersion),
-          ("golangModuleVersion", Rewrite.golangModuleVersion),
-          ("", Rewrite.quotedUrlsET) -- Don't change the logger
-          --("redirectedUrl", Rewrite.redirectedUrls)
-        ]
-  msgs <- forM rewriters $ \(name, f) -> do
+  plan <- getPlan log rwArgs
+  msgs <- forM plan $ \(name, f) -> do
     let log' msg =
           if T.null name
             then log msg
@@ -232,3 +256,8 @@ srcVersionFix (Args env attrPth drvFile _) = do
   when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
   _ <- lift $ File.replaceIO Nix.sha256Zero newHash drvFile
   return ()
+
+--------------------------------------------------------------------------------
+-- Calls passthru.updateScript
+updateScript :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+updateScript log args@(Args _ _ _ drvContents) = return $ Nothing

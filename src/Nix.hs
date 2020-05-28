@@ -25,6 +25,7 @@ module Nix
     getSrcUrl,
     getSrcUrls,
     hasPatchNamed,
+    hasUpdateScript,
     lookupAttrPath,
     nixEvalET,
     numberOfFetchers,
@@ -356,3 +357,16 @@ hasPatchNamed :: MonadIO m => Text -> Text -> ExceptT Text m Bool
 hasPatchNamed attrPath name = do
   ps <- getPatches attrPath
   return $ name `T.isInfixOf` ps
+
+hasUpdateScript :: MonadIO m => Text -> ExceptT Text m Bool
+hasUpdateScript attrPath = do
+  result <-
+    nixEvalET
+      (EvalOptions NoRaw (Env []))
+      ( "(let pkgs = import ./. {}; in builtins.hasAttr \"updateScript\" pkgs."
+          <> attrPath
+          <> ")"
+      )
+  case result of
+    "true" -> return True
+    _ -> return False
