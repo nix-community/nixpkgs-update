@@ -213,14 +213,27 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
     Skiplist.srcUrl srcUrls
+    Skiplist.attrPath attrPath
+
+    --
+    -- Check for update script
+    hasUpdateScript <- Nix.hasUpdateScript attrPath
+
+    --
+    -- More filters (when no updateScript)
+    when (not hasUpdateScript) do
+      Version.assertCompatibleWithPathPin updateEnv attrPath
+      srcUrls <- Nix.getSrcUrls attrPath
+      Skiplist.srcUrl srcUrls
     derivationFile <- Nix.getDerivationFile attrPath
-    assertNotUpdatedOn updateEnv derivationFile "master"
-    assertNotUpdatedOn updateEnv derivationFile "staging"
-    assertNotUpdatedOn updateEnv derivationFile "staging-next"
-    assertNotUpdatedOn updateEnv derivationFile "python-unstable"
+    when (not hasUpdateScript) $ do
+      assertNotUpdatedOn updateEnv derivationFile "master"
+      assertNotUpdatedOn updateEnv derivationFile "staging"
+      assertNotUpdatedOn updateEnv derivationFile "staging-next"
+      assertNotUpdatedOn updateEnv derivationFile "python-unstable"
     --
     -- Calculate output paths for rebuilds and our merge base
-    Git.checkoutAtMergeBase (branchName updateEnv)
+    mergeBase <- Git.checkoutAtMergeBase (branchName updateEnv)
     let calcOutpaths = calculateOutpaths . options $ updateEnv
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
@@ -255,7 +268,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
-    diffAfterRewrites <- Git.diff
+    diffAfterRewrites <- Git.diff mergeBase
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
@@ -632,11 +645,14 @@ updatePackage o updateInfo = do
     -- Update our git checkout and swap onto the update branch
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
     Git.cleanAndResetTo "master"
-    Git.checkoutAtMergeBase (branchName updateEnv)
+    mergeBase <- Git.checkoutAtMergeBase (branchName updateEnv)
     -- Gather some basic information
     Nix.assertNewerVersion updateEnv
     attrPath <- Nix.lookupAttrPath updateEnv
-    Version.assertCompatibleWithPathPin updateEnv attrPath
+    hasUpdateScript <- Nix.hasUpdateScript attrPath
+
+    when (not hasUpdateScript) $
+      Version.assertCompatibleWithPathPin updateEnv attrPath
     derivationFile <- Nix.getDerivationFile attrPath
     --
     -- Get the original values for diffing purposes
@@ -654,7 +670,7 @@ updatePackage o updateInfo = do
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
-    diffAfterRewrites <- Git.diff
+    diffAfterRewrites <- Git.diff mergeBase
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
