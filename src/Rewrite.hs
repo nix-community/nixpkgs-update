@@ -24,6 +24,7 @@ import OurPrelude
 import qualified Polysemy.Error as Error
 import Polysemy.Output (Output, output)
 import qualified Process
+import System.Exit
 import qualified Utils
   ( UpdateEnv (..),
     runLog,
@@ -55,7 +56,8 @@ data Args = Args
   }
 
 type Rewriter = (Text -> IO ()) -> Args -> ExceptT Text IO (Maybe Text)
-type Plan = [ (Text, Rewriter) ]
+
+type Plan = [(Text, Rewriter)]
 
 standardPlan :: Plan
 standardPlan =
@@ -78,11 +80,11 @@ getPlan log rwArgs = do
   hasUpdateScript <- Nix.hasUpdateScript (attrPath rwArgs)
   if hasUpdateScript
     then do
-    lift $ log $ "Using updateScript plan"
-    return updateScriptPlan
+      lift $ log $ "Using updateScript plan"
+      return updateScriptPlan
     else do
-    lift $ log $ "Using standard rewriter plan"
-    return standardPlan
+      lift $ log $ "Using standard rewriter plan"
+      return standardPlan
 
 runAll :: (Text -> IO ()) -> Args -> ExceptT Text IO [Text]
 runAll log rwArgs = do
@@ -244,6 +246,21 @@ golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
       return $ Just "Golang update"
 
 --------------------------------------------------------------------------------
+-- Calls passthru.updateScript
+updateScript :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+updateScript log args = do
+  (exitCode, msg) <- Nix.runUpdateScript (attrPath args)
+  case exitCode of
+    ExitSuccess -> do
+      lift $ log "Success"
+      lift $ log msg
+      return $ Just "Ran passthru.UpdateScript"
+    ExitFailure num -> do
+      lift $ log $ "Failed with exit code " <> tshow num
+      lift $ log msg
+      return Nothing
+
+--------------------------------------------------------------------------------
 -- Common helper functions and utilities
 -- Helper to update version and src attributes, re-computing the sha256.
 -- This is done by the generic version upgrader, but is also a sub-component of some of the others.
@@ -256,8 +273,3 @@ srcVersionFix (Args env attrPth drvFile _) = do
   when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
   _ <- lift $ File.replaceIO Nix.sha256Zero newHash drvFile
   return ()
-
---------------------------------------------------------------------------------
--- Calls passthru.updateScript
-updateScript :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-updateScript log args@(Args _ _ _ drvContents) = return $ Nothing
