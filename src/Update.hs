@@ -254,6 +254,12 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     derivationContents <- liftIO $ T.readFile derivationFile
     oldHash <- Nix.getOldHash attrPath
     oldSrcUrl <- Nix.getSrcUrl attrPath
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+
+    tryAssert
+      "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
+      (not hasUpdateScript || isJust oldVerMay)
+
     --
     -- One final filter
     Skiplist.content derivationContents
@@ -273,6 +279,12 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
     newHash <- Nix.getHash attrPath
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+
+    tryAssert
+      "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
+      (not hasUpdateScript || isJust newVerMay)
+
     -- Sanity checks to make sure the PR is worth opening
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
     when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
@@ -284,10 +296,26 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
     --
+    -- Update updateEnv if using updateScript
+    updateEnv' <-
+      if hasUpdateScript
+      then do
+        -- Already checked that these are Just above.
+        let Just oldVer = oldVerMay
+        let Just newVer = newVerMay
+        return $ UpdateEnv
+          (packageName updateEnv)
+          oldVer
+          newVer
+          (Just "passthru.updateScript")
+          (options updateEnv)
+      else return updateEnv
+
+    --
     -- Publish the result
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
+    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
     Git.cleanAndResetTo "master"
 
 publishPackage ::
@@ -659,6 +687,12 @@ updatePackage o updateInfo = do
     derivationContents <- liftIO $ T.readFile derivationFile
     oldHash <- Nix.getOldHash attrPath
     oldSrcUrl <- Nix.getSrcUrl attrPath
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+
+    tryAssert
+      "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
+      (not hasUpdateScript || isJust oldVerMay)
+
     --
     ----------------------------------------------------------------------------
     -- UPDATES
@@ -675,13 +709,34 @@ updatePackage o updateInfo = do
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
     newHash <- Nix.getHash attrPath
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+
+    tryAssert
+      "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
+      (not hasUpdateScript || isJust newVerMay)
+
     -- Sanity checks to make sure the PR is worth opening
     when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
     when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
     when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
     Nix.build attrPath
     --
+    -- Update updateEnv if using updateScript
+    updateEnv' <-
+      if hasUpdateScript
+      then do
+        -- Already checked that these are Just above.
+        let Just oldVer = oldVerMay
+        let Just newVer = newVerMay
+        return $ UpdateEnv
+          (packageName updateEnv)
+          oldVer
+          newVer
+          (Just "passthru.updateScript")
+          (options updateEnv)
+      else return updateEnv
+    --
     -- Publish the result
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result Nothing msgs
+    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result Nothing msgs
