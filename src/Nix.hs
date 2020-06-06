@@ -136,10 +136,10 @@ getDrvAttr drvAttr =
 
 -- Get an attribute that can be evaluated off a derivation, as in:
 -- getAttr "cargoSha256" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
-getAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getAttr attr =
+getAttr :: MonadIO m => Raw -> Text -> Text -> ExceptT Text m Text
+getAttr raw attr =
   srcOrMain
-    (\attrPath -> nixEvalET (EvalOptions Raw (Env [])) (attrPath <> "." <> attr))
+    (\attrPath -> nixEvalET (EvalOptions raw (Env [])) (attrPath <> "." <> attr))
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash =
@@ -299,7 +299,7 @@ numberOfFetchers derivationContents =
 -- Sum the number of things that look like fixed-output derivation hashes
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents =
-  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "modSha256 ="]
+  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "vendorSha256 ="]
   where
     countUp x = T.count x derivationContents
 

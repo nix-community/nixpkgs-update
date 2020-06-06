@@ -171,7 +171,7 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
       -- This starts the same way `version` does, minus the assert
       srcVersionFix args
       -- But then from there we need to do this a second time for the cargoSha256!
-      oldCargoSha256 <- Nix.getAttr "cargoSha256" attrPth
+      oldCargoSha256 <- Nix.getAttr Nix.Raw "cargoSha256" attrPth
       _ <- lift $ File.replaceIO oldCargoSha256 Nix.sha256Zero drvFile
       newCargoSha256 <- Nix.getHashFromBuild attrPth
       when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
@@ -185,27 +185,33 @@ rustCrateVersion log args@(Args _ attrPth drvFile drvContents) = do
 --------------------------------------------------------------------------------
 -- Rewrite Golang packages with buildGoModule
 -- This is basically `version` above, but with a second pass to also update the
--- modSha256 go vendor hash.
+-- vendorSha256 go vendor hash.
 golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
-  if not (T.isInfixOf "buildGoModule" drvContents && T.isInfixOf "modSha256" drvContents)
+  if not (T.isInfixOf "buildGoModule" drvContents && T.isInfixOf "vendorSha256" drvContents)
     then do
-      lift $ log "Not a buildGoModule package with modSha256"
+      lift $ log "Not a buildGoModule package with vendorSha256"
       return Nothing
     else do
       -- This starts the same way `version` does, minus the assert
       srcVersionFix args
-      -- But then from there we need to do this a second time for the modSha256!
-      oldModSha256 <- Nix.getAttr "modSha256" attrPth
-      lift . log $ "Found old modSha256 = " <> oldModSha256
-      _ <- lift $ File.replaceIO oldModSha256 Nix.sha256Zero drvFile
-      newModSha256 <- Nix.getHashFromBuild attrPth
-      when (oldModSha256 == newModSha256) $ throwE "modSha256 hashes equal; no update necessary"
-      lift . log $ "Replacing modSha256 with " <> newModSha256
-      _ <- lift $ File.replaceIO Nix.sha256Zero newModSha256 drvFile
+      -- But then from there we need to do this a second time for the vendorSha256!
+      -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
+      oldVendorSha256 <- (Nix.getAttr Nix.Raw "vendorSha256" attrPth <|> Nix.getAttr Nix.NoRaw "vendorSha256" attrPth)
+      lift . log $ "Found old vendorSha256 = " <> oldVendorSha256
+      -- Sometimes we just use the srcs vendored in the repo
+      if (oldVendorSha256 == "null")
+        then do
+          lift . log $ "vendorSha256 is explicitly set to null; leaving it to use repo vendored src"
+        else do
+          _ <- lift $ File.replaceIO oldVendorSha256 Nix.sha256Zero drvFile
+          newVendorSha256 <- Nix.getHashFromBuild attrPth
+          _ <- lift $ File.replaceIO Nix.sha256Zero newVendorSha256 drvFile
+          -- Note that on some small bumps, this may not actually change if go.sum did not
+          lift . log $ "Replaced vendorSha256 with " <> newVendorSha256
       -- Ensure the package actually builds and passes its tests
       Nix.build attrPth
-      lift $ log "Finished updating modSha256"
+      lift $ log "Finished updating vendorSha256"
       return $ Just "Golang update"
 
 --------------------------------------------------------------------------------
