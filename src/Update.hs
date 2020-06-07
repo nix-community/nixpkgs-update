@@ -84,6 +84,7 @@ getLog o = do
 notifyOptions :: (Text -> IO ()) -> Options -> IO ()
 notifyOptions log o = do
   let repr f = if f o then "YES" else " NO"
+  let ghUser = GH.untagName . githubUser $ o
   let pr = repr doPR
   let cachix = repr pushToCachix
   let outpaths = repr calculateOutpaths
@@ -92,6 +93,7 @@ notifyOptions log o = do
   log $ [interpolate|
     Configured Nixpkgs-Update Options:
     ----------------------------------
+    GitHub User:                   $ghUser
     Send pull request on success:  $pr
     Push to cachix:                $cachix
     Calculate Outpaths:            $outpaths
@@ -337,8 +339,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
   liftIO $ log prMsg
   if (doPR . options $ updateEnv)
     then do
-      -- FIXME: #192 This needs to be detected dynamically. Use the hub token or GH library?
-      let ghUser = "r-ryantm"
+      let ghUser = GH.untagName . githubUser . options $ updateEnv
       pullRequestUrl <- GH.pr updateEnv (prTitle updateEnv attrPath) prMsg (ghUser <> ":" <> (branchName updateEnv)) prBase
       liftIO $ log pullRequestUrl
     else liftIO $ T.putStrLn prMsg
