@@ -21,16 +21,18 @@ import Control.Exception
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
-import qualified System.Process.Typed
 import qualified Data.Text.Encoding as T
-import System.Posix.Env (setEnv)
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import OurPrelude hiding (throw)
 import System.Directory (doesDirectoryExist, getModificationTime, setCurrentDirectory)
+import System.Environment (getEnv)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit
+import System.IO.Error (tryIOError)
+import System.Posix.Env (setEnv)
+import qualified System.Process.Typed
 import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
 
 clean :: ProcessConfig () () ()
@@ -79,8 +81,13 @@ staleFetchHead =
     nixpkgsGit <- getUserCacheDir "nixpkgs"
     let fetchHead = nixpkgsGit <> "/.git/FETCH_HEAD"
     oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
-    fetchedLast <- getModificationTime fetchHead
-    return (fetchedLast < oneHourAgo)
+    e <- tryIOError $ getModificationTime fetchHead
+    if isLeft e
+      then do
+        return True
+      else do
+        fetchedLast <- getModificationTime fetchHead
+        return (fetchedLast < oneHourAgo)
 
 fetchIfStale :: MonadIO m => ExceptT Text m ()
 fetchIfStale = whenM staleFetchHead fetch
@@ -113,9 +120,12 @@ setupNixpkgs githubt = do
   fp <- getUserCacheDir "nixpkgs"
   exists <- doesDirectoryExist fp
   unless exists $ do
+    path <- getEnv "PATH"
     proc "hub" ["clone", "nixpkgs", fp]
       & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
-      [("GITHUB_TOKEN" :: String, githubt & T.unpack)]
+        [ ("PATH" :: String, path),
+          ("GITHUB_TOKEN" :: String, githubt & T.unpack)
+        ]
       & runProcess_
     setCurrentDirectory fp
     shell "git remote add upstream https://github.com/NixOS/nixpkgs"
