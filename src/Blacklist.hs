@@ -144,6 +144,9 @@ checkResultList =
   , infixOf
       "gjs"
       "- gjs result is not automatically checked, because some tests take a long time to run"
+  , infixOf
+      "casperjs"
+      "- casperjs result is not automatically checked, because some tests take a long time to run"
   ]
 
 blacklister :: Blacklist -> TextBlacklister m
