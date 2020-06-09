@@ -118,12 +118,12 @@ contentList =
   , infixOf "DO NOT EDIT" "Derivation file says not to edit it"
   , infixOf "Do not edit!" "Derivation file says not to edit it"
     -- Skip packages that have special builders
-  , infixOf "buildGoPackage" "Derivation contains buildGoPackage"
   , infixOf "buildRustCrate" "Derivation contains buildRustCrate"
   , infixOf "buildRubyGem" "Derivation contains buildRubyGem"
   , infixOf "bundlerEnv" "Derivation contains bundlerEnv"
   , infixOf "buildPerlPackage" "Derivation contains buildPerlPackage"
     -- Specific skips for classes of packages
+  , infixOf "goDeps" "Derivation contains goDeps attribute"
   , infixOf "https://downloads.haskell.org/ghc/" "GHC packages are versioned per file"
   ]
 
