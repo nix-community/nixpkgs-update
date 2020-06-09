@@ -17,7 +17,7 @@ import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
-import Utils (Options (..), UpdateEnv (..), getGithubToken)
+import Utils (Options (..), UpdateEnv (..), getGithubToken, getGithubUser)
 import Git
 
 default (T.Text)
@@ -123,25 +123,21 @@ main = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
   command <- O.execParser programInfo
+  ghUser <- getGithubUser
+  token <- getGithubToken <|> undefined
+  P.setEnv "GITHUB_TOKEN" (T.unpack token) True
+  P.setEnv "PAGER" "" True
   case command of
     DeleteDone -> do
-      token <- getGithubToken
       Git.setupNixpkgs token
-      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      deleteDone token
+      deleteDone token ghUser
     UpdateList UpdateOptions {pr, cachix, cve, nixpkgsReview, outpaths} -> do
-      token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       Git.setupNixpkgs token
-      P.setEnv "PAGER" "" True
-      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      updateAll (Options pr True token cve cachix nixpkgsReview outpaths) updates
+      updateAll (Options pr True ghUser token cve cachix nixpkgsReview outpaths) updates
     Update UpdateOptions {pr, cve, cachix, nixpkgsReview} update -> do
-      token <- getGithubToken
       Git.setupNixpkgs token
-      P.setEnv "PAGER" "" True
-      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      result <- updatePackage (Options pr False token cve cachix nixpkgsReview False) update
+      result <- updatePackage (Options pr False ghUser token cve cachix nixpkgsReview False) update
       case result of
         Left e -> T.putStrLn e
         Right () -> T.putStrLn "Done."
@@ -159,12 +155,10 @@ main = do
       setupNixpkgs undefined
       report <-
         cveReport
-          (UpdateEnv productID oldVersion newVersion Nothing (Options False False undefined False False False False))
+          (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False False))
       T.putStrLn report
     SourceGithub -> do
-      token <- getGithubToken
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
-      P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-      sourceGithubAll (Options False False token False False False False) updates
+      sourceGithubAll (Options False False ghUser token False False False False) updates
     FetchRepology -> Repology.fetch

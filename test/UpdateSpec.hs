@@ -18,7 +18,7 @@ spec :: Spec
 spec = do
   describe "PR message" do
     -- Common mock options
-    let options = Utils.Options False False "" False False False False
+    let options = Utils.Options False False "" "" False False False False
     let updateEnv = Utils.UpdateEnv "foobar" "1.0" "1.1" (Just "https://update-site.com") options
     let isBroken = False
     let metaDescription = "\"Foobar package description\""

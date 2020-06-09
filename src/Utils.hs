@@ -4,26 +4,27 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Utils
-  ( Options (..),
+  ( Boundary (..),
+    Options (..),
     ProductID,
-    Version,
-    Boundary (..),
-    VersionMatcher (..),
-    UpdateEnv (..),
     URL,
-    tRead,
-    parseUpdates,
-    overwriteErrorT,
+    UpdateEnv (..),
+    Version,
+    VersionMatcher (..),
     branchName,
     branchPrefix,
+    getGithubToken,
+    getGithubUser,
     logDir,
-    srcOrMain,
-    prTitle,
     nixBuildOptions,
     nixCommonOptions,
+    overwriteErrorT,
+    parseUpdates,
+    prTitle,
     runLog,
-    getGithubToken,
+    srcOrMain,
     stripQuotes,
+    tRead
   )
 where
 
@@ -41,6 +42,7 @@ import Database.SQLite.Simple.FromField
 import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (..))
 import Database.SQLite.Simple.ToField (ToField, toField)
+import qualified GitHub as GH
 import OurPrelude
 import Polysemy.Output
 import System.Directory (doesDirectoryExist)
@@ -103,6 +105,7 @@ data Options
   = Options
       { doPR :: Bool,
         batchUpdate :: Bool,
+        githubUser :: GH.Name GH.Owner,
         githubToken :: Text,
         makeCVEReport :: Bool,
         pushToCachix :: Bool,
@@ -255,8 +258,8 @@ hubFileLocation = do
   hloc <- fmap (<> "/.config/hub") <$> getEnv "HOME"
   return (xloc <|> hloc)
 
-hubConfigToken :: IO (Maybe Text)
-hubConfigToken = do
+hubConfigField :: Text -> IO (Maybe Text)
+hubConfigField field = do
   hubFile <- hubFileLocation
   case hubFile of
     Nothing -> return Nothing
@@ -266,7 +269,7 @@ hubConfigToken = do
         then return Nothing
         else do
           contents <- T.readFile file
-          let splits = T.splitOn "oauth_token: " contents
+          let splits = T.splitOn field contents
               token = T.takeWhile (/= '\n') $ head (drop 1 splits)
           return $ Just token
 
@@ -274,8 +277,15 @@ getGithubToken :: IO Text
 getGithubToken = do
   et <- envToken
   lt <- localToken
-  ht <- hubConfigToken
+  ht <- hubConfigField "oauth_token: "
   return $ fromJust (et <|> lt <|> ht)
+
+getGithubUser :: IO (GH.Name GH.Owner)
+getGithubUser = do
+  hubUser <- hubConfigField "user: "
+  case hubUser of
+    Just usr -> return $ GH.mkOwnerName usr
+    Nothing -> return $ GH.mkOwnerName "r-ryantm"
 
 stripQuotes :: Text -> Maybe Text
 stripQuotes = T.stripPrefix "\"" >=> T.stripSuffix "\""

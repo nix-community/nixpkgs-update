@@ -5,15 +5,16 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module GH
-  ( GH.releaseUrl,
-    compareUrl,
-    pr,
-    closedAutoUpdateRefs,
-    openPullRequests,
-    openAutoUpdatePR,
-    checkExistingUpdatePR,
-    latestVersion,
+  ( releaseUrl,
+    GH.untagName,
     authFromToken,
+    checkExistingUpdatePR,
+    closedAutoUpdateRefs,
+    compareUrl,
+    latestVersion,
+    openAutoUpdatePR,
+    openPullRequests,
+    pr
   )
 where
 
@@ -21,7 +22,7 @@ import Control.Applicative (some)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
-import GitHub
+import qualified GitHub as GH
 import GitHub.Data.Name (Name (..))
 import OurPrelude
 import qualified Text.Regex.Applicative.Text as RE
@@ -31,11 +32,11 @@ import qualified Utils as U
 
 default (T.Text)
 
-gReleaseUrl :: MonadIO m => Auth -> URLParts -> ExceptT Text m Text
+gReleaseUrl :: MonadIO m => GH.Auth -> URLParts -> ExceptT Text m Text
 gReleaseUrl auth (URLParts o r t) =
   ExceptT $
-    bimap (T.pack . show) (getUrl . releaseHtmlUrl)
-      <$> liftIO (github auth (releaseByTagNameR o r t))
+    bimap (T.pack . show) (GH.getUrl . GH.releaseHtmlUrl)
+      <$> liftIO (GH.github auth (GH.releaseByTagNameR o r t))
 
 releaseUrl :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Text
 releaseUrl env url = do
@@ -45,15 +46,15 @@ releaseUrl env url = do
 pr :: MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m Text
 pr env title body prHead base = do
   ExceptT $
-    bimap (T.pack . show) (getUrl . pullRequestUrl)
-      <$> (liftIO $ (github (authFrom env)
-         (createPullRequestR (N "nixos") (N "nixpkgs")
-          (CreatePullRequest title body prHead base))))
+    bimap (T.pack . show) (GH.getUrl . GH.pullRequestUrl)
+      <$> (liftIO $ (GH.github (authFrom env)
+         (GH.createPullRequestR (N "nixos") (N "nixpkgs")
+          (GH.CreatePullRequest title body prHead base))))
 
 data URLParts
   = URLParts
-      { owner :: Name Owner,
-        repo :: Name Repo,
+      { owner :: GH.Name GH.Owner,
+        repo :: GH.Name GH.Repo,
         tag :: Text
       }
   deriving (Show)
@@ -102,71 +103,68 @@ compareUrl urlOld urlNew = do
   newParts <- parseURL urlNew
   return $
     "https://github.com/"
-      <> untagName (owner newParts)
+      <> GH.untagName (owner newParts)
       <> "/"
-      <> untagName (repo newParts)
+      <> GH.untagName (repo newParts)
       <> "/compare/"
       <> tag oldParts
       <> "..."
       <> tag newParts
 
---deleteDoneBranches :: IO ()
---deleteDoneBranches = do
--- (OAuth (T.encodeUtf8 githubToken))
-autoUpdateRefs :: Auth -> IO (Either Text (Vector Text))
-autoUpdateRefs auth =
-  github auth (referencesR "r-ryantm" "nixpkgs" FetchAll)
+autoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector Text))
+autoUpdateRefs auth ghUser =
+  GH.github auth (GH.referencesR ghUser "nixpkgs" GH.FetchAll)
     & fmap
       ( first (T.pack . show)
-          >>> second (fmap gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix))
+          >>> second (fmap GH.gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix))
       )
   where
     prefix = "refs/heads/auto-update/"
 
-openPRWithAutoUpdateRefFromRRyanTM :: Auth -> Text -> IO (Either Text Bool)
+openPRWithAutoUpdateRefFromRRyanTM :: GH.Auth -> Text -> IO (Either Text Bool)
 openPRWithAutoUpdateRefFromRRyanTM auth ref =
-  executeRequest
+  GH.executeRequest
     auth
-    ( pullRequestsForR
+    ( GH.pullRequestsForR
         "nixos"
         "nixpkgs"
-        (optionsHead ("r-ryantm:" <> U.branchPrefix <> ref) <> stateOpen)
-        FetchAll
+        (GH.optionsHead ("bhipple:" <> U.branchPrefix <> ref) <> GH.stateOpen)
+        GH.FetchAll
     )
     & fmap (first (T.pack . show) >>> second (not . V.null))
 
-refShouldBeDeleted :: Auth -> Text -> IO Bool
+refShouldBeDeleted :: GH.Auth -> Text -> IO Bool
 refShouldBeDeleted auth ref =
   not . either (const True) id
     <$> openPRWithAutoUpdateRefFromRRyanTM auth ref
 
-closedAutoUpdateRefs :: Auth -> IO (Either Text (Vector Text))
-closedAutoUpdateRefs auth =
+closedAutoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector Text))
+closedAutoUpdateRefs auth ghUser =
   runExceptT $ do
-    aur :: Vector Text <- ExceptT $ autoUpdateRefs auth
+    aur :: Vector Text <- ExceptT $ GH.autoUpdateRefs auth ghUser
     ExceptT (Right <$> V.filterM (refShouldBeDeleted auth) aur)
 
 -- This is too slow
-openPullRequests :: Text -> IO (Either Text (Vector SimplePullRequest))
+openPullRequests :: Text -> IO (Either Text (Vector GH.SimplePullRequest))
 openPullRequests githubToken =
-  executeRequest
-    (OAuth (T.encodeUtf8 githubToken))
-    (pullRequestsForR "nixos" "nixpkgs" stateOpen FetchAll)
+  GH.executeRequest
+    (GH.OAuth (T.encodeUtf8 githubToken))
+    (GH.pullRequestsForR "nixos" "nixpkgs" GH.stateOpen GH.FetchAll)
     & fmap (first (T.pack . show))
 
-openAutoUpdatePR :: UpdateEnv -> Vector SimplePullRequest -> Bool
+openAutoUpdatePR :: UpdateEnv -> Vector GH.SimplePullRequest -> Bool
 openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
   where
     isThisPkg simplePullRequest =
-      let title = simplePullRequestTitle simplePullRequest
+      let title = GH.simplePullRequestTitle simplePullRequest
           titleHasName = (packageName updateEnv <> ":") `T.isPrefixOf` title
           titleHasNewVersion = newVersion updateEnv `T.isSuffixOf` title
        in titleHasName && titleHasNewVersion
 
-authFromToken :: Text -> Auth
-authFromToken = OAuth . T.encodeUtf8
+authFromToken :: Text -> GH.Auth
+authFromToken = GH.OAuth . T.encodeUtf8
 
-authFrom :: UpdateEnv -> Auth
+authFrom :: UpdateEnv -> GH.Auth
 authFrom = authFromToken . U.githubToken . options
 
 checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
@@ -174,7 +172,7 @@ checkExistingUpdatePR env attrPath = do
   searchResult <-
     ExceptT
       $ liftIO
-      $ github (authFrom env) (searchIssuesR search)
+      $ GH.github (authFrom env) (GH.searchIssuesR search)
         & fmap (first (T.pack . show))
   if T.length (openPRReport searchResult) == 0
     then return ()
@@ -187,11 +185,11 @@ checkExistingUpdatePR env attrPath = do
     title = U.prTitle env attrPath
     search = [interpolate|repo:nixos/nixpkgs $title |]
     openPRReport searchResult =
-      searchResultResults searchResult & V.filter (issueClosedAt >>> isNothing)
+      GH.searchResultResults searchResult & V.filter (GH.issueClosedAt >>> isNothing)
         & fmap report
         & V.toList
         & T.unlines
-    report i = "- " <> issueTitle i <> "\n  " <> tshow (issueUrl i)
+    report i = "- " <> GH.issueTitle i <> "\n  " <> tshow (GH.issueUrl i)
 
 latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
 latestVersion env url = do
@@ -199,6 +197,6 @@ latestVersion env url = do
   r <-
     fmapLT tshow $ ExceptT
       $ liftIO
-      $ executeRequest (authFrom env)
-      $ latestReleaseR (owner urlParts) (repo urlParts)
-  return $ T.dropWhile (\c -> c == 'v' || c == 'V') (releaseTagName r)
+      $ GH.executeRequest (authFrom env)
+      $ GH.latestReleaseR (owner urlParts) (repo urlParts)
+  return $ T.dropWhile (\c -> c == 'v' || c == 'V') (GH.releaseTagName r)
