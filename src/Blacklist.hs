@@ -110,6 +110,7 @@ nameList =
       "gitlab-workhorse"
       "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52286#issuecomment-447653409"
   , eq "reposurgeon" "takes way too long to build"
+  , eq "kodelife" "multiple system hashes need to be updated at once"
   ]
 
 contentList :: Blacklist
