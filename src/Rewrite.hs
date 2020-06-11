@@ -15,6 +15,7 @@ where
 
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
+import Data.Text.IO as T
 import qualified File
 import qualified Network.HTTP.Client as HTTP
 import Network.HTTP.Types.Status (statusCode)
@@ -199,16 +200,20 @@ golangModuleVersion log args@(Args _ attrPth drvFile drvContents) = do
       -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
       oldVendorSha256 <- (Nix.getAttr Nix.Raw "vendorSha256" attrPth <|> Nix.getAttr Nix.NoRaw "vendorSha256" attrPth)
       lift . log $ "Found old vendorSha256 = " <> oldVendorSha256
-      -- Sometimes we just use the srcs vendored in the repo
-      if (oldVendorSha256 == "null")
-        then do
-          lift . log $ "vendorSha256 is explicitly set to null; leaving it to use repo vendored src"
-        else do
-          _ <- lift $ File.replaceIO oldVendorSha256 Nix.sha256Zero drvFile
-          newVendorSha256 <- Nix.getHashFromBuild attrPth
-          _ <- lift $ File.replaceIO Nix.sha256Zero newVendorSha256 drvFile
-          -- Note that on some small bumps, this may not actually change if go.sum did not
-          lift . log $ "Replaced vendorSha256 with " <> newVendorSha256
+      original <- liftIO $ T.readFile drvFile
+      _ <- lift $ File.replaceIO ("\"" <> oldVendorSha256 <> "\"") "null" drvFile
+      ok <- runExceptT $ Nix.build attrPth
+      _ <-
+        if isLeft ok
+          then do
+            _ <- liftIO $ T.writeFile drvFile original
+            _ <- lift $ File.replaceIO oldVendorSha256 Nix.sha256Zero drvFile
+            newVendorSha256 <- Nix.getHashFromBuild attrPth
+            _ <- lift $ File.replaceIO Nix.sha256Zero newVendorSha256 drvFile
+            -- Note that on some small bumps, this may not actually change if go.sum did not
+            lift . log $ "Replaced vendorSha256 with " <> newVendorSha256
+          else do
+            lift . log $ "Set vendorSha256 to null"
       -- Ensure the package actually builds and passes its tests
       Nix.build attrPth
       lift $ log "Finished updating vendorSha256"
