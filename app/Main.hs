@@ -9,6 +9,7 @@ import Control.Applicative ((<**>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
+import Git
 import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
@@ -18,7 +19,6 @@ import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
 import Utils (Options (..), UpdateEnv (..), getGithubToken, getGithubUser)
-import Git
 
 default (T.Text)
 
@@ -34,7 +34,7 @@ data UpdateOptions
 data Command
   = UpdateList UpdateOptions
   | Update UpdateOptions Text
-  | DeleteDone
+  | DeleteDone Bool
   | Version
   | UpdateVulnDB
   | CheckAllVulnerable
@@ -57,6 +57,11 @@ updateParser =
     <$> updateOptionsParser
     <*> O.strArgument (O.metavar "UPDATE_INFO" <> O.help "update string of the form: 'pkg oldVer newVer update-page'\n\n example: 'tflint 0.15.0 0.15.1 repology.org'")
 
+deleteDoneParser :: O.Parser Command
+deleteDoneParser =
+  DeleteDone
+    <$> O.flag False True (O.long "delete" <> O.help "Actually delete the done branches. Otherwise just prints the branches to delete.")
+
 commandParser :: O.Parser Command
 commandParser =
   O.hsubparser
@@ -69,7 +74,7 @@ commandParser =
         <> O.command
           "delete-done"
           ( O.info
-              (pure DeleteDone)
+              deleteDoneParser
               (O.progDesc "Deletes branches from PRs that were merged or closed")
           )
         <> O.command
@@ -128,9 +133,9 @@ main = do
   P.setEnv "GITHUB_TOKEN" (T.unpack token) True
   P.setEnv "PAGER" "" True
   case command of
-    DeleteDone -> do
+    DeleteDone delete -> do
       Git.setupNixpkgs token
-      deleteDone token ghUser
+      deleteDone delete token ghUser
     UpdateList UpdateOptions {pr, cachix, cve, nixpkgsReview, outpaths} -> do
       updates <- T.readFile "packages-to-update.txt"
       Git.setupNixpkgs token

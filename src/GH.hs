@@ -121,28 +121,28 @@ autoUpdateRefs auth ghUser =
   where
     prefix = "refs/heads/auto-update/"
 
-openPRWithAutoUpdateRefFromRRyanTM :: GH.Auth -> Text -> IO (Either Text Bool)
-openPRWithAutoUpdateRefFromRRyanTM auth ref =
+openPRWithAutoUpdateRefFrom :: GH.Auth -> GH.Name GH.Owner -> Text -> IO (Either Text Bool)
+openPRWithAutoUpdateRefFrom auth ghUser ref =
   GH.executeRequest
     auth
     ( GH.pullRequestsForR
         "nixos"
         "nixpkgs"
-        (GH.optionsHead ("bhipple:" <> U.branchPrefix <> ref) <> GH.stateOpen)
+        (GH.optionsHead (tshow ghUser <> ":" <> U.branchPrefix <> ref) <> GH.stateOpen)
         GH.FetchAll
     )
     & fmap (first (T.pack . show) >>> second (not . V.null))
 
-refShouldBeDeleted :: GH.Auth -> Text -> IO Bool
-refShouldBeDeleted auth ref =
+refShouldBeDeleted :: GH.Auth -> GH.Name GH.Owner -> Text -> IO Bool
+refShouldBeDeleted auth ghUser ref =
   not . either (const True) id
-    <$> openPRWithAutoUpdateRefFromRRyanTM auth ref
+    <$> openPRWithAutoUpdateRefFrom auth ghUser ref
 
 closedAutoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector Text))
 closedAutoUpdateRefs auth ghUser =
   runExceptT $ do
     aur :: Vector Text <- ExceptT $ GH.autoUpdateRefs auth ghUser
-    ExceptT (Right <$> V.filterM (refShouldBeDeleted auth) aur)
+    ExceptT (Right <$> V.filterM (refShouldBeDeleted auth ghUser) aur)
 
 -- This is too slow
 openPullRequests :: Text -> IO (Either Text (Vector GH.SimplePullRequest))
