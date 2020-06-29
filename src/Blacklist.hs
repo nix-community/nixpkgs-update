@@ -60,6 +60,9 @@ attrPathList =
   , prefix
       "deepin"
       "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
+  , prefix
+      "ocaml"
+      "missing dependencies don't always result in build failures in ocamlPackages so the bot will PR incorrect updates"
   ]
 
 nameList :: Blacklist
