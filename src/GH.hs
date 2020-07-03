@@ -128,7 +128,7 @@ openPRWithAutoUpdateRefFrom auth ghUser ref =
     ( GH.pullRequestsForR
         "nixos"
         "nixpkgs"
-        (GH.optionsHead (tshow ghUser <> ":" <> U.branchPrefix <> ref) <> GH.stateOpen)
+        (GH.optionsHead (GH.untagName ghUser <> ":" <> U.branchPrefix <> ref) <> GH.stateOpen)
         GH.FetchAll
     )
     & fmap (first (T.pack . show) >>> second (not . V.null))
