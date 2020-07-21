@@ -1,33 +1,8 @@
-{ returnShellEnv ? false } :
-
+{returnShellEnv ? false  } :
 let
   sources = import ./nix/sources.nix;
-  pkgs = import sources.nixpkgs {config = { allowBroken = true; }; };
-
-  gitignore = import sources.gitignore { inherit (pkgs) lib; };
-  inherit (gitignore) gitignoreSource;
-
-  compiler = pkgs.haskell.packages.ghc883;
-  inherit (pkgs.haskell.lib) dontCheck doJailbreak overrideCabal;
-
-  pkg = compiler.developPackage {
-    name = "nixpkgs-update";
-    root = gitignoreSource ./.;
-    overrides = self: super: { };
-    source-overrides = { };
-    inherit returnShellEnv;
-  };
-
-in pkg.overrideAttrs (attrs: {
-  propagatedBuildInputs = with pkgs; [
-    nix
-    git
-    getent
-    gitAndTools.hub
-    jq
-    tree
-    gist
-    (import sources.nixpkgs-review { inherit pkgs; })
-    cabal-install # just for develpoment
-  ];
-})
+  flake-compat = import sources.flake-compat { src = ./.; };
+in
+if returnShellEnv
+then flake-compat.shellNix.default
+else flake-compat.defaultNix.default
