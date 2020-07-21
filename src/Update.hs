@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
@@ -30,6 +31,7 @@ import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
 import qualified GH
 import qualified Git
+import Language.Haskell.TH.Env (envQ)
 import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import qualified NixpkgsReview
@@ -52,11 +54,10 @@ import Prelude hiding (log)
 
 default (T.Text)
 
-data MergeBaseOutpathsInfo
-  = MergeBaseOutpathsInfo
-      { lastUpdated :: UTCTime,
-        mergeBaseOutpaths :: Set ResultLine
-      }
+data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
+  { lastUpdated :: UTCTime,
+    mergeBaseOutpaths :: Set ResultLine
+  }
 
 log' :: MonadIO m => FilePath -> Text -> m ()
 log' logFile msg = do
@@ -90,7 +91,8 @@ notifyOptions log o = do
   let outpaths = repr calculateOutpaths
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
-  log $ [interpolate|
+  log $
+    [interpolate|
     Configured Nixpkgs-Update Options:
     ----------------------------------
     GitHub User:                   $ghUser
@@ -139,9 +141,9 @@ sourceGithubAll o updates = do
           v <- GH.latestVersion updateEnv srcUrl
           if v /= newV
             then
-              liftIO
-                $ T.putStrLn
-                $ p <> ": " <> oldV <> " -> " <> newV <> " -> " <> v
+              liftIO $
+                T.putStrLn $
+                  p <> ": " <> oldV <> " -> " <> newV <> " -> " <> v
             else return ()
     )
     u'
@@ -288,8 +290,8 @@ publishPackage ::
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteMsgs = do
   let prBase =
         if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
-        then "master"
-        else "staging"
+          then "master"
+          else "staging"
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Blacklist.checkResult (packageName updateEnv) of
@@ -405,7 +407,8 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
       nixpkgsReviewSection =
         if nixpkgsReviewMsg == T.empty
           then "NixPkgs review skipped"
-          else [interpolate|
+          else
+            [interpolate|
             We have automatically built all packages that will get rebuilt due to
             this change.
 
@@ -497,12 +500,15 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
        $maintainersCc
     |]
 
+jqBin :: String
+jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
+
 untilOfBorgFree :: MonadIO m => m ()
 untilOfBorgFree = do
   stats <-
     shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
   waiting <-
-    shell "jq .evaluator.messages.waiting" & setStdin (byteStringInput stats)
+    shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
       & readProcessInterleaved_
       & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
   when (waiting > 2) $ do

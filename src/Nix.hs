@@ -1,12 +1,11 @@
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Nix
   ( assertNewerVersion,
     assertOldVersionOn,
+    binPath,
     build,
     cachix,
     getAttr,
@@ -38,20 +37,25 @@ module Nix
   )
 where
 
+import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
+import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import qualified Polysemy.Error as Error
-import qualified Process as P
 import qualified Process
+import qualified Process as P
 import System.Exit
 import Text.Parsec (parse)
 import Text.Parser.Combinators
 import Text.Parser.Token
-import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, overwriteErrorT, srcOrMain)
+import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
 import Prelude hiding (log)
+
+binPath :: String
+binPath = fromJust ($$(envQ "NIX") :: Maybe String) <> "/bin"
 
 data Env = Env [(String, String)]
 
@@ -73,14 +77,13 @@ nixEvalSem ::
 nixEvalSem (EvalOptions raw (Env env)) expr =
   T.strip
     <$> ourReadProcessInterleaved_Sem
-      (setEnv env (proc "nix" (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
+      (setEnv env (proc (binPath <> "/nix") (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
 
 nixEvalET :: MonadIO m => EvalOptions -> Text -> ExceptT Text m Text
 nixEvalET (EvalOptions raw (Env env)) expr =
   ourReadProcessInterleaved_
-    (setEnv env (proc "nix" (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
+    (setEnv env (proc (binPath <> "/nix") (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
     & fmapRT T.strip
-    & overwriteErrorT ("nix eval failed for \"" <> expr <> "\"")
 
 -- Error if the "new version" is actually newer according to nix
 assertNewerVersion :: MonadIO m => UpdateEnv -> ExceptT Text m ()
@@ -110,7 +113,7 @@ assertNewerVersion updateEnv = do
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
   proc
-    "nix-env"
+    (binPath <> "/nix-env")
     ( [ "-qa",
         (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
         "-f",
@@ -124,10 +127,9 @@ lookupAttrPath updateEnv =
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
-  proc "env" ["EDITOR=echo", "nix", "edit", attrPath & T.unpack, "-f", "."]
+  proc "env" ["EDITOR=echo", (binPath <> "/nix"), "edit", attrPath & T.unpack, "-f", "."]
     & ourReadProcessInterleaved_
     & fmapRT (T.strip >>> T.unpack)
-    & overwriteErrorT "Couldn't find derivation file. "
 
 getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getDrvAttr drvAttr =
@@ -149,11 +151,6 @@ getHash =
 getOldHash :: MonadIO m => Text -> ExceptT Text m Text
 getOldHash attrPath =
   getHash attrPath
-    & overwriteErrorT
-      ( "Could not find old output hash at "
-          <> attrPath
-          <> ".src.drvAttrs.outputHash or .drvAttrs.outputHash."
-      )
 
 getMaintainers :: MonadIO m => Text -> ExceptT Text m Text
 getMaintainers attrPath =
@@ -163,7 +160,6 @@ getMaintainers attrPath =
         <> attrPath
         <> ".meta.maintainers or []))))"
     )
-    & overwriteErrorT ("Could not fetch maintainers for" <> attrPath)
 
 parseStringList :: MonadIO m => Text -> ExceptT Text m (Vector Text)
 parseStringList list =
@@ -196,7 +192,6 @@ getIsBroken attrPath =
         <> ".meta.broken or false)"
     )
     & readNixBool
-    & overwriteErrorT ("Could not get meta.broken for attrpath " <> attrPath)
 
 getChangelog :: MonadIO m => Text -> ExceptT Text m Text
 getChangelog attrPath =
@@ -206,7 +201,6 @@ getChangelog attrPath =
         <> attrPath
         <> ".meta.changelog or \"\")"
     )
-    & overwriteErrorT ("Could not get meta.changelog for attrpath " <> attrPath)
 
 getDescription :: MonadIO m => Text -> ExceptT Text m Text
 getDescription attrPath =
@@ -216,7 +210,6 @@ getDescription attrPath =
         <> attrPath
         <> ".meta.description or \"\")"
     )
-    & overwriteErrorT ("Could not get meta.description for attrpath " <> attrPath)
 
 getHomepage ::
   Members '[P.Process, Error Text] r =>
@@ -261,10 +254,10 @@ getSrcUrls = getSrcAttr "urls"
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
-  silently $ proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
+  silently $ proc (binPath <> "/nix-build") (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
-log attrPath = proc "nix" ["log", "-f", ".", attrPath & T.unpack]
+log attrPath = proc (binPath <> "/nix") ["log", "-f", ".", attrPath & T.unpack]
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
@@ -348,7 +341,7 @@ getHashFromBuild =
     )
 
 version :: MonadIO m => ExceptT Text m Text
-version = ourReadProcessInterleaved_ "nix --version"
+version = ourReadProcessInterleaved_ (proc (binPath <> "/nix") ["--version"])
 
 getPatches :: MonadIO m => Text -> ExceptT Text m Text
 getPatches attrPath =

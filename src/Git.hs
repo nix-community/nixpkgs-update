@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Git
   ( checkAutoUpdateBranchDoesntExist,
@@ -20,11 +21,13 @@ import Control.Concurrent
 import Control.Exception
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
+import Language.Haskell.TH.Env (envQ)
 import OurPrelude hiding (throw)
 import System.Directory (doesDirectoryExist, getModificationTime, setCurrentDirectory)
 import System.Environment (getEnv)
@@ -35,31 +38,43 @@ import System.Posix.Env (setEnv)
 import qualified System.Process.Typed
 import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
 
+bin :: String
+bin = fromJust ($$(envQ "GIT") :: Maybe String) <> "/bin/git"
+
+procGit :: [String] -> ProcessConfig () () ()
+procGit = proc bin
+
+hubBin :: String
+hubBin = fromJust ($$(envQ "HUB") :: Maybe String) <> "/bin/hub"
+
+procHub :: [String] -> ProcessConfig () () ()
+procHub = proc hubBin
+
 clean :: ProcessConfig () () ()
-clean = silently "git clean -fdx"
+clean = silently $ procGit ["clean", "-fdx"]
 
 checkout :: Text -> Text -> ProcessConfig () () ()
 checkout branch target =
-  silently $ proc "git" ["checkout", "-B", T.unpack branch, T.unpack target]
+  silently $ procGit ["checkout", "-B", T.unpack branch, T.unpack target]
 
 reset :: Text -> ProcessConfig () () ()
-reset target = silently $ proc "git" ["reset", "--hard", T.unpack target]
+reset target = silently $ procGit ["reset", "--hard", T.unpack target]
 
 delete1 :: Text -> ProcessConfig () () ()
 delete1 branch = delete [branch]
 
 delete :: [Text] -> ProcessConfig () () ()
-delete branches = silently $ proc "git" (["branch", "-D"] ++ fmap T.unpack branches)
+delete branches = silently $ procGit (["branch", "-D"] ++ fmap T.unpack branches)
 
 deleteOrigin :: [Text] -> ProcessConfig () () ()
 deleteOrigin branches =
-  silently $ proc "git" (["push", "origin", "--delete"] ++ fmap T.unpack branches)
+  silently $ procGit (["push", "origin", "--delete"] ++ fmap T.unpack branches)
 
 cleanAndResetTo :: MonadIO m => Text -> ExceptT Text m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
    in do
-        runProcessNoIndexIssue_ $ silently "git reset --hard"
+        runProcessNoIndexIssue_ $ silently $ procGit ["reset", "--hard"]
         runProcessNoIndexIssue_ clean
         runProcessNoIndexIssue_ $ checkout branch target
         runProcessNoIndexIssue_ $ reset target
@@ -73,7 +88,7 @@ cleanup bName = do
     <|> liftIO (T.putStrLn ("Couldn't delete " <> bName))
 
 diff :: MonadIO m => ExceptT Text m Text
-diff = readProcessInterleavedNoIndexIssue_ $ proc "git" ["diff"]
+diff = readProcessInterleavedNoIndexIssue_ $ procGit ["diff"]
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -95,13 +110,12 @@ fetchIfStale = whenM staleFetchHead fetch
 fetch :: MonadIO m => ExceptT Text m ()
 fetch =
   runProcessNoIndexIssue_ $
-    silently "git fetch -q --prune --multiple upstream origin"
+    silently $ procGit ["fetch", "-q", "--prune", "--multiple", "upstream", "origin"]
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
   runProcessNoIndexIssue_
-    ( proc
-        "git"
+    ( procGit
         ( [ "push",
             "--force",
             "--set-upstream",
@@ -121,14 +135,14 @@ setupNixpkgs githubt = do
   exists <- doesDirectoryExist fp
   unless exists $ do
     path <- getEnv "PATH"
-    proc "hub" ["clone", "nixpkgs", fp]
+    procHub ["clone", "nixpkgs", fp]
       & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
         [ ("PATH" :: String, path),
           ("GITHUB_TOKEN" :: String, githubt & T.unpack)
         ]
       & runProcess_
     setCurrentDirectory fp
-    shell "git remote add upstream https://github.com/NixOS/nixpkgs"
+    shell (bin <> "remote add upstream https://github.com/NixOS/nixpkgs")
       & runProcess_
   setCurrentDirectory fp
   _ <- runExceptT fetchIfStale
@@ -139,14 +153,14 @@ checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
 checkoutAtMergeBase bName = do
   base <-
     readProcessInterleavedNoIndexIssue_
-      "git merge-base upstream/master upstream/staging"
+      (procGit ["merge-base", "upstream/master", "upstream/staging"])
       & fmapRT T.strip
   runProcessNoIndexIssue_ (checkout bName base)
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do
   remoteBranches <-
-    readProcessInterleavedNoIndexIssue_ "git branch --remote"
+    readProcessInterleavedNoIndexIssue_ (procGit ["branch", "--remote"])
       & fmapRT (T.lines >>> fmap T.strip)
   when
     (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
@@ -154,10 +168,10 @@ checkAutoUpdateBranchDoesntExist pName = do
 
 commit :: MonadIO m => Text -> ExceptT Text m ()
 commit ref =
-  runProcessNoIndexIssue_ (proc "git" ["commit", "-am", T.unpack ref])
+  runProcessNoIndexIssue_ (procGit ["commit", "-am", T.unpack ref])
 
 headHash :: MonadIO m => ExceptT Text m Text
-headHash = T.strip <$> readProcessInterleavedNoIndexIssue_ "git rev-parse HEAD"
+headHash = T.strip <$> readProcessInterleavedNoIndexIssue_ (procGit ["rev-parse", "HEAD"])
 
 deleteBranchesEverywhere :: Vector Text -> IO ()
 deleteBranchesEverywhere branches = do

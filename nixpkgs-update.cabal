@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 423912d97dc4b89c2c6324797efb0befbf8ddf7701f87d49c4da3e9ee426419f
+-- hash: 2434848b7fd81488fc4e9c5c41882ad1c0b11f6922f982686b155bb6713dd2fc
 
 name:           nixpkgs-update
 version:        0.2.0
@@ -87,6 +87,7 @@ library
     , template-haskell
     , temporary
     , text
+    , th-env
     , time
     , transformers
     , typed-process
@@ -139,6 +140,7 @@ executable nixpkgs-update
     , template-haskell
     , temporary
     , text
+    , th-env
     , time
     , transformers
     , typed-process
@@ -199,6 +201,7 @@ test-suite spec
     , template-haskell
     , temporary
     , text
+    , th-env
     , time
     , transformers
     , typed-process

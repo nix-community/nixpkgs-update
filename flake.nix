@@ -29,18 +29,15 @@
           root = self;
           overrides = self: super: { };
           source-overrides = { };
-        }).overrideAttrs (attrs: {
-          propagatedBuildInputs = with pkgs; [
-            nix
-            git
-            getent
-            gitAndTools.hub
-            jq
-            tree
-            gist
-            (import nixpkgs-review { inherit pkgs; })
-            cabal-install # just for develpoment
-          ];
+        }).overrideAttrs (attrs: with pkgs; {
+          # TODO: lock down coreutils paths too
+          NIX = nix;
+          GIT = git;
+          HUB = gitAndTools.hub;
+          JQ = jq;
+          TREE = tree;
+          GIST = gist;
+          NIXPKGSREVIEW = (import nixpkgs-review { inherit pkgs; });
         });
     in
     {
