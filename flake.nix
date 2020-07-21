@@ -24,11 +24,12 @@
 
         compiler = pkgs.haskell.packages.ghc883;
 
-        pkg = (compiler.developPackage {
+        pkg = returnShellEnv: (compiler.developPackage {
           name = "nixpkgs-update";
           root = self;
           overrides = self: super: { };
           source-overrides = { };
+          inherit returnShellEnv;
         }).overrideAttrs (attrs: with pkgs; {
           # TODO: lock down coreutils paths too
           NIX = nix;
@@ -41,7 +42,8 @@
         });
     in
     {
-      packages.x86_64-linux.nixpkgs-update = pkg;
+      devShell = pkg true;
+      packages.x86_64-linux.nixpkgs-update = pkg false;
       defaultPackage.x86_64-linux = self.packages.x86_64-linux.nixpkgs-update;
     };
 }
