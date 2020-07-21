@@ -1,6 +1,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Check
@@ -10,23 +11,36 @@ where
 
 import Control.Applicative (many)
 import Data.Char (isSpace)
+import Data.Maybe (fromJust)
 import qualified Data.Text as T
+import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.Exit
 import System.IO.Temp (withSystemTempDirectory)
+import Text.Regex.Applicative.Text (RE', (=~))
 import qualified Text.Regex.Applicative.Text as RE
-import Text.Regex.Applicative.Text ((=~), RE')
 import Utils (UpdateEnv (..), Version, nixBuildOptions)
 
 default (T.Text)
 
-data BinaryCheck
-  = BinaryCheck
-      { filePath :: FilePath,
-        zeroExitCode :: Bool,
-        versionPresent :: Bool
-      }
+treeBin :: String
+treeBin = fromJust ($$(envQ "TREE") :: Maybe String) <> "/bin/tree"
+
+procTree :: [String] -> ProcessConfig () () ()
+procTree = proc treeBin
+
+gistBin :: String
+gistBin = fromJust ($$(envQ "GIST") :: Maybe String) <> "/bin/gist"
+
+procGist :: [String] -> ProcessConfig () () ()
+procGist = proc gistBin
+
+data BinaryCheck = BinaryCheck
+  { filePath :: FilePath,
+    zeroExitCode :: Bool,
+    versionPresent :: Bool
+  }
 
 -- | Construct regex: [^\.]*${version}\.*\s*
 versionRegex :: Text -> RE' ()
@@ -168,9 +182,9 @@ treeGist resultPath =
   hush
     <$> runExceptT
       ( do
-          contents <- proc "tree" [resultPath] & ourReadProcessInterleavedBS_
+          contents <- procTree [resultPath] & ourReadProcessInterleavedBS_
           g <-
-            shell "gist" & setStdin (byteStringInput contents)
+            shell gistBin & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
           return $ "- directory tree listing: " <> g <> "\n"
       )
@@ -182,7 +196,7 @@ duGist resultPath =
       ( do
           contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
           g <-
-            shell "gist" & setStdin (byteStringInput contents)
+            shell gistBin & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
           return $ "- du listing: " <> g <> "\n"
       )
