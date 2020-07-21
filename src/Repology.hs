@@ -36,19 +36,18 @@ type Metapackages = HashMap Text Metapackage
 type API =
   "metapackage" :> Capture "metapackage_name" Text :> Get '[JSON] Metapackage :<|> "metapackages" :> QueryParam "search" Text :> QueryParam "maintainers" Text :> QueryParam "category" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> QueryParam "notinrepo" Text :> QueryParam "minspread" Integer :> QueryParam "maxspread" Integer :> Get '[JSON] Metapackages :<|> "metapackages" :> Capture "name" Text :> QueryParam "search" Text :> QueryParam "maintainers" Text :> QueryParam "category" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> QueryParam "notinrepo" Text :> QueryParam "minspread" Integer :> QueryParam "maxspread" Integer :> Get '[JSON] Metapackages
 
-data Package
-  = Package
-      { repo :: Text,
-        name :: Maybe Text,
-        version :: Text,
-        origversion :: Maybe Text,
-        status :: Maybe Text,
-        summary :: Maybe Text,
-        categories :: Maybe (Vector Text),
-        licenses :: Maybe (Vector Text),
-        www :: Maybe (Vector Text),
-        downloads :: Maybe (Vector Text)
-      }
+data Package = Package
+  { repo :: Text,
+    name :: Maybe Text,
+    version :: Text,
+    origversion :: Maybe Text,
+    status :: Maybe Text,
+    summary :: Maybe Text,
+    categories :: Maybe (Vector Text),
+    licenses :: Maybe (Vector Text),
+    www :: Maybe (Vector Text),
+    downloads :: Maybe (Vector Text)
+  }
   deriving (Eq, Show, Generic, FromJSON)
 
 api :: Proxy API
@@ -175,21 +174,21 @@ moreNixUpdateInfo ::
   ClientM (Vector (Package, Package))
 moreNixUpdateInfo (Nothing, acc) = do
   (mLastName, moreWork, newNix) <- getUpdateInfo
-  liftIO
-    $ V.sequence_
-    $ fmap Data.Text.IO.putStrLn
-    $ justs
-    $ fmap updateInfo newNix
+  liftIO $
+    V.sequence_ $
+      fmap Data.Text.IO.putStrLn $
+        justs $
+          fmap updateInfo newNix
   if moreWork
     then moreNixUpdateInfo (mLastName, newNix V.++ acc)
     else return acc
 moreNixUpdateInfo (Just pname, acc) = do
   (mLastName, moreWork, newNix) <- getNextUpdateInfo pname
-  liftIO
-    $ V.sequence_
-    $ fmap Data.Text.IO.putStrLn
-    $ justs
-    $ fmap updateInfo newNix
+  liftIO $
+    V.sequence_ $
+      fmap Data.Text.IO.putStrLn $
+        justs $
+          fmap updateInfo newNix
   if moreWork
     then moreNixUpdateInfo (mLastName, newNix V.++ acc)
     else return acc

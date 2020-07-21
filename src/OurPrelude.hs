@@ -48,7 +48,7 @@ import Data.Vector (Vector)
 import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
 import Polysemy
-import Polysemy.Error hiding (tryJust, note, try)
+import Polysemy.Error hiding (note, try, tryJust)
 import qualified Process as P
 import System.Exit
 import System.Process.Typed

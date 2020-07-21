@@ -6,7 +6,7 @@ import CVE (CPE (..), CPEMatch (..), CVE (..))
 import Data.Char (isDigit)
 import qualified Data.Text as T
 import OurPrelude
-import Text.Regex.Applicative.Text ((=~), RE', anySym, many, psym)
+import Text.Regex.Applicative.Text (RE', anySym, many, psym, (=~))
 import Utils (Boundary (..), ProductID, Version, VersionMatcher (..))
 
 -- Return False to discard CVE

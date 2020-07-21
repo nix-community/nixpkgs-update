@@ -24,7 +24,7 @@ module Utils
     runLog,
     srcOrMain,
     stripQuotes,
-    tRead
+    tRead,
   )
 where
 
@@ -101,27 +101,25 @@ instance FromField VersionMatcher where
 instance ToField VersionMatcher where
   toField = showField
 
-data Options
-  = Options
-      { doPR :: Bool,
-        batchUpdate :: Bool,
-        githubUser :: GH.Name GH.Owner,
-        githubToken :: Text,
-        makeCVEReport :: Bool,
-        pushToCachix :: Bool,
-        runNixpkgsReview :: Bool,
-        calculateOutpaths :: Bool
-      }
+data Options = Options
+  { doPR :: Bool,
+    batchUpdate :: Bool,
+    githubUser :: GH.Name GH.Owner,
+    githubToken :: Text,
+    makeCVEReport :: Bool,
+    pushToCachix :: Bool,
+    runNixpkgsReview :: Bool,
+    calculateOutpaths :: Bool
+  }
   deriving (Show)
 
-data UpdateEnv
-  = UpdateEnv
-      { packageName :: Text,
-        oldVersion :: Version,
-        newVersion :: Version,
-        sourceURL :: Maybe URL,
-        options :: Options
-      }
+data UpdateEnv = UpdateEnv
+  { packageName :: Text,
+    oldVersion :: Version,
+    newVersion :: Version,
+    sourceURL :: Maybe URL,
+    options :: Options
+  }
 
 prTitle :: UpdateEnv -> Text -> Text
 prTitle updateEnv attrPath =
@@ -137,10 +135,10 @@ regDirMode =
 logsDirectory :: MonadIO m => ExceptT Text m FilePath
 logsDirectory = do
   dir <-
-    noteT "Could not get environment variable LOGS_DIRECTORY"
-      $ MaybeT
-      $ liftIO
-      $ getEnv "LOGS_DIRECTORY"
+    noteT "Could not get environment variable LOGS_DIRECTORY" $
+      MaybeT $
+        liftIO $
+          getEnv "LOGS_DIRECTORY"
   dirExists <- liftIO $ doesDirectoryExist dir
   tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
   unless
@@ -153,10 +151,10 @@ logsDirectory = do
 xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
 xdgRuntimeDir = do
   xDir <-
-    noteT "Could not get environment variable XDG_RUNTIME_DIR"
-      $ MaybeT
-      $ liftIO
-      $ getEnv "XDG_RUNTIME_DIR"
+    noteT "Could not get environment variable XDG_RUNTIME_DIR" $
+      MaybeT $
+        liftIO $
+          getEnv "XDG_RUNTIME_DIR"
   xDirExists <- liftIO $ doesDirectoryExist xDir
   tryAssert ("XDG_RUNTIME_DIR " <> T.pack xDir <> " does not exist.") xDirExists
   let dir = xDir <> "/nixpkgs-update"

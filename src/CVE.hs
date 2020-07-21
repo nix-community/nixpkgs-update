@@ -15,14 +15,14 @@ module CVE
 where
 
 import Data.Aeson
-  ( (.!=),
-    (.:),
-    (.:!),
-    FromJSON,
+  ( FromJSON,
     Object,
     eitherDecode,
     parseJSON,
     withObject,
+    (.!=),
+    (.:),
+    (.:!),
   )
 import Data.Aeson.Types (Parser, prependFailure)
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -36,14 +36,13 @@ import Utils (Boundary (..), VersionMatcher (..))
 
 type CVEID = Text
 
-data CVE
-  = CVE
-      { cveID :: CVEID,
-        cveCPEMatches :: [CPEMatch],
-        cveDescription :: Text,
-        cvePublished :: UTCTime,
-        cveLastModified :: UTCTime
-      }
+data CVE = CVE
+  { cveID :: CVEID,
+    cveCPEMatches :: [CPEMatch],
+    cveDescription :: Text,
+    cvePublished :: UTCTime,
+    cveLastModified :: UTCTime
+  }
   deriving (Show, Eq, Ord)
 
 -- | cve list item
@@ -61,12 +60,11 @@ cveLI c patched =
         then " (patched)"
         else ""
 
-data CPEMatch
-  = CPEMatch
-      { cpeMatchCPE :: CPE,
-        cpeMatchVulnerable :: Bool,
-        cpeMatchVersionMatcher :: VersionMatcher
-      }
+data CPEMatch = CPEMatch
+  { cpeMatchCPE :: CPE,
+    cpeMatchVulnerable :: Bool,
+    cpeMatchVersionMatcher :: VersionMatcher
+  }
   deriving (Show, Eq, Ord)
 
 instance FromRow CPEMatch where
@@ -78,20 +76,19 @@ instance FromRow CPEMatch where
 
 -- This decodes an entire CPE string and related attributes, but we only use
 -- cpeVulnerable, cpeProduct, cpeVersion and cpeMatcher.
-data CPE
-  = CPE
-      { cpePart :: (Maybe Text),
-        cpeVendor :: (Maybe Text),
-        cpeProduct :: (Maybe Text),
-        cpeVersion :: (Maybe Text),
-        cpeUpdate :: (Maybe Text),
-        cpeEdition :: (Maybe Text),
-        cpeLanguage :: (Maybe Text),
-        cpeSoftwareEdition :: (Maybe Text),
-        cpeTargetSoftware :: (Maybe Text),
-        cpeTargetHardware :: (Maybe Text),
-        cpeOther :: (Maybe Text)
-      }
+data CPE = CPE
+  { cpePart :: (Maybe Text),
+    cpeVendor :: (Maybe Text),
+    cpeProduct :: (Maybe Text),
+    cpeVersion :: (Maybe Text),
+    cpeUpdate :: (Maybe Text),
+    cpeEdition :: (Maybe Text),
+    cpeLanguage :: (Maybe Text),
+    cpeSoftwareEdition :: (Maybe Text),
+    cpeTargetSoftware :: (Maybe Text),
+    cpeTargetHardware :: (Maybe Text),
+    cpeOther :: (Maybe Text)
+  }
   deriving (Eq, Ord)
 
 instance Show CPE where
@@ -180,16 +177,16 @@ parseDescription :: Object -> Parser Text
 parseDescription o = do
   dData <- o .: "description_data"
   descriptions <-
-    fmap concat
-      $ sequence
-      $ flip map dData
-      $ \dDatum -> do
-        value <- dDatum .: "value"
-        lang :: Text <- dDatum .: "lang"
-        pure $
-          case lang of
-            "en" -> [value]
-            _ -> []
+    fmap concat $
+      sequence $
+        flip map dData $
+          \dDatum -> do
+            value <- dDatum .: "value"
+            lang :: Text <- dDatum .: "lang"
+            pure $
+              case lang of
+                "en" -> [value]
+                _ -> []
   pure $ T.intercalate "\n\n" descriptions
 
 instance FromJSON CVE where
@@ -295,14 +292,14 @@ cpeMatches = concatMap rows
 guardAttr :: (Eq a, FromJSON a, Show a) => Object -> Text -> a -> Parser ()
 guardAttr object attribute expected = do
   actual <- object .: attribute
-  unless (actual == expected)
-    $ fail
-    $ "unexpected "
-      <> T.unpack attribute
-      <> ", expected "
-      <> show expected
-      <> ", got "
-      <> show actual
+  unless (actual == expected) $
+    fail $
+      "unexpected "
+        <> T.unpack attribute
+        <> ", expected "
+        <> show expected
+        <> ", got "
+        <> show actual
 
 boundedMatcher :: VersionMatcher -> Bool
 boundedMatcher (RangeMatcher Unbounded Unbounded) = False
@@ -316,9 +313,9 @@ parseNode node = do
   case maybeChildren of
     Nothing -> do
       matches <- node .:! "cpe_match" .!= []
-      pure
-        $ filter (cpeMatchVersionMatcher >>> boundedMatcher)
-        $ filter cpeMatchVulnerable matches
+      pure $
+        filter (cpeMatchVersionMatcher >>> boundedMatcher) $
+          filter cpeMatchVulnerable matches
     Just children -> do
       fmap concat $ sequence $ map parseNode children
 
@@ -331,10 +328,9 @@ parseConfigurations o = do
 parseFeed :: BSL.ByteString -> Either Text [CVE]
 parseFeed = bimap T.pack cvefItems . eitherDecode
 
-data CVEFeed
-  = CVEFeed
-      { cvefItems :: [CVE]
-      }
+data CVEFeed = CVEFeed
+  { cvefItems :: [CVE]
+  }
 
 instance FromJSON CVEFeed where
   parseJSON = withObject "CVEFeed" $ \o -> CVEFeed <$> o .: "CVE_Items"

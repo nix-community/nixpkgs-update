@@ -6,8 +6,8 @@ module Process where
 import qualified Data.ByteString.Lazy as BSL
 import Polysemy
 import Polysemy.Input
+import System.Exit (ExitCode (..))
 import qualified System.Process.Typed as TP
-import System.Exit (ExitCode(..))
 
 data Process m a where
   ReadInterleaved_ :: TP.ProcessConfig stdin stdout stderr -> Process m BSL.ByteString

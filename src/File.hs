@@ -1,6 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE LambdaCase, BlockArguments #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module File where
 
@@ -29,12 +30,12 @@ runPure ::
   [Text] ->
   Sem (File ': r) a ->
   Sem r ([Text], a)
-runPure contentList
-  = runOutputMonoid pure
-  . runInputList contentList
-  . reinterpret2 \case
-       Read _file -> maybe "" id <$> input
-       Write _file contents -> output contents
+runPure contentList =
+  runOutputMonoid pure
+    . runInputList contentList
+    . reinterpret2 \case
+      Read _file -> maybe "" id <$> input
+      Write _file contents -> output contents
 
 replace ::
   Member File r =>
@@ -51,8 +52,8 @@ replace find replacement file = do
 
 replaceIO :: MonadIO m => Text -> Text -> FilePath -> m Bool
 replaceIO find replacement file =
-  liftIO
-    $ runFinal
-    $ embedToFinal
-    $ runIO
-    $ (replace find replacement file)
+  liftIO $
+    runFinal $
+      embedToFinal $
+        runIO $
+          (replace find replacement file)

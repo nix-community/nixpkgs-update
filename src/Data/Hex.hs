@@ -1,7 +1,10 @@
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      :  Data.Hex
 -- Copyright   :  (c) Taru Karttunen 2009
@@ -11,9 +14,7 @@
 -- Portability :  portable
 --
 -- Convert strings into hexadecimal and back.
---
------------------------------------------------------------------------------
-module Data.Hex(Hex(..)) where
+module Data.Hex (Hex (..)) where
 
 import Control.Monad
 import qualified Data.ByteString.Char8 as B
@@ -21,23 +22,25 @@ import qualified Data.ByteString.Lazy.Char8 as L
 
 -- | Convert strings into hexadecimal and back.
 class Hex t where
-    -- | Convert string into hexadecimal.
-    hex   :: t -> t
-    -- | Convert from hexadecimal and fail on invalid input.
-    unhex :: MonadFail m => t -> m t
+  -- | Convert string into hexadecimal.
+  hex :: t -> t
 
+  -- | Convert from hexadecimal and fail on invalid input.
+  unhex :: MonadFail m => t -> m t
 
 instance Hex String where
-    hex = Prelude.concatMap w
-        where w ch = let s = "0123456789ABCDEF"
-                         x = fromEnum ch
-                     in [s !! div x 16,s !! mod x 16]
-    unhex []      = return []
-    unhex (a:b:r) = do x <- c a
-                       y <- c b
-                       liftM (toEnum ((x * 16) + y) :) $ unhex r
-    unhex [_]      = fail "Non-even length"
-
+  hex = Prelude.concatMap w
+    where
+      w ch =
+        let s = "0123456789ABCDEF"
+            x = fromEnum ch
+         in [s !! div x 16, s !! mod x 16]
+  unhex [] = return []
+  unhex (a : b : r) = do
+    x <- c a
+    y <- c b
+    liftM (toEnum ((x * 16) + y) :) $ unhex r
+  unhex [_] = fail "Non-even length"
 
 c :: MonadFail m => Char -> m Int
 c '0' = return 0
@@ -62,12 +65,12 @@ c 'c' = return 12
 c 'd' = return 13
 c 'e' = return 14
 c 'f' = return 15
-c _   = fail "Invalid hex digit!"
+c _ = fail "Invalid hex digit!"
 
 instance Hex B.ByteString where
-    hex = B.pack . hex . B.unpack
-    unhex x = liftM B.pack $ unhex $ B.unpack x
+  hex = B.pack . hex . B.unpack
+  unhex x = liftM B.pack $ unhex $ B.unpack x
 
 instance Hex L.ByteString where
-    hex = L.pack . hex . L.unpack
-    unhex x = liftM L.pack $ unhex $ L.unpack x
+  hex = L.pack . hex . L.unpack
+  unhex x = liftM L.pack $ unhex $ L.unpack x

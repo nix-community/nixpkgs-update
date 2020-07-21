@@ -91,19 +91,17 @@ outPath = do
   ourReadProcessInterleaved_
     "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true --show-trace"
 
-data Outpath
-  = Outpath
-      { mayName :: Maybe Text,
-        storePath :: Text
-      }
+data Outpath = Outpath
+  { mayName :: Maybe Text,
+    storePath :: Text
+  }
   deriving (Eq, Ord, Show)
 
-data ResultLine
-  = ResultLine
-      { package :: Text,
-        architecture :: Text,
-        outpaths :: Vector Outpath
-      }
+data ResultLine = ResultLine
+  { package :: Text,
+    architecture :: Text,
+    outpaths :: Vector Outpath
+  }
   deriving (Eq, Ord, Show)
 
 -- Example query result line:

@@ -14,7 +14,7 @@ module GH
     latestVersion,
     openAutoUpdatePR,
     openPullRequests,
-    pr
+    pr,
   )
 where
 
@@ -25,8 +25,8 @@ import qualified Data.Vector as V
 import qualified GitHub as GH
 import GitHub.Data.Name (Name (..))
 import OurPrelude
-import qualified Text.Regex.Applicative.Text as RE
 import Text.Regex.Applicative.Text ((=~))
+import qualified Text.Regex.Applicative.Text as RE
 import Utils (UpdateEnv (..), Version)
 import qualified Utils as U
 
@@ -47,16 +47,22 @@ pr :: MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m T
 pr env title body prHead base = do
   ExceptT $
     bimap (T.pack . show) (GH.getUrl . GH.pullRequestUrl)
-      <$> (liftIO $ (GH.github (authFrom env)
-         (GH.createPullRequestR (N "nixos") (N "nixpkgs")
-          (GH.CreatePullRequest title body prHead base))))
+      <$> ( liftIO $
+              ( GH.github
+                  (authFrom env)
+                  ( GH.createPullRequestR
+                      (N "nixos")
+                      (N "nixpkgs")
+                      (GH.CreatePullRequest title body prHead base)
+                  )
+              )
+          )
 
-data URLParts
-  = URLParts
-      { owner :: GH.Name GH.Owner,
-        repo :: GH.Name GH.Repo,
-        tag :: Text
-      }
+data URLParts = URLParts
+  { owner :: GH.Name GH.Owner,
+    repo :: GH.Name GH.Repo,
+    tag :: Text
+  }
   deriving (Show)
 
 -- | Parse owner-repo-branch triplet out of URL
@@ -170,10 +176,10 @@ authFrom = authFromToken . U.githubToken . options
 checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
 checkExistingUpdatePR env attrPath = do
   searchResult <-
-    ExceptT
-      $ liftIO
-      $ GH.github (authFrom env) (GH.searchIssuesR search)
-        & fmap (first (T.pack . show))
+    ExceptT $
+      liftIO $
+        GH.github (authFrom env) (GH.searchIssuesR search)
+          & fmap (first (T.pack . show))
   if T.length (openPRReport searchResult) == 0
     then return ()
     else
@@ -195,8 +201,9 @@ latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
 latestVersion env url = do
   urlParts <- parseURL url
   r <-
-    fmapLT tshow $ ExceptT
-      $ liftIO
-      $ GH.executeRequest (authFrom env)
-      $ GH.latestReleaseR (owner urlParts) (repo urlParts)
+    fmapLT tshow $
+      ExceptT $
+        liftIO $
+          GH.executeRequest (authFrom env) $
+            GH.latestReleaseR (owner urlParts) (repo urlParts)
   return $ T.dropWhile (\c -> c == 'v' || c == 'V') (GH.releaseTagName r)

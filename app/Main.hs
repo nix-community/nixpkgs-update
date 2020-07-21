@@ -22,14 +22,13 @@ import Utils (Options (..), UpdateEnv (..), getGithubToken, getGithubUser)
 
 default (T.Text)
 
-data UpdateOptions
-  = UpdateOptions
-      { pr :: Bool,
-        cve :: Bool,
-        cachix :: Bool,
-        nixpkgsReview :: Bool,
-        outpaths :: Bool
-      }
+data UpdateOptions = UpdateOptions
+  { pr :: Bool,
+    cve :: Bool,
+    cachix :: Bool,
+    nixpkgsReview :: Bool,
+    outpaths :: Bool
+  }
 
 data Command
   = UpdateList UpdateOptions

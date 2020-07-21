@@ -47,13 +47,12 @@ import Prelude hiding (log)
 
   TODO: Setup some unit tests for these!
 -}
-data Args
-  = Args
-      { updateEnv :: Utils.UpdateEnv,
-        attrPath :: Text,
-        derivationFile :: FilePath,
-        derivationContents :: Text
-      }
+data Args = Args
+  { updateEnv :: Utils.UpdateEnv,
+    attrPath :: Text,
+    derivationFile :: FilePath,
+    derivationContents :: Text
+  }
 
 runAll :: (Text -> IO ()) -> Args -> ExceptT Text IO [Text]
 runAll log rwArgs = do
@@ -114,15 +113,15 @@ quotedUrls (Args _ attrPth drvFile _) = do
 
 quotedUrlsET :: MonadIO m => (Text -> IO ()) -> Args -> ExceptT Text m (Maybe Text)
 quotedUrlsET log rwArgs =
-  ExceptT
-    $ liftIO
+  ExceptT $
+    liftIO
       . runFinal
       . embedToFinal
       . Error.runError
       . Process.runIO
       . File.runIO
       . Utils.runLog log
-    $ quotedUrls rwArgs
+      $ quotedUrls rwArgs
 
 --------------------------------------------------------------------------------
 -- Redirect homepage when moved.
@@ -149,11 +148,12 @@ redirectedUrls log (Args _ attrPth drvFile _) = do
         Just (decodeUtf8 -> newHomepage) -> do
           _ <- File.replaceIO homepage newHomepage drvFile
           lift $ log "Replaced homepage"
-          return $ Just $
-            "Replaced homepage by "
-              <> newHomepage
-              <> " due http "
-              <> (T.pack . show) status
+          return $
+            Just $
+              "Replaced homepage by "
+                <> newHomepage
+                <> " due http "
+                <> (T.pack . show) status
     else do
       lift $ log "URL not redirected"
       return Nothing

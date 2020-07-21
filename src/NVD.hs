@@ -110,33 +110,33 @@ rebuildDB = do
       conn
       "INSERT INTO meta VALUES (?, ?)"
       (softwareVersion, "1970-01-01 00:00:00" :: Text)
-    execute_ conn
-      $ Query
-      $ T.unlines
-        [ "CREATE TABLE cves (",
-          "  cve_id text PRIMARY KEY,",
-          "  description text,",
-          "  published text,",
-          "  modified text)"
-        ]
-    execute_ conn
-      $ Query
-      $ T.unlines
-        [ "CREATE TABLE cpe_matches (",
-          "  cve_id text REFERENCES cve,",
-          "  part text,",
-          "  vendor text,",
-          "  product text,",
-          "  version text,",
-          "  \"update\" text,",
-          "  edition text,",
-          "  language text,",
-          "  software_edition text,",
-          "  target_software text,",
-          "  target_hardware text,",
-          "  other text,",
-          "  matcher text)"
-        ]
+    execute_ conn $
+      Query $
+        T.unlines
+          [ "CREATE TABLE cves (",
+            "  cve_id text PRIMARY KEY,",
+            "  description text,",
+            "  published text,",
+            "  modified text)"
+          ]
+    execute_ conn $
+      Query $
+        T.unlines
+          [ "CREATE TABLE cpe_matches (",
+            "  cve_id text REFERENCES cve,",
+            "  part text,",
+            "  vendor text,",
+            "  product text,",
+            "  version text,",
+            "  \"update\" text,",
+            "  edition text,",
+            "  language text,",
+            "  software_edition text,",
+            "  target_software text,",
+            "  target_hardware text,",
+            "  other text,",
+            "  matcher text)"
+          ]
     execute_ conn "CREATE INDEX matchers_by_cve ON cpe_matches(cve_id)"
     execute_ conn "CREATE INDEX matchers_by_product ON cpe_matches(product)"
     execute_ conn "CREATE INDEX matchers_by_vendor ON cpe_matches(vendor)"
@@ -171,9 +171,9 @@ parseMeta raw = do
     note "no lastModifiedDate in meta" $ lookup "lastModifiedDate" fields
   sha256 <- note "no sha256 in meta" $ lookup "sha256" fields
   timestamp <-
-    note "invalid lastModifiedDate in meta"
-      $ parseISO8601
-      $ BSL.unpack lastModifiedDate
+    note "invalid lastModifiedDate in meta" $
+      parseISO8601 $
+        BSL.unpack lastModifiedDate
   checksum <- note "invalid sha256 in meta" $ unhex sha256
   return $ Meta timestamp checksum
 
@@ -228,16 +228,16 @@ getCVEs conn productID version = do
       )
       (productID, productID, productID, productID, productID)
   let cveIDs =
-        map head
-          $ group
-          $ flip mapMaybe matches
-          $ \(CPEMatchRow cve cpeMatch) ->
-            if matchVersion (cpeMatchVersionMatcher cpeMatch) version
-              then
-                if NVDRules.filter cve cpeMatch productID version
-                  then Just (cveID cve)
+        map head $
+          group $
+            flip mapMaybe matches $
+              \(CPEMatchRow cve cpeMatch) ->
+                if matchVersion (cpeMatchVersionMatcher cpeMatch) version
+                  then
+                    if NVDRules.filter cve cpeMatch productID version
+                      then Just (cveID cve)
+                      else Nothing
                   else Nothing
-              else Nothing
   forM cveIDs $ getCVE conn
 
 putCVEs :: Connection -> [CVE] -> IO ()
@@ -333,10 +333,10 @@ downloadFeed feed = do
   compressed <- simpleHttp $ feedURL feed ".json.gz"
   let raw = decompress compressed
   let actualChecksum = BSL.fromStrict $ hashlazy raw
-  when (actualChecksum /= expectedChecksum)
-    $ throwString
-    $ "wrong hash, expected: "
-      <> BSL.unpack (hex expectedChecksum)
-      <> " got: "
-      <> BSL.unpack (hex actualChecksum)
+  when (actualChecksum /= expectedChecksum) $
+    throwString $
+      "wrong hash, expected: "
+        <> BSL.unpack (hex expectedChecksum)
+        <> " got: "
+        <> BSL.unpack (hex actualChecksum)
   return raw
