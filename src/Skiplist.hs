@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Blacklist
+module Skiplist
   ( packageName,
     content,
     srcUrl,
@@ -16,43 +16,43 @@ import Data.Foldable (find)
 import qualified Data.Text as T
 import OurPrelude
 
-type Blacklist = [(Text -> Bool, Text)]
+type Skiplist = [(Text -> Bool, Text)]
 
-type TextBlacklister m =
+type TextSkiplister m =
   (MonadError Text m) =>
   Text ->
   m ()
 
-srcUrl :: TextBlacklister m
-srcUrl = blacklister srcUrlList
+srcUrl :: TextSkiplister m
+srcUrl = skiplister srcUrlList
 
-attrPath :: TextBlacklister m
-attrPath = blacklister attrPathList
+attrPath :: TextSkiplister m
+attrPath = skiplister attrPathList
 
-packageName :: TextBlacklister m
+packageName :: TextSkiplister m
 packageName name =
   if name == "elementary-xfce-icon-theme" -- https://github.com/ryantm/nixpkgs-update/issues/63
     then return ()
-    else blacklister nameList name
+    else skiplister nameList name
 
-content :: TextBlacklister m
-content = blacklister contentList
+content :: TextSkiplister m
+content = skiplister contentList
 
-checkResult :: TextBlacklister m
-checkResult = blacklister checkResultList
+checkResult :: TextSkiplister m
+checkResult = skiplister checkResultList
 
-srcUrlList :: Blacklist
+srcUrlList :: Skiplist
 srcUrlList = []
 
-attrPathList :: Blacklist
+attrPathList :: Skiplist
 attrPathList =
   [ prefix
       "lua"
-      "Packages for lua are currently blacklisted. https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646",
-    prefix "lxqt" "Packages for lxqt are currently blacklisted.",
+      "Packages for lua are currently skipped. https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646",
+    prefix "lxqt" "Packages for lxqt are currently skipped.",
     prefix
       "altcoins.bitcoin"
-      "@roconnor asked for a blacklist on this until something can be done with GPG signatures https://github.com/NixOS/nixpkgs/commit/77f3ac7b7638b33ab198330eaabbd6e0a2e751a9",
+      "@roconnor asked for a skip on this until something can be done with GPG signatures https://github.com/NixOS/nixpkgs/commit/77f3ac7b7638b33ab198330eaabbd6e0a2e751a9",
     eq "sqlite-interactive" "it is an override",
     eq "harfbuzzFull" "it is an override",
     prefix
@@ -63,7 +63,7 @@ attrPathList =
       "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
   ]
 
-nameList :: Blacklist
+nameList :: Skiplist
 nameList =
   [ prefix "r-" "we don't know how to find the attrpath for these",
     infixOf "jquery" "this isn't a real package",
@@ -102,20 +102,20 @@ nameList =
       "https://github.com/NixOS/nixpkgs/pull/47024#issuecomment-423300633",
     eq
       "burp"
-      "temporary blacklist until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301",
+      "skipped until better versioning schema https://github.com/NixOS/nixpkgs/pull/46298#issuecomment-419536301",
     eq "chromedriver" "complicated package",
     eq
       "gitlab-shell"
-      "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52294#issuecomment-447653417",
+      "@globin asked to skip in https://github.com/NixOS/nixpkgs/pull/52294#issuecomment-447653417",
     eq
       "gitlab-workhorse"
-      "@globin asked to black list in https://github.com/NixOS/nixpkgs/pull/52286#issuecomment-447653409",
+      "@globin asked to skip in https://github.com/NixOS/nixpkgs/pull/52286#issuecomment-447653409",
     eq "reposurgeon" "takes way too long to build",
     eq "kodelife" "multiple system hashes need to be updated at once",
     eq "openbazaar" "multiple system hashes need to be updated at once"
   ]
 
-contentList :: Blacklist
+contentList :: Skiplist
 contentList =
   [ infixOf "nixpkgs-update: no auto update" "Derivation file opts-out of auto-updates",
     infixOf "DO NOT EDIT" "Derivation file says not to edit it",
@@ -130,7 +130,7 @@ contentList =
     infixOf "https://downloads.haskell.org/ghc/" "GHC packages are versioned per file"
   ]
 
-checkResultList :: Blacklist
+checkResultList :: Skiplist
 checkResultList =
   [ infixOf
       "busybox"
@@ -152,10 +152,10 @@ checkResultList =
       "- casperjs result is not automatically checked, because some tests take a long time to run"
   ]
 
-blacklister :: Blacklist -> TextBlacklister m
-blacklister blacklist input = forM_ result throwError
+skiplister :: Skiplist -> TextSkiplister m
+skiplister skiplist input = forM_ result throwError
   where
-    result = snd <$> find (\(isBlacklisted, _) -> isBlacklisted input) blacklist
+    result = snd <$> find (\(isSkiplisted, _) -> isSkiplisted input) skiplist
 
 prefix :: Text -> Text -> (Text -> Bool, Text)
 prefix part reason = ((part `T.isPrefixOf`), reason)
