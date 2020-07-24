@@ -17,7 +17,7 @@ module Update
   )
 where
 
-import qualified Blacklist
+import qualified Skiplist
 import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
@@ -196,7 +196,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     let pr = doPR . options $ updateEnv
     --
     -- Filters that don't need git
-    Blacklist.packageName (packageName updateEnv)
+    Skiplist.packageName (packageName updateEnv)
     Nix.assertNewerVersion updateEnv
     --
     -- Update our git checkout
@@ -209,10 +209,10 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     attrPath <- Nix.lookupAttrPath updateEnv
     when pr $
       GH.checkExistingUpdatePR updateEnv attrPath
-    Blacklist.attrPath attrPath
+    Skiplist.attrPath attrPath
     Version.assertCompatibleWithPathPin updateEnv attrPath
     srcUrls <- Nix.getSrcUrls attrPath
-    Blacklist.srcUrl srcUrls
+    Skiplist.srcUrl srcUrls
     derivationFile <- Nix.getDerivationFile attrPath
     assertNotUpdatedOn updateEnv derivationFile "master"
     assertNotUpdatedOn updateEnv derivationFile "staging"
@@ -243,7 +243,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     oldSrcUrl <- Nix.getSrcUrl attrPath
     --
     -- One final filter
-    Blacklist.content derivationContents
+    Skiplist.content derivationContents
     --
     ----------------------------------------------------------------------------
     -- UPDATES
@@ -267,7 +267,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
-    Blacklist.python numPRebuilds derivationContents
+    Skiplist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
     --
@@ -294,7 +294,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
           else "staging"
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
-    case Blacklist.checkResult (packageName updateEnv) of
+    case Skiplist.checkResult (packageName updateEnv) of
       Right () -> lift $ Check.result updateEnv (T.unpack result)
       Left msg -> pure msg
   metaDescription <- Nix.getDescription attrPath <|> return T.empty

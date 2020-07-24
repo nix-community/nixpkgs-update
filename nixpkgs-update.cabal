@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2434848b7fd81488fc4e9c5c41882ad1c0b11f6922f982686b155bb6713dd2fc
+-- hash: 58424b4f6d939fb54c291e341863d658ea2403d27b8caaa422662f6d428ea62a
 
 name:           nixpkgs-update
 version:        0.2.0
@@ -28,7 +28,6 @@ source-repository head
 
 library
   exposed-modules:
-      Blacklist
       Check
       CVE
       Data.Hex
@@ -45,6 +44,7 @@ library
       Process
       Repology
       Rewrite
+      Skiplist
       Time
       Update
       Utils
