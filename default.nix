@@ -4,5 +4,5 @@ let
   flake-compat = import sources.flake-compat { src = ./.; };
 in
 if returnShellEnv
-then flake-compat.shellNix.default
+then flake-compat.shellNix.devShell
 else flake-compat.defaultNix.default
