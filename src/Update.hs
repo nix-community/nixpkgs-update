@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -17,7 +18,6 @@ module Update
   )
 where
 
-import qualified Skiplist
 import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
@@ -38,6 +38,7 @@ import qualified NixpkgsReview
 import OurPrelude
 import Outpaths
 import qualified Rewrite
+import qualified Skiplist
 import qualified Time
 import Utils
   ( Options (..),
@@ -269,7 +270,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- At this point, we've stashed the old derivation contents and validated
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
-    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
+    let rwArgs = Rewrite.Args{..}
     rewriteMsgs <- Rewrite.runAll log rwArgs
     ----------------------------------------------------------------------------
     --
@@ -299,17 +300,18 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- Update updateEnv if using updateScript
     updateEnv' <-
       if hasUpdateScript
-      then do
-        -- Already checked that these are Just above.
-        let Just oldVer = oldVerMay
-        let Just newVer = newVerMay
-        return $ UpdateEnv
-          (packageName updateEnv)
-          oldVer
-          newVer
-          (Just "passthru.updateScript")
-          (options updateEnv)
-      else return updateEnv
+        then do
+          -- Already checked that these are Just above.
+          let Just oldVer = oldVerMay
+          let Just newVer = newVerMay
+          return $
+            UpdateEnv
+              (packageName updateEnv)
+              oldVer
+              newVer
+              (Just "passthru.updateScript")
+              (options updateEnv)
+        else return updateEnv
 
     --
     -- Publish the result
@@ -699,7 +701,7 @@ updatePackage o updateInfo = do
     -- At this point, we've stashed the old derivation contents and validated
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
-    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
+    let rwArgs = Rewrite.Args {..}
     msgs <- Rewrite.runAll log rwArgs
     ----------------------------------------------------------------------------
     --
@@ -724,17 +726,18 @@ updatePackage o updateInfo = do
     -- Update updateEnv if using updateScript
     updateEnv' <-
       if hasUpdateScript
-      then do
-        -- Already checked that these are Just above.
-        let Just oldVer = oldVerMay
-        let Just newVer = newVerMay
-        return $ UpdateEnv
-          (packageName updateEnv)
-          oldVer
-          newVer
-          (Just "passthru.updateScript")
-          (options updateEnv)
-      else return updateEnv
+        then do
+          -- Already checked that these are Just above.
+          let Just oldVer = oldVerMay
+          let Just newVer = newVerMay
+          return $
+            UpdateEnv
+              (packageName updateEnv)
+              oldVer
+              newVer
+              (Just "passthru.updateScript")
+              (options updateEnv)
+        else return updateEnv
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
