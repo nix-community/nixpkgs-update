@@ -192,18 +192,18 @@ updatePackageBatch ::
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
   IO (Either Text ())
-updatePackageBatch log updateEnv mergeBaseOutpathsContext =
+updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
   runExceptT $ do
-    let pr = doPR . options $ updateEnv
+    let pr = doPR options
     --
     -- Filters that don't need git
-    Skiplist.packageName (packageName updateEnv)
+    Skiplist.packageName packageName
     Nix.assertNewerVersion updateEnv
     --
     -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
     when pr $
-      Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
+      Git.checkAutoUpdateBranchDoesntExist packageName
     Git.cleanAndResetTo "master"
     --
     -- Filters: various cases where we shouldn't update the package
@@ -234,7 +234,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     --
     -- Calculate output paths for rebuilds and our merge base
     mergeBase <- Git.checkoutAtMergeBase (branchName updateEnv)
-    let calcOutpaths = calculateOutpaths . options $ updateEnv
+    let calcOutpaths = calculateOutpaths options
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
     mergeBaseOutpathSet <-
@@ -269,8 +269,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- At this point, we've stashed the old derivation contents and validated
     -- that we actually should be touching this file. Get to work processing the
     -- various rewrite functions!
-    let rwArgs = Rewrite.Args{..}
-    rewriteMsgs <- Rewrite.runAll log rwArgs
+    rewriteMsgs <- Rewrite.runAll log Rewrite.Args{..}
     ----------------------------------------------------------------------------
     --
     -- Compute the diff and get updated values
@@ -305,11 +304,11 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
           let Just newVer = newVerMay
           return $
             UpdateEnv
-              (packageName updateEnv)
+              packageName
               oldVer
               newVer
               (Just "passthru.updateScript")
-              (options updateEnv)
+              options
         else return updateEnv
 
     --
