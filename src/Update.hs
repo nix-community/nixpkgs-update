@@ -224,7 +224,6 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     -- More filters (when no updateScript)
     when (not hasUpdateScript) do
       Version.assertCompatibleWithPathPin updateEnv attrPath
-      srcUrls <- Nix.getSrcUrls attrPath
       Skiplist.srcUrl srcUrls
     derivationFile <- Nix.getDerivationFile attrPath
     when (not hasUpdateScript) $ do
@@ -255,7 +254,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     derivationContents <- liftIO $ T.readFile derivationFile
     oldHash <- Nix.getOldHash attrPath
     oldSrcUrl <- Nix.getSrcUrl attrPath
-    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
@@ -280,7 +279,7 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
     newHash <- Nix.getHash attrPath
-    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
@@ -689,7 +688,7 @@ updatePackage o updateInfo = do
     derivationContents <- liftIO $ T.readFile derivationFile
     oldHash <- Nix.getOldHash attrPath
     oldSrcUrl <- Nix.getSrcUrl attrPath
-    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
@@ -711,7 +710,7 @@ updatePackage o updateInfo = do
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
     newHash <- Nix.getHash attrPath
-    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
