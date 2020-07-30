@@ -25,6 +25,7 @@ module Utils
     srcOrMain,
     stripQuotes,
     tRead,
+    whenBatch,
   )
 where
 
@@ -120,6 +121,9 @@ data UpdateEnv = UpdateEnv
     sourceURL :: Maybe URL,
     options :: Options
   }
+
+whenBatch :: Applicative f => UpdateEnv -> f () -> f ()
+whenBatch updateEnv = when (batchUpdate . options $ updateEnv)
 
 prTitle :: UpdateEnv -> Text -> Text
 prTitle updateEnv attrPath =
