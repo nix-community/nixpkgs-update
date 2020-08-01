@@ -243,16 +243,20 @@ golangModuleVersion log args@Args {..} = do
 --------------------------------------------------------------------------------
 -- Calls passthru.updateScript
 updateScript :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
-updateScript log args = do
-  (exitCode, msg) <- Nix.runUpdateScript (attrPath args)
-  case exitCode of
-    ExitSuccess -> do
-      lift $ log "Success"
-      lift $ log msg
-      return $ Just "Ran passthru.UpdateScript"
-    ExitFailure num -> do
-      throwE $ "[updateScript] Failed with exit code " <> tshow num <> "\n" <> msg
-
+updateScript log Args {..} = do
+  if hasUpdateScript
+    then do
+      (exitCode, msg) <- Nix.runUpdateScript attrPath
+      case exitCode of
+        ExitSuccess -> do
+          lift $ log "Success"
+          lift $ log msg
+          return $ Just "Ran passthru.UpdateScript"
+        ExitFailure num -> do
+          throwE $ "[updateScript] Failed with exit code " <> tshow num <> "\n" <> msg
+    else do
+      lift $ log "skipping because derivation has no updateScript"
+      return Nothing
 --------------------------------------------------------------------------------
 -- Common helper functions and utilities
 -- Helper to update version and src attributes, re-computing the sha256.
