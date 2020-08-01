@@ -25,12 +25,14 @@ module Nix
     getSrcUrl,
     getSrcUrls,
     hasPatchNamed,
+    hasUpdateScript,
     lookupAttrPath,
     nixEvalET,
     numberOfFetchers,
     numberOfHashes,
     parseStringList,
     resultLink,
+    runUpdateScript,
     sha256Zero,
     version,
     Raw (..),
@@ -45,6 +47,7 @@ import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import qualified Polysemy.Error as Error
+import qualified System.Process.Typed as TP
 import qualified Process
 import qualified Process as P
 import System.Exit
@@ -356,3 +359,22 @@ hasPatchNamed :: MonadIO m => Text -> Text -> ExceptT Text m Bool
 hasPatchNamed attrPath name = do
   ps <- getPatches attrPath
   return $ name `T.isInfixOf` ps
+
+hasUpdateScript :: MonadIO m => Text -> ExceptT Text m Bool
+hasUpdateScript attrPath = do
+  result <-
+    nixEvalET
+      (EvalOptions NoRaw (Env []))
+      ( "(let pkgs = import ./. {}; in builtins.hasAttr \"updateScript\" pkgs."
+          <> attrPath
+          <> ")"
+      )
+  case result of
+    "true" -> return True
+    _ -> return False
+
+runUpdateScript :: MonadIO m => Text -> ExceptT Text m (ExitCode, Text)
+runUpdateScript attrPath = do
+  ourReadProcessInterleaved $
+    TP.setStdin (TP.byteStringInput "\n") $
+    proc "nix-shell" ["maintainers/scripts/update.nix", "--argstr", "package", T.unpack attrPath]

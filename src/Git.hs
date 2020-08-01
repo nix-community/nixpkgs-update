@@ -87,8 +87,8 @@ cleanup bName = do
   runProcessNoIndexIssue_ (delete1 bName)
     <|> liftIO (T.putStrLn ("Couldn't delete " <> bName))
 
-diff :: MonadIO m => ExceptT Text m Text
-diff = readProcessInterleavedNoIndexIssue_ $ procGit ["diff"]
+diff :: MonadIO m => Text -> ExceptT Text m Text
+diff branch = readProcessInterleavedNoIndexIssue_ $ procGit ["diff", T.unpack branch]
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -149,13 +149,14 @@ setupNixpkgs githubt = do
   _ <- runExceptT $ cleanAndResetTo "master"
   System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
-checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m ()
+checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m Text
 checkoutAtMergeBase bName = do
   base <-
     readProcessInterleavedNoIndexIssue_
       (procGit ["merge-base", "upstream/master", "upstream/staging"])
       & fmapRT T.strip
   runProcessNoIndexIssue_ (checkout bName base)
+  return base
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do

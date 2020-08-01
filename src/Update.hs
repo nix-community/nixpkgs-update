@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -17,7 +18,6 @@ module Update
   )
 where
 
-import qualified Skiplist
 import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
@@ -38,6 +38,7 @@ import qualified NixpkgsReview
 import OurPrelude
 import Outpaths
 import qualified Rewrite
+import qualified Skiplist
 import qualified Time
 import Utils
   ( Options (..),
@@ -48,6 +49,7 @@ import Utils
     logDir,
     parseUpdates,
     prTitle,
+    whenBatch,
   )
 import qualified Version
 import Prelude hiding (log)
@@ -191,37 +193,44 @@ updatePackageBatch ::
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
   IO (Either Text ())
-updatePackageBatch log updateEnv mergeBaseOutpathsContext =
+updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
   runExceptT $ do
-    let pr = doPR . options $ updateEnv
-    --
+    let pr = doPR options
+
     -- Filters that don't need git
-    Skiplist.packageName (packageName updateEnv)
-    Nix.assertNewerVersion updateEnv
-    --
+    whenBatch updateEnv do
+      Skiplist.packageName packageName
+
     -- Update our git checkout
     Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-    when pr $
-      Git.checkAutoUpdateBranchDoesntExist (packageName updateEnv)
     Git.cleanAndResetTo "master"
-    --
+
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
-    when pr $
-      GH.checkExistingUpdatePR updateEnv attrPath
-    Skiplist.attrPath attrPath
-    Version.assertCompatibleWithPathPin updateEnv attrPath
+    hasUpdateScript <- Nix.hasUpdateScript attrPath
     srcUrls <- Nix.getSrcUrls attrPath
-    Skiplist.srcUrl srcUrls
+
+    whenBatch updateEnv do
+      Skiplist.attrPath attrPath
+      when pr do
+        Git.checkAutoUpdateBranchDoesntExist packageName
+        GH.checkExistingUpdatePR updateEnv attrPath
+
+    unless hasUpdateScript do
+      Nix.assertNewerVersion updateEnv
+      Version.assertCompatibleWithPathPin updateEnv attrPath
+      Skiplist.srcUrl srcUrls
+
     derivationFile <- Nix.getDerivationFile attrPath
-    assertNotUpdatedOn updateEnv derivationFile "master"
-    assertNotUpdatedOn updateEnv derivationFile "staging"
-    assertNotUpdatedOn updateEnv derivationFile "staging-next"
-    assertNotUpdatedOn updateEnv derivationFile "python-unstable"
-    --
+    unless hasUpdateScript do
+      assertNotUpdatedOn updateEnv derivationFile "master"
+      assertNotUpdatedOn updateEnv derivationFile "staging"
+      assertNotUpdatedOn updateEnv derivationFile "staging-next"
+      assertNotUpdatedOn updateEnv derivationFile "python-unstable"
+
     -- Calculate output paths for rebuilds and our merge base
-    Git.checkoutAtMergeBase (branchName updateEnv)
-    let calcOutpaths = calculateOutpaths . options $ updateEnv
+    mergeBase <- Git.checkoutAtMergeBase (branchName updateEnv)
+    let calcOutpaths = calculateOutpaths options
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
     mergeBaseOutpathSet <-
@@ -236,45 +245,76 @@ updatePackageBatch log updateEnv mergeBaseOutpathsContext =
           if calcOutpaths
             then return $ mergeBaseOutpaths mergeBaseOutpathsInfo
             else return $ dummyOutpathSetBefore attrPath
-    --
+
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile derivationFile
     oldHash <- Nix.getOldHash attrPath
     oldSrcUrl <- Nix.getSrcUrl attrPath
-    --
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
+
+    tryAssert
+      "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
+      (not hasUpdateScript || isJust oldVerMay)
+
     -- One final filter
-    Skiplist.content derivationContents
-    --
+    unless hasUpdateScript do
+      Skiplist.content derivationContents
+
     ----------------------------------------------------------------------------
     -- UPDATES
-    -- At this point, we've stashed the old derivation contents and validated
-    -- that we actually should be touching this file. Get to work processing the
-    -- various rewrite functions!
-    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
-    rewriteMsgs <- Rewrite.runAll log rwArgs
-    ----------------------------------------------------------------------------
     --
+    -- At this point, we've stashed the old derivation contents and
+    -- validated that we actually should be rewriting something. Get
+    -- to work processing the various rewrite functions!
+    rewriteMsgs <- Rewrite.runAll log Rewrite.Args {..}
+    ----------------------------------------------------------------------------
+
     -- Compute the diff and get updated values
-    diffAfterRewrites <- Git.diff
+    diffAfterRewrites <- Git.diff mergeBase
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
     newHash <- Nix.getHash attrPath
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
+
+    tryAssert
+      "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
+      (not hasUpdateScript || isJust newVerMay)
+
     -- Sanity checks to make sure the PR is worth opening
-    when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
-    when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-    when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+    unless hasUpdateScript do
+      when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
+      when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
+      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
-    Skiplist.python numPRebuilds derivationContents
+    whenBatch updateEnv do
+      Skiplist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
     Nix.build attrPath
+    --
+    -- Update updateEnv if using updateScript
+    updateEnv' <-
+      if hasUpdateScript
+        then do
+          -- Already checked that these are Just above.
+          let Just oldVer = oldVerMay
+          let Just newVer = newVerMay
+          return $
+            UpdateEnv
+              packageName
+              oldVer
+              newVer
+              (Just "passthru.updateScript")
+              options
+        else return updateEnv
+
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
+    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
     Git.cleanAndResetTo "master"
 
 publishPackage ::
@@ -420,8 +460,11 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
             |]
       pat link = [interpolate|This update was made based on information from $link.|]
       sourceLinkInfo = maybe "" pat $ sourceURL updateEnv
+      ghUser = GH.untagName . githubUser . options $ updateEnv
+      batch = batchUpdate . options $ updateEnv
+      automatic = if batch then "Automatic" else "Semi-automatic"
    in [interpolate|
-       Semi-automatic update generated by [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) tools. $sourceLinkInfo
+       $automatic update generated by [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) tools. $sourceLinkInfo
        $brokenMsg
 
        $metaDescriptionLine
@@ -473,7 +516,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 
        $cachixTestInstructions
        ```
-       nix-build -A $attrPath https://github.com/r-ryantm/nixpkgs/archive/$commitHash.tar.gz
+       nix-build -A $attrPath https://github.com/$ghUser/nixpkgs/archive/$commitHash.tar.gz
        ```
 
        After you've downloaded or built it, look at the files and if there are any, run the binaries:
@@ -615,57 +658,16 @@ doCachix log updateEnv resultPath =
       lift $ log "skipping cachix"
       return "Build yourself:"
 
--- FIXME: We should delete updatePackageBatch, and instead have the updateLoop
--- just call updatePackage, so we aren't maintaining two parallel
--- implementations!
 updatePackage ::
   Options ->
   Text ->
   IO (Either Text ())
 updatePackage o updateInfo = do
-  runExceptT $ do
-    let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
-    let updateEnv = UpdateEnv p oldV newV url o
-    let log = T.putStrLn
-    liftIO $ notifyOptions log o
-    --
-    -- Update our git checkout and swap onto the update branch
-    Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-    Git.cleanAndResetTo "master"
-    Git.checkoutAtMergeBase (branchName updateEnv)
-    -- Gather some basic information
-    Nix.assertNewerVersion updateEnv
-    attrPath <- Nix.lookupAttrPath updateEnv
-    Version.assertCompatibleWithPathPin updateEnv attrPath
-    derivationFile <- Nix.getDerivationFile attrPath
-    --
-    -- Get the original values for diffing purposes
-    derivationContents <- liftIO $ T.readFile derivationFile
-    oldHash <- Nix.getOldHash attrPath
-    oldSrcUrl <- Nix.getSrcUrl attrPath
-    --
-    ----------------------------------------------------------------------------
-    -- UPDATES
-    -- At this point, we've stashed the old derivation contents and validated
-    -- that we actually should be touching this file. Get to work processing the
-    -- various rewrite functions!
-    let rwArgs = Rewrite.Args updateEnv attrPath derivationFile derivationContents
-    msgs <- Rewrite.runAll log rwArgs
-    ----------------------------------------------------------------------------
-    --
-    -- Compute the diff and get updated values
-    diffAfterRewrites <- Git.diff
-    lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
-    updatedDerivationContents <- liftIO $ T.readFile derivationFile
-    newSrcUrl <- Nix.getSrcUrl attrPath
-    newHash <- Nix.getHash attrPath
-    -- Sanity checks to make sure the PR is worth opening
-    when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
-    when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-    when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-    Nix.build attrPath
-    --
-    -- Publish the result
-    lift . log $ "Successfully finished processing"
-    result <- Nix.resultLink
-    publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result Nothing msgs
+  let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
+  let updateEnv = UpdateEnv p oldV newV url o
+  let log = T.putStrLn
+  liftIO $ notifyOptions log o
+  twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
+  mergeBaseOutpathSet <-
+    liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
+  updatePackageBatch log updateEnv mergeBaseOutpathSet
