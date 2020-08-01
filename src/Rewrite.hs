@@ -251,9 +251,7 @@ updateScript log args = do
       lift $ log msg
       return $ Just "Ran passthru.UpdateScript"
     ExitFailure num -> do
-      lift $ log $ "Failed with exit code " <> tshow num
-      lift $ log msg
-      return Nothing
+      throwE $ "[updateScript] Failed with exit code " <> tshow num <> "\n" <> msg
 
 --------------------------------------------------------------------------------
 -- Common helper functions and utilities
