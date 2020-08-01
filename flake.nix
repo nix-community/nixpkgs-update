@@ -38,6 +38,7 @@
       };
 
       drvAttrs = attrs: with pkgs; {
+        # TODO: lock down cachix
         # TODO: lock down coreutils paths too
         NIX = nix;
         GIT = git;
