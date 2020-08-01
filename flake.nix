@@ -29,6 +29,7 @@
         root = self;
         overrides = self: super: { };
         source-overrides = { };
+        modifier = pkgs.haskell.lib.disableLibraryProfiling;
       };
 
       developPackageShellAttrs = developPackageAttrs // {
