@@ -237,7 +237,7 @@ why your pet package is not receiving updates.
 ## Cachix
 
 By uploading the build outputs to
-[Cachix](https://r-ryantm.cachix.org/), nixpkgs-update allows you to
+[Cachix](https://nix-community.cachix.org/), nixpkgs-update allows you to
 test a package with one command.
 
 
