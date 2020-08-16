@@ -18,7 +18,7 @@
 The [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) mission
 is to make [nixpkgs](https://github.com/nixos/nixpkgs) the most
 up-to-date repository of software in the world by the most ridiculous
-margin possible.
+margin possible. So far, [we succeed](hhttps://repology.org/repositories/graphs).
 
 It provides an interactive tool for automating single package
 updates. Given a package name, old version, and new version, it
