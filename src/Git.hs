@@ -13,7 +13,9 @@ module Git
     fetchIfStale,
     headHash,
     push,
+    nixpkgsDir,
     setupNixpkgs,
+    Git.show,
   )
 where
 
@@ -80,6 +82,10 @@ cleanAndResetTo branch =
         runProcessNoIndexIssue_ $ reset target
         runProcessNoIndexIssue_ clean
 
+show :: MonadIO m => Text -> Text -> ExceptT Text m Text
+show branch file =
+  readProcessInterleavedNoIndexIssue_ $ silently $ procGit ["show", T.unpack ("remotes/upstream/" <> branch <> ":" <> file)]
+
 cleanup :: MonadIO m => Text -> ExceptT Text m ()
 cleanup bName = do
   liftIO $ T.putStrLn ("Cleaning up " <> bName)
@@ -126,12 +132,15 @@ push updateEnv =
         )
     )
 
+nixpkgsDir :: IO FilePath
+nixpkgsDir = getUserCacheDir "nixpkgs"
+
 -- Setup a NixPkgs clone in $XDG_CACHE_DIR/nixpkgs
 -- Since we are going to have to fetch, git reset, clean, and commit, we setup a
 -- cache dir to avoid destroying any uncommitted work the user may have in PWD.
 setupNixpkgs :: Text -> IO ()
 setupNixpkgs githubt = do
-  fp <- getUserCacheDir "nixpkgs"
+  fp <- nixpkgsDir
   exists <- doesDirectoryExist fp
   unless exists $ do
     path <- getEnv "PATH"

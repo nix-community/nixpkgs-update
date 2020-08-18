@@ -131,7 +131,7 @@ lookupAttrPath updateEnv =
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
   proc "env" ["EDITOR=echo", (binPath <> "/nix"), "edit", attrPath & T.unpack, "-f", "."]
-    & ourReadProcessInterleaved_
+    & ourReadProcess_
     & fmapRT (T.strip >>> T.unpack)
 
 getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text

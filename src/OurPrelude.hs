@@ -21,6 +21,7 @@ module OurPrelude
     tshow,
     tryIOTextET,
     whenM,
+    ourReadProcess_,
     ourReadProcessInterleaved_,
     ourReadProcessInterleavedBS_,
     ourReadProcessInterleaved,
@@ -73,6 +74,13 @@ ourReadProcessInterleavedBS_ ::
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   ExceptT Text m BSL.ByteString
 ourReadProcessInterleavedBS_ = readProcessInterleaved_ >>> tryIOTextET
+
+ourReadProcess_ ::
+  MonadIO m =>
+  ProcessConfig stdin stdoutIgnored stderrIgnored ->
+  ExceptT Text m Text
+ourReadProcess_ =
+  readProcess_ >>> tryIOTextET >>> fmap fst >>> fmapRT bytestringToText
 
 ourReadProcessInterleaved_ ::
   MonadIO m =>

@@ -9,6 +9,7 @@
 
 module Update
   ( addPatched,
+    assertNotUpdatedOn,
     cveAll,
     cveReport,
     prMessage,
@@ -561,8 +562,9 @@ untilOfBorgFree = do
 assertNotUpdatedOn ::
   MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
 assertNotUpdatedOn updateEnv derivationFile branch = do
-  Git.cleanAndResetTo branch
-  derivationContents <- fmapLT tshow $ tryIO $ T.readFile derivationFile
+  npDir <- liftIO $ Git.nixpkgsDir
+  let Just file = T.stripPrefix (T.pack npDir <> "/") (T.pack derivationFile)
+  derivationContents <- Git.show branch file
   Nix.assertOldVersionOn updateEnv branch derivationContents
 
 addPatched :: Text -> Set CVE -> IO [(CVE, Bool)]
