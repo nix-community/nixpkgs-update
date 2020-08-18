@@ -90,7 +90,6 @@ notifyOptions log o = do
   let repr f = if f o then "YES" else " NO"
   let ghUser = GH.untagName . githubUser $ o
   let pr = repr doPR
-  let cachix = repr pushToCachix
   let outpaths = repr calculateOutpaths
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
@@ -100,7 +99,6 @@ notifyOptions log o = do
     ----------------------------------
     GitHub User:                   $ghUser
     Send pull request on success:  $pr
-    Push to cachix:                $cachix
     Calculate Outpaths:            $outpaths
     CVE Security Report:           $cve
     Run nixpkgs-review:            $review
@@ -636,7 +634,9 @@ cveReport updateEnv =
 
 doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
 doCachix log updateEnv resultPath =
-  if pushToCachix (options updateEnv)
+  let o = options updateEnv
+  in
+    if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
     then do
       return
         [interpolate|
@@ -649,7 +649,7 @@ doCachix log updateEnv resultPath =
          cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
          '
        ```
-       (r-ryantm's Cachix cache is only trusted for this store-path realization.)
+       (The Cachix cache is only trusted for this store-path realization.)
        For the Cachix download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
 
        Or, **build yourself**:

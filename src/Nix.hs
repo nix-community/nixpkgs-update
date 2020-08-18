@@ -40,8 +40,6 @@ where
 
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude

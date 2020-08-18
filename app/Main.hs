@@ -25,7 +25,6 @@ default (T.Text)
 data UpdateOptions = UpdateOptions
   { pr :: Bool,
     cve :: Bool,
-    cachix :: Bool,
     nixpkgsReview :: Bool,
     outpaths :: Bool
   }
@@ -46,7 +45,6 @@ updateOptionsParser =
   UpdateOptions
     <$> O.flag False True (O.long "pr" <> O.help "Make a pull request using Hub.")
     <*> O.flag False True (O.long "cve" <> O.help "Make a CVE vulnerability report.")
-    <*> O.flag False True (O.long "cachix" <> O.help "Push changes to Cachix")
     <*> O.flag False True (O.long "nixpkgs-review" <> O.help "Runs nixpkgs-review on update commit rev")
     <*> O.flag False True (O.long "outpaths" <> O.help "Calculate outpaths to determine the branch to target")
 
@@ -135,13 +133,13 @@ main = do
     DeleteDone delete -> do
       Git.setupNixpkgs token
       deleteDone delete token ghUser
-    UpdateList UpdateOptions {pr, cachix, cve, nixpkgsReview, outpaths} -> do
+    UpdateList UpdateOptions {pr, cve, nixpkgsReview, outpaths} -> do
       updates <- T.readFile "packages-to-update.txt"
       Git.setupNixpkgs token
-      updateAll (Options pr True ghUser token cve cachix nixpkgsReview outpaths) updates
-    Update UpdateOptions {pr, cve, cachix, nixpkgsReview} update -> do
+      updateAll (Options pr True ghUser token cve nixpkgsReview outpaths) updates
+    Update UpdateOptions {pr, cve, nixpkgsReview} update -> do
       Git.setupNixpkgs token
-      result <- updatePackage (Options pr False ghUser token cve cachix nixpkgsReview False) update
+      result <- updatePackage (Options pr False ghUser token cve nixpkgsReview False) update
       case result of
         Left e -> T.putStrLn e
         Right () -> T.putStrLn "Done."
@@ -159,10 +157,10 @@ main = do
       setupNixpkgs undefined
       report <-
         cveReport
-          (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False False))
+          (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False))
       T.putStrLn report
     SourceGithub -> do
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs token
-      sourceGithubAll (Options False False ghUser token False False False False) updates
+      sourceGithubAll (Options False False ghUser token False False False) updates
     FetchRepology -> Repology.fetch

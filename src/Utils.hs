@@ -108,7 +108,6 @@ data Options = Options
     githubUser :: GH.Name GH.Owner,
     githubToken :: Text,
     makeCVEReport :: Bool,
-    pushToCachix :: Bool,
     runNixpkgsReview :: Bool,
     calculateOutpaths :: Bool
   }
