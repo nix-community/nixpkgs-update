@@ -638,16 +638,14 @@ doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m T
 doCachix log updateEnv resultPath =
   if pushToCachix (options updateEnv)
     then do
-      lift $ log ("cachix " <> (T.pack . show) resultPath)
-      Nix.cachix resultPath
       return
         [interpolate|
        Either **download from Cachix**:
        ```
        nix-store -r $resultPath \
-         --option binary-caches 'https://cache.nixos.org/ https://r-ryantm.cachix.org/' \
+         --option binary-caches 'https://cache.nixos.org/ https://nix-community.cachix.org/' \
          --option trusted-public-keys '
-         r-ryantm.cachix.org-1:gkUbLkouDAyvBdpBX0JOdIiD2/DP1ldF3Z3Y6Gqcc4c=
+         nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
          cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
          '
        ```

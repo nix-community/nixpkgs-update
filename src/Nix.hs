@@ -7,7 +7,6 @@ module Nix
     assertOldVersionOn,
     binPath,
     build,
-    cachix,
     getAttr,
     getChangelog,
     getDerivationFile,
@@ -275,16 +274,6 @@ build attrPath =
         ourReadProcessInterleaved_ (log attrPath)
           & fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog <> " ")
-
-cachix :: MonadIO m => Text -> ExceptT Text m ()
-cachix resultPath =
-  ( setStdin
-      (byteStringInput (TL.encodeUtf8 (TL.fromStrict resultPath)))
-      (shell "cachix push r-ryantm")
-      & runProcess_
-      & tryIOTextET
-  )
-    <|> throwE "pushing to cachix failed"
 
 numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =
