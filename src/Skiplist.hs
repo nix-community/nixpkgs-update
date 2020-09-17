@@ -127,7 +127,8 @@ contentList =
     infixOf "buildPerlPackage" "Derivation contains buildPerlPackage",
     -- Specific skips for classes of packages
     infixOf "goDeps" "Derivation contains goDeps attribute",
-    infixOf "https://downloads.haskell.org/ghc/" "GHC packages are versioned per file"
+    infixOf "https://downloads.haskell.org/ghc/" "GHC packages are versioned per file",
+    infixOf "gnome" "Do not update GNOME during a release cycle"
   ]
 
 checkResultList :: Skiplist
