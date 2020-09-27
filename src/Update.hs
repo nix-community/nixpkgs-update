@@ -256,8 +256,7 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       (not hasUpdateScript || isJust oldVerMay)
 
     -- One final filter
-    unless hasUpdateScript do
-      Skiplist.content derivationContents
+    Skiplist.content derivationContents
 
     ----------------------------------------------------------------------------
     -- UPDATES
