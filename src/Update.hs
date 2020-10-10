@@ -186,7 +186,7 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
 -- Arguments this function should have to make it testable:
 -- - the merge base commit (should be updated externally to this function)
 -- - the merge base context should be updated externally to this function
--- - the commit for branches: master, staging, staging-next, python-unstable
+-- - the commit for branches: master, staging, staging-next
 updatePackageBatch ::
   (Text -> IO ()) ->
   UpdateEnv ->
@@ -225,7 +225,6 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
-      assertNotUpdatedOn updateEnv derivationFile "python-unstable"
 
     -- Calculate output paths for rebuilds and our merge base
     mergeBase <- Git.checkoutAtMergeBase (branchName updateEnv)
