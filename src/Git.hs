@@ -31,7 +31,7 @@ import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude hiding (throw)
-import System.Directory (doesDirectoryExist, getModificationTime, setCurrentDirectory)
+import System.Directory (doesDirectoryExist, doesFileExist, getModificationTime, getCurrentDirectory, setCurrentDirectory)
 import System.Environment (getEnv)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit
@@ -133,7 +133,11 @@ push updateEnv =
     )
 
 nixpkgsDir :: IO FilePath
-nixpkgsDir = getUserCacheDir "nixpkgs"
+nixpkgsDir = do
+  inNixpkgs <- inNixpkgsRepo
+  if inNixpkgs
+    then getCurrentDirectory
+    else getUserCacheDir "nixpkgs"
 
 -- Setup a NixPkgs clone in $XDG_CACHE_DIR/nixpkgs
 -- Since we are going to have to fetch, git reset, clean, and commit, we setup a
@@ -153,9 +157,12 @@ setupNixpkgs githubt = do
     setCurrentDirectory fp
     shell (bin <> "remote add upstream https://github.com/NixOS/nixpkgs")
       & runProcess_
-  setCurrentDirectory fp
-  _ <- runExceptT fetchIfStale
-  _ <- runExceptT $ cleanAndResetTo "master"
+  inNixpkgs <- inNixpkgsRepo
+  unless inNixpkgs do
+    setCurrentDirectory fp
+    _ <- runExceptT fetchIfStale
+    _ <- runExceptT $ cleanAndResetTo "master"
+    return ()
   System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
 checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m Text
@@ -175,6 +182,11 @@ checkAutoUpdateBranchDoesntExist pName = do
   when
     (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
     (throwE "Update branch already on origin.")
+
+inNixpkgsRepo :: IO Bool
+inNixpkgsRepo = do
+  currentDir <- getCurrentDirectory
+  doesFileExist (currentDir <> "/nixos/release.nix")
 
 commit :: MonadIO m => Text -> ExceptT Text m ()
 commit ref =

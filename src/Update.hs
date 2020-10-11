@@ -87,12 +87,13 @@ getLog o = do
 
 notifyOptions :: (Text -> IO ()) -> Options -> IO ()
 notifyOptions log o = do
-  let repr f = if f o then "YES" else " NO"
+  let repr f = if f o then "YES" else "NO"
   let ghUser = GH.untagName . githubUser $ o
   let pr = repr doPR
   let outpaths = repr calculateOutpaths
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
+  npDir <- tshow <$> Git.nixpkgsDir
   log $
     [interpolate|
     Configured Nixpkgs-Update Options:
@@ -102,6 +103,7 @@ notifyOptions log o = do
     Calculate Outpaths:            $outpaths
     CVE Security Report:           $cve
     Run nixpkgs-review:            $review
+    Nixpkgs Dir:                   $npDir
     ----------------------------------|]
 
 updateAll :: Options -> Text -> IO ()
@@ -199,10 +201,9 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
     -- Filters that don't need git
     whenBatch updateEnv do
       Skiplist.packageName packageName
-
-    -- Update our git checkout
-    Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-    Git.cleanAndResetTo "master"
+      -- Update our git checkout
+      Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
+      Git.cleanAndResetTo "master"
 
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
@@ -227,7 +228,9 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
 
     -- Calculate output paths for rebuilds and our merge base
-    mergeBase <- Git.checkoutAtMergeBase (branchName updateEnv)
+    mergeBase <- if batchUpdate options
+      then Git.checkoutAtMergeBase (branchName updateEnv)
+      else pure "HEAD"
     let calcOutpaths = calculateOutpaths options
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
@@ -315,7 +318,8 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
-    Git.cleanAndResetTo "master"
+    whenBatch updateEnv do
+      Git.cleanAndResetTo "master"
 
 publishPackage ::
   (Text -> IO ()) ->
