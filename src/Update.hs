@@ -268,6 +268,9 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
 
     -- Compute the diff and get updated values
     diffAfterRewrites <- Git.diff mergeBase
+    tryAssert
+      "The diff was empty after rewrites."
+      (diffAfterRewrites /= T.empty)
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath
