@@ -128,6 +128,7 @@ main = do
   ghUser <- getGithubUser
   token <- getGithubToken <|> undefined
   P.setEnv "GITHUB_TOKEN" (T.unpack token) True
+  P.setEnv "GITHUB_API_TOKEN" (T.unpack token) True
   P.setEnv "PAGER" "" True
   case command of
     DeleteDone delete -> do
