@@ -73,17 +73,17 @@ nixEvalSem ::
   Members '[P.Process, Error Text] r =>
   EvalOptions ->
   Text ->
-  Sem r Text
+  Sem r (Text, Text)
 nixEvalSem (EvalOptions raw (Env env)) expr =
-  T.strip
-    <$> ourReadProcessInterleaved_Sem
+  (\(stdout, stderr) -> (T.strip stdout, T.strip stderr))
+    <$> ourReadProcess_Sem
       (setEnv env (proc (binPath <> "/nix") (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
 
 nixEvalET :: MonadIO m => EvalOptions -> Text -> ExceptT Text m Text
 nixEvalET (EvalOptions raw (Env env)) expr =
-  ourReadProcessInterleaved_
+  ourReadProcess_
     (setEnv env (proc (binPath <> "/nix") (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
-    & fmapRT T.strip
+    & fmapRT (fst >>> T.strip)
 
 -- Error if the "new version" is actually newer according to nix
 assertNewerVersion :: MonadIO m => UpdateEnv -> ExceptT Text m ()
@@ -122,14 +122,14 @@ lookupAttrPath updateEnv =
       ]
         <> nixCommonOptions
     )
-    & ourReadProcessInterleaved_
-    & fmapRT (T.lines >>> head >>> T.words >>> head)
+    & ourReadProcess_
+    & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head)
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
   proc "env" ["EDITOR=echo", (binPath <> "/nix"), "edit", attrPath & T.unpack, "-f", "."]
     & ourReadProcess_
-    & fmapRT (T.strip >>> T.unpack)
+    & fmapRT (fst >>> T.strip >>> T.unpack)
 
 getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getDrvAttr drvAttr =
@@ -216,7 +216,7 @@ getHomepage ::
   Text ->
   Sem r Text
 getHomepage attrPath =
-  nixEvalSem
+  fst <$> nixEvalSem
     (EvalOptions NoRaw (Env []))
     ( "(let pkgs = import ./. {}; in pkgs."
         <> attrPath

@@ -22,6 +22,7 @@ module OurPrelude
     tryIOTextET,
     whenM,
     ourReadProcess_,
+    ourReadProcess_Sem,
     ourReadProcessInterleaved_,
     ourReadProcessInterleavedBS_,
     ourReadProcessInterleaved,
@@ -77,10 +78,16 @@ ourReadProcessInterleavedBS_ = readProcessInterleaved_ >>> tryIOTextET
 
 ourReadProcess_ ::
   MonadIO m =>
+    ProcessConfig stdin stdout stderr ->
+  ExceptT Text m (Text, Text)
+ourReadProcess_ =  readProcess_ >>> tryIOTextET >>> fmapRT (\(stdout,stderr) -> (bytestringToText stdout, bytestringToText stderr))
+
+ourReadProcess_Sem ::
+  Members '[P.Process] r =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
-  ExceptT Text m Text
-ourReadProcess_ =
-  readProcess_ >>> tryIOTextET >>> fmap fst >>> fmapRT bytestringToText
+  Sem r (Text, Text)
+ourReadProcess_Sem =
+  P.read_ >>> fmap (\(stdout,stderr) -> (bytestringToText stdout, bytestringToText stderr))
 
 ourReadProcessInterleaved_ ::
   MonadIO m =>
