@@ -66,6 +66,6 @@
       in {
         devShell = shell;
         packages.nixpkgs-update = pkg;
-        defaultPackage = self.packages."${system}".nixpkgs-update;
+        defaultPackage = pkg;
       });
 }

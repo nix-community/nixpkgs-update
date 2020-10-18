@@ -12,5 +12,5 @@ let
     });
 in
 if returnShellEnv
-then flake-compat.shellNix.devShell
-else flake-compat.defaultNix.default
+then flake-compat.shellNix
+else flake-compat.defaultNix
