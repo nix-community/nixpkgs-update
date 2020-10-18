@@ -1,6 +1,11 @@
 {
   description = "A flake for nixpkgs-update";
 
+  inputs.flake-compat = {
+    url = "github:edolstra/flake-compat";
+    flake = false;
+  };
+
   inputs.nixpkgs = {
     type = "github";
     owner = "nixos";
@@ -15,7 +20,7 @@
     flake = false;
   };
 
-  outputs = { self, nixpkgs, nixpkgs-review }:
+  outputs = { self, flake-compat, nixpkgs, nixpkgs-review }:
     let
       pkgs = import nixpkgs {
         system = "x86_64-linux";
