@@ -10,7 +10,6 @@
     type = "github";
     owner = "nixos";
     repo = "nixpkgs";
-    rev = "78bfdbb291fd20df0f0f65061ee3081610b0a48f";
   };
 
   inputs.nixpkgs-review = {
@@ -27,7 +26,7 @@
         config = { allowBroken = true; };
       };
 
-      compiler = pkgs.haskell.packages.ghc883;
+      compiler = pkgs.haskell.packages.ghc884;
 
       developPackageAttrs = {
         name = "nixpkgs-update";

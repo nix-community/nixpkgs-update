@@ -120,10 +120,8 @@ compareUrl urlOld urlNew = do
 autoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector Text))
 autoUpdateRefs auth ghUser =
   GH.github auth (GH.referencesR ghUser "nixpkgs" GH.FetchAll)
-    & fmap
-      ( first (T.pack . show)
-          >>> second (fmap GH.gitReferenceRef >>> V.mapMaybe (T.stripPrefix prefix))
-      )
+    & ((fmap . fmapL) tshow)
+    & ((fmap . fmapR) (fmap (GH.gitReferenceRef >>> GH.untagName) >>> V.mapMaybe (T.stripPrefix prefix)))
   where
     prefix = "refs/heads/auto-update/"
 
