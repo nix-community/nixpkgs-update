@@ -22,7 +22,7 @@
   };
 
   outputs = { self, flake-utils, flake-compat, nixpkgs, nixpkgs-review }:
-    flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachSystem ["x86_64-linux"] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
