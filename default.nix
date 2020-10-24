@@ -13,4 +13,4 @@ let
 in
 if returnShellEnv
 then flake-compat.shellNix
-else flake-compat.defaultNix
+else flake-compat.defaultNix.default
