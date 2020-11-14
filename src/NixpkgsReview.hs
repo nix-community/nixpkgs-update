@@ -33,23 +33,20 @@ run ::
   FilePath ->
   Text ->
   Sem r Text
-run cache commit = do
+run cache commit = let timeout = "45m" :: Text in do
   -- TODO: probably just skip running nixpkgs-review if the directory
   -- already exists
   void $
     ourReadProcessInterleavedSem $
       proc "rm" ["-rf", revDir cache commit]
-  (exitCode, nixpkgsReviewOutput) <-
+  (exitCode, _nixpkgsReviewOutput) <-
     ourReadProcessInterleavedSem $
-      proc "timeout" ["45m", (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
+      proc "timeout" [T.unpack timeout, (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
   case exitCode of
-    ExitSuccess -> F.read $ (revDir cache commit) <> "/report.md"
     ExitFailure 124 -> do
-      output "[check][nixpkgs-review] took longer than 45m and timed out"
-      return "nixpkgs-review took longer than 45m and timed out"
-    ExitFailure code -> do
-      output $ "[check][nixpkgs-review] errored with exit code " <> tshow code <> " and output " <> nixpkgsReviewOutput
-      return "nixpkgs-review encountered an error. Please check the logs at https://r.ryantm.com/log/ for more information."
+      output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"
+      return $ "nixpkgs-review took longer than " <> timeout <> " and timed out"
+    _ -> F.read $ (revDir cache commit) <> "/report.md"
 
 -- Assumes we are already in nixpkgs dir
 runReport :: (Text -> IO ()) -> Text -> IO Text

@@ -290,7 +290,7 @@ assertOldVersionOn ::
   MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
 assertOldVersionOn updateEnv branchName contents =
   tryAssert
-    ("Old version not present in " <> branchName <> " derivation file.")
+    ("Old version " <> oldVersionPattern <> " not present in " <> branchName <> " derivation file with contents: " <> contents)
     (oldVersionPattern `T.isInfixOf` contents)
   where
     oldVersionPattern = oldVersion updateEnv <> "\""
