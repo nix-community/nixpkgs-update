@@ -3,6 +3,7 @@
 /nixpkgs-update.nix
 /packages-to-update.txt
 /result
+/result-doc
 dist-newstyle/
 dist/
 test_data/actual*
