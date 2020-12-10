@@ -60,7 +60,13 @@ attrPathList =
       "mate packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/50695#issuecomment-441338593",
     prefix
       "deepin"
-      "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194"
+      "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194",
+    prefix
+      "element-desktop"
+      "@Ma27 asked to skip",
+    prefix
+      "cinnamon"
+      "@mkg20001 asked to skip"
   ]
 
 nameList :: Skiplist
