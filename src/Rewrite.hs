@@ -15,9 +15,9 @@ module Rewrite
   )
 where
 
-import qualified Data.Text as T
+import RIO hiding (log)
+import qualified RIO.Text as T
 import Data.Text.Encoding (decodeUtf8)
-import Data.Text.IO as T
 import qualified File
 import qualified Network.HTTP.Client as HTTP
 import Network.HTTP.Types.Status (statusCode)
@@ -26,7 +26,6 @@ import OurPrelude
 import qualified Polysemy.Error as Error
 import Polysemy.Output (Output, output)
 import qualified Process
-import System.Exit
 import Utils (UpdateEnv (..))
 import qualified Utils
   ( runLog,
@@ -221,13 +220,13 @@ golangModuleVersion log args@Args {..} = do
         -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
         oldVendorSha256 <- (Nix.getAttr Nix.Raw "vendorSha256" attrPath <|> Nix.getAttr Nix.NoRaw "vendorSha256" attrPath)
         lift . log $ "Found old vendorSha256 = " <> oldVendorSha256
-        original <- liftIO $ T.readFile derivationFile
+        original <- liftIO $ readFileUtf8 derivationFile
         _ <- lift $ File.replaceIO ("\"" <> oldVendorSha256 <> "\"") "null" derivationFile
         ok <- runExceptT $ Nix.build attrPath
         _ <-
-          if isLeft ok
+          if RIO.isLeft ok
             then do
-              _ <- liftIO $ T.writeFile derivationFile original
+              _ <- liftIO $ writeFileUtf8 derivationFile original
               _ <- lift $ File.replaceIO oldVendorSha256 Nix.sha256Zero derivationFile
               newVendorSha256 <- Nix.getHashFromBuild attrPath
               _ <- lift $ File.replaceIO Nix.sha256Zero newVendorSha256 derivationFile

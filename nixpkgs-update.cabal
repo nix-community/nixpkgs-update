@@ -1,10 +1,10 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 58424b4f6d939fb54c291e341863d658ea2403d27b8caaa422662f6d428ea62a
+-- hash: 2775a359cbd65b4674c10782eec0b53184c3c90bbe0817956097759f2107c6a8
 
 name:           nixpkgs-update
 version:        0.2.0
@@ -26,8 +26,9 @@ source-repository head
   type: git
   location: https://github.com/ryantm/nixpkgs-update
 
-library
-  exposed-modules:
+executable nixpkgs-update
+  main-is: Main.hs
+  other-modules:
       Check
       CVE
       Data.Hex
@@ -49,7 +50,6 @@ library
       Update
       Utils
       Version
-  other-modules:
       Paths_nixpkgs_update
   hs-source-dirs:
       src
@@ -81,59 +81,7 @@ library
     , polysemy
     , polysemy-plugin
     , regex-applicative-text
-    , servant
-    , servant-client
-    , sqlite-simple
-    , template-haskell
-    , temporary
-    , text
-    , th-env
-    , time
-    , transformers
-    , typed-process
-    , unix
-    , unordered-containers
-    , vector
-    , versions
-    , xdg-basedir
-    , zlib
-  default-language: Haskell2010
-
-executable nixpkgs-update
-  main-is: Main.hs
-  other-modules:
-      Paths_nixpkgs_update
-  hs-source-dirs:
-      app
-  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
-  ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
-  build-depends:
-      aeson
-    , base >=4.13 && <5
-    , bytestring
-    , conduit
-    , containers
-    , cryptohash-sha256
-    , directory
-    , errors
-    , filepath
-    , github
-    , http-client
-    , http-client-tls
-    , http-conduit
-    , http-types
-    , iso8601-time
-    , lifted-base
-    , mtl
-    , neat-interpolation
-    , nixpkgs-update
-    , optparse-applicative
-    , parsec
-    , parsers
-    , partial-order
-    , polysemy
-    , polysemy-plugin
-    , regex-applicative-text
+    , rio
     , servant
     , servant-client
     , sqlite-simple
@@ -195,6 +143,7 @@ test-suite spec
     , polysemy
     , polysemy-plugin
     , regex-applicative-text
+    , rio
     , servant
     , servant-client
     , sqlite-simple

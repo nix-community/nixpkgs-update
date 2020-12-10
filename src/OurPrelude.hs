@@ -1,4 +1,5 @@
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module OurPrelude
   ( (>>>),
@@ -33,39 +34,26 @@ module OurPrelude
   )
 where
 
-import Control.Applicative ((<|>))
-import Control.Category ((>>>))
 import Control.Error
 import Control.Monad.Except
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as BSL
-import Data.Function ((&))
-import Data.Functor ((<&>))
-import Data.Set (Set)
-import Data.Text (Text, pack)
 import qualified Data.Text.Encoding as T
-import Data.Vector (Vector)
 import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
 import Polysemy
 import Polysemy.Error hiding (note, try, tryJust)
 import qualified Process as P
-import System.Exit
+import RIO
 import System.Process.Typed
 
 interpolate :: QuasiQuoter
 interpolate = NeatInterpolation.text
 
-tshow :: Show a => a -> Text
-tshow = show >>> pack
-
 tryIOTextET :: MonadIO m => IO a -> ExceptT Text m a
 tryIOTextET = syncIO >>> fmapLT tshow
-
-whenM :: Monad m => m Bool -> m () -> m ()
-whenM c a = c >>= \res -> when res a
 
 bytestringToText :: BSL.ByteString -> Text
 bytestringToText = BSL.toStrict >>> T.decodeUtf8
@@ -78,16 +66,16 @@ ourReadProcessInterleavedBS_ = readProcessInterleaved_ >>> tryIOTextET
 
 ourReadProcess_ ::
   MonadIO m =>
-    ProcessConfig stdin stdout stderr ->
+  ProcessConfig stdin stdout stderr ->
   ExceptT Text m (Text, Text)
-ourReadProcess_ =  readProcess_ >>> tryIOTextET >>> fmapRT (\(stdout,stderr) -> (bytestringToText stdout, bytestringToText stderr))
+ourReadProcess_ = readProcess_ >>> tryIOTextET >>> fmapRT (\(stdoutOutput, stderrOutput) -> (bytestringToText stdoutOutput, bytestringToText stderrOutput))
 
 ourReadProcess_Sem ::
   Members '[P.Process] r =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   Sem r (Text, Text)
 ourReadProcess_Sem =
-  P.read_ >>> fmap (\(stdout,stderr) -> (bytestringToText stdout, bytestringToText stderr))
+  P.read_ >>> fmap (\(stdoutOutput, stderrOutput) -> (bytestringToText stdoutOutput, bytestringToText stderrOutput))
 
 ourReadProcessInterleaved_ ::
   MonadIO m =>

@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -38,8 +39,11 @@ module Nix
   )
 where
 
+import RIO
+import RIO.List
 import Data.Maybe (fromJust)
-import qualified Data.Text as T
+import qualified RIO.Text as T
+import qualified RIO.Text.Partial as T'
 import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
@@ -47,12 +51,9 @@ import qualified Polysemy.Error as Error
 import qualified System.Process.Typed as TP
 import qualified Process
 import qualified Process as P
-import System.Exit
 import Text.Parsec (parse)
-import Text.Parser.Combinators
 import Text.Parser.Token
 import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
-import Prelude hiding (log)
 
 binPath :: String
 binPath = fromJust ($$(envQ "NIX") :: Maybe String) <> "/bin"
@@ -75,7 +76,7 @@ nixEvalSem ::
   Text ->
   Sem r (Text, Text)
 nixEvalSem (EvalOptions raw (Env env)) expr =
-  (\(stdout, stderr) -> (T.strip stdout, T.strip stderr))
+  (\(stdoutOutput, stderrOutput) -> (T.strip stdoutOutput, T.strip stderrOutput))
     <$> ourReadProcess_Sem
       (setEnv env (proc (binPath <> "/nix") (["eval", "-f", "."] <> rawOpt raw <> [T.unpack expr])))
 
@@ -123,7 +124,7 @@ lookupAttrPath updateEnv =
         <> nixCommonOptions
     )
     & ourReadProcess_
-    & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head)
+    & fmapRT (fst >>> T.words >>> take 1 >>> headMaybe >>> fromJust )
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
 getDerivationFile attrPath =
@@ -256,8 +257,8 @@ buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
   silently $ proc (binPath <> "/nix-build") (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
-log :: Text -> ProcessConfig () () ()
-log attrPath = proc (binPath <> "/nix") ["log", "-f", ".", attrPath & T.unpack]
+getLog :: Text -> ProcessConfig () () ()
+getLog attrPath = proc (binPath <> "/nix") ["log", "-f", ".", attrPath & T.unpack]
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
@@ -269,7 +270,7 @@ build attrPath =
   where
     buildFailedLog = do
       buildLog <-
-        ourReadProcessInterleaved_ (log attrPath)
+        ourReadProcessInterleaved_ (getLog attrPath)
           & fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog <> " ")
 
@@ -277,14 +278,14 @@ numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =
   countUp "fetchurl {" + countUp "fetchgit {" + countUp "fetchFromGitHub {"
   where
-    countUp x = T.count x derivationContents
+    countUp x = T'.count x derivationContents
 
 -- Sum the number of things that look like fixed-output derivation hashes
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents =
   sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "vendorSha256 ="]
   where
-    countUp x = T.count x derivationContents
+    countUp x = T'.count x derivationContents
 
 assertOldVersionOn ::
   MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
@@ -311,16 +312,16 @@ getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
 getHashFromBuild =
   srcOrMain
     ( \attrPath -> do
-        (exitCode, _, stderr) <- buildCmd attrPath & readProcess
+        (exitCode, _, stderrOutput) <- buildCmd attrPath & readProcess
         when (exitCode == ExitSuccess) $ throwE "build succeeded unexpectedly"
-        let stdErrText = bytestringToText stderr
-        let firstSplit = T.splitOn "got:    sha256:" stdErrText
+        let stdErrText = bytestringToText stderrOutput
+        let firstSplit = T'.splitOn "got:    sha256:" stdErrText
         firstSplitSecondPart <-
           tryAt
             ("stderr did not split as expected full stderr was: \n" <> stdErrText)
             firstSplit
             1
-        let secondSplit = T.splitOn "\n" firstSplitSecondPart
+        let secondSplit = T'.splitOn "\n" firstSplitSecondPart
         tryHead
           ( "stderr did not split second part as expected full stderr was: \n"
               <> stdErrText

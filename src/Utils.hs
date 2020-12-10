@@ -1,6 +1,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Utils
@@ -9,6 +10,11 @@ module Utils
     ProductID,
     URL,
     UpdateEnv (..),
+    packageNameL,
+    oldVersionL,
+    newVersionL,
+    sourceURLL,
+    optionsL,
     Version,
     VersionMatcher (..),
     branchName,
@@ -24,7 +30,6 @@ module Utils
     runLog,
     srcOrMain,
     stripQuotes,
-    tRead,
     whenBatch,
   )
 where
@@ -46,6 +51,8 @@ import Database.SQLite.Simple.ToField (ToField, toField)
 import qualified GitHub as GH
 import OurPrelude
 import Polysemy.Output
+import RIO
+import qualified RIO.List as L
 import System.Directory (doesDirectoryExist)
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv)
@@ -60,7 +67,7 @@ import System.Posix.Files
 import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
 import Text.Read (readEither)
-import Type.Reflection (Typeable)
+import qualified Prelude
 
 default (T.Text)
 
@@ -114,12 +121,46 @@ data Options = Options
   deriving (Show)
 
 data UpdateEnv = UpdateEnv
-  { packageName :: Text,
-    oldVersion :: Version,
-    newVersion :: Version,
-    sourceURL :: Maybe URL,
-    options :: Options
+  { packageName :: !Text,
+    oldVersion :: !Version,
+    newVersion :: !Version,
+    sourceURL :: !(Maybe URL),
+    options :: !Options,
+    updateEnvLogFunc :: !LogFunc
   }
+
+class HasPackageName env where
+  packageNameL :: Lens' env Text
+
+instance HasPackageName UpdateEnv where
+  packageNameL = lens packageName (\x y -> x {packageName = y})
+
+class HasOldVersion env where
+  oldVersionL :: Lens' env Version
+
+instance HasOldVersion UpdateEnv where
+  oldVersionL = lens oldVersion (\x y -> x {oldVersion = y})
+
+class HasNewVersion env where
+  newVersionL :: Lens' env Version
+
+instance HasNewVersion UpdateEnv where
+  newVersionL = lens newVersion (\x y -> x {newVersion = y})
+
+class HasSourceURL env where
+  sourceURLL :: Lens' env (Maybe URL)
+
+instance HasSourceURL UpdateEnv where
+  sourceURLL = lens sourceURL (\x y -> x {sourceURL = y})
+
+class HasOptions env where
+  optionsL :: Lens' env Options
+
+instance HasOptions UpdateEnv where
+  optionsL = lens options (\x y -> x {options = y})
+
+instance HasLogFunc UpdateEnv where
+  logFuncL = lens updateEnvLogFunc (\x y -> x {updateEnvLogFunc = y})
 
 whenBatch :: Applicative f => UpdateEnv -> f () -> f ()
 whenBatch updateEnv = when (batchUpdate . options $ updateEnv)
@@ -147,7 +188,7 @@ logsDirectory = do
   unless
     dirExists
     ( liftIO $
-        putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
+        Prelude.putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
     )
   return dir
 
@@ -165,7 +206,7 @@ xdgRuntimeDir = do
   unless
     dirExists
     ( liftIO $
-        putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
+        Prelude.putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
     )
   return dir
 
@@ -206,9 +247,6 @@ parseUpdates = map (toTriple . T.words) . T.lines
     toTriple [package, oldVer, newVer] = Right (package, oldVer, newVer, Nothing)
     toTriple [package, oldVer, newVer, url] = Right (package, oldVer, newVer, Just url)
     toTriple line = Left $ "Unable to parse update: " <> T.unwords line
-
-tRead :: Read a => Text -> a
-tRead = read . T.unpack
 
 srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
 srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath
@@ -271,8 +309,8 @@ hubConfigField field = do
         else do
           contents <- T.readFile file
           let splits = T.splitOn field contents
-              token = T.takeWhile (/= '\n') $ head (drop 1 splits)
-          return $ Just token
+              token = fmap (T.takeWhile (/= '\n')) $ L.headMaybe (drop 1 splits)
+          return $ token
 
 getGithubToken :: IO Text
 getGithubToken = do

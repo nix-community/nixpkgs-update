@@ -1,6 +1,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Main where
@@ -14,8 +15,8 @@ import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
 import OurPrelude
+import RIO
 import qualified Repology
-import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
 import Utils (Options (..), UpdateEnv (..), getGithubToken, getGithubUser)
@@ -122,46 +123,49 @@ programInfo =
 
 main :: IO ()
 main = do
-  hSetBuffering stdout LineBuffering
-  hSetBuffering stderr LineBuffering
-  command <- O.execParser programInfo
-  ghUser <- getGithubUser
-  token <- getGithubToken <|> undefined
-  P.setEnv "GITHUB_TOKEN" (T.unpack token) True
-  P.setEnv "GITHUB_API_TOKEN" (T.unpack token) True
-  P.setEnv "PAGER" "" True
-  case command of
-    DeleteDone delete -> do
-      Git.setupNixpkgs token
-      deleteDone delete token ghUser
-    UpdateList UpdateOptions {pr, cve, nixpkgsReview, outpaths} -> do
-      updates <- T.readFile "packages-to-update.txt"
-      Git.setupNixpkgs token
-      updateAll (Options pr True ghUser token cve nixpkgsReview outpaths) updates
-    Update UpdateOptions {pr, cve, nixpkgsReview} update -> do
-      Git.setupNixpkgs token
-      result <- updatePackage (Options pr False ghUser token cve nixpkgsReview False) update
-      case result of
-        Left e -> T.putStrLn e
-        Right () -> T.putStrLn "Done."
-    Version -> do
-      v <- runExceptT Nix.version
-      case v of
-        Left t -> T.putStrLn ("error:" <> t)
-        Right t -> T.putStrLn t
-    UpdateVulnDB -> withVulnDB $ \_conn -> pure ()
-    CheckAllVulnerable -> do
-      setupNixpkgs undefined
-      updates <- T.readFile "packages-to-update.txt"
-      cveAll undefined updates
-    CheckVulnerable productID oldVersion newVersion -> do
-      setupNixpkgs undefined
-      report <-
-        cveReport
-          (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False))
-      T.putStrLn report
-    SourceGithub -> do
-      updates <- T.readFile "packages-to-update.txt"
-      setupNixpkgs token
-      sourceGithubAll (Options False False ghUser token False False False) updates
-    FetchRepology -> Repology.fetch
+  let isVerbose = False -- get from the command line instead
+  logOptions' <- logOptionsHandle stderr isVerbose
+  let logOptions = setLogUseTime True logOptions'
+  withLogFunc logOptions $ \lf -> do
+    command <- O.execParser programInfo
+    ghUser <- getGithubUser
+    token <- getGithubToken <|> undefined
+    P.setEnv "GITHUB_TOKEN" (T.unpack token) True
+    P.setEnv "GITHUB_API_TOKEN" (T.unpack token) True
+    P.setEnv "PAGER" "" True
+    case command of
+      DeleteDone delete -> do
+        Git.setupNixpkgs token
+        deleteDone delete token ghUser
+      UpdateList UpdateOptions {pr, cve, nixpkgsReview, outpaths} -> do
+        updates <- readFileUtf8 "packages-to-update.txt"
+        Git.setupNixpkgs token
+        runRIO (Options pr True ghUser token cve nixpkgsReview outpaths) (updateAll updates)
+      Update UpdateOptions {pr, cve, nixpkgsReview} update -> do
+        Git.setupNixpkgs token
+        result <- updatePackage (Options pr False ghUser token cve nixpkgsReview False) update
+        case result of
+          Left e -> T.putStrLn e
+          Right () -> T.putStrLn "Done."
+      Version -> do
+        v <- runExceptT Nix.version
+        case v of
+          Left t -> T.putStrLn ("error:" <> t)
+          Right t -> T.putStrLn t
+      UpdateVulnDB -> withVulnDB $ \_conn -> pure ()
+      CheckAllVulnerable -> do
+        setupNixpkgs undefined
+        updates <- T.readFile "packages-to-update.txt"
+        cveAll undefined updates
+      CheckVulnerable productID oldVersion newVersion -> do
+        setupNixpkgs undefined
+        logF <- newLogFunc
+        report <-
+          cveReport
+            (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False) lf)
+        T.putStrLn report
+      SourceGithub -> do
+        updates <- T.readFile "packages-to-update.txt"
+        setupNixpkgs token
+        sourceGithubAll (Options False False ghUser token False False False) updates
+      FetchRepology -> Repology.fetch

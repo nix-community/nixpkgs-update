@@ -56,6 +56,7 @@ dependencies:
   - partial-order
   - polysemy
   - polysemy-plugin
+  - rio
   - regex-applicative-text
   - servant
   - servant-client
@@ -74,9 +75,6 @@ dependencies:
   - xdg-basedir
   - zlib
 
-library:
-  source-dirs: src
-
 tests:
   spec:
     main: Spec.hs
@@ -90,7 +88,5 @@ tests:
 
 executables:
   nixpkgs-update:
-    source-dirs: app
+    source-dirs: src
     main: Main.hs
-    dependencies:
-      - nixpkgs-update
