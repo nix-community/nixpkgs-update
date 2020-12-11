@@ -119,7 +119,8 @@ nameList =
     eq "reposurgeon" "takes way too long to build",
     eq "kodelife" "multiple system hashes need to be updated at once",
     eq "openbazaar" "multiple system hashes need to be updated at once",
-    eq "eaglemode" "build hangs or takes way too long"
+    eq "eaglemode" "build hangs or takes way too long",
+    eq "autoconf" "@prusnak asked to skip"
   ]
 
 contentList :: Skiplist
