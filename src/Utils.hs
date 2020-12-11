@@ -176,13 +176,13 @@ regDirMode =
   directoryMode .|. ownerModes .|. groupModes .|. otherReadMode
     .|. otherExecuteMode
 
-logsDirectory :: MonadIO m => ExceptT Text m FilePath
+logsDirectory :: MonadIO m => m FilePath
 logsDirectory = do
-  dir <-
+  dir <- getEnv "LOGS_DIRECTORY"
     noteT "Could not get environment variable LOGS_DIRECTORY" $
       MaybeT $
         liftIO $
-          getEnv "LOGS_DIRECTORY"
+        
   dirExists <- liftIO $ doesDirectoryExist dir
   tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
   unless

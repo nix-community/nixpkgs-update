@@ -7,7 +7,6 @@ module OurPrelude
     (<>),
     (<&>),
     (&),
-    module Control.Error,
     module Control.Monad.Except,
     module Control.Monad.Trans.Class,
     module Control.Monad.IO.Class,

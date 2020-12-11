@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module Update
@@ -21,9 +22,7 @@ where
 
 import CVE (CVE, cveID, cveLI)
 import qualified Check
-import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BSL
-import Data.IORef
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -38,6 +37,7 @@ import qualified Nix
 import qualified NixpkgsReview
 import OurPrelude
 import Outpaths
+import RIO
 import qualified Rewrite
 import qualified Skiplist
 import qualified Time
@@ -85,8 +85,9 @@ getLog o = do
       return log
     else return T.putStrLn
 
-notifyOptions :: (Text -> IO ()) -> Options -> IO ()
-notifyOptions log o = do
+notifyOptions :: RIO Options ()
+notifyOptions = do
+  o <- ask
   let repr f = if f o then "YES" else "NO"
   let ghUser = GH.untagName . githubUser $ o
   let pr = repr doPR
@@ -94,7 +95,7 @@ notifyOptions log o = do
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
   npDir <- tshow <$> Git.nixpkgsDir
-  log $
+  logInfo $
     [interpolate|
     Configured Nixpkgs-Update Options:
     ----------------------------------
@@ -106,7 +107,7 @@ notifyOptions log o = do
     Nixpkgs Dir:                   $npDir
     ----------------------------------|]
 
-updateAll :: Options -> Text -> IO ()
+updateAll :: Text -> RIO Options ()
 updateAll o updates = do
   log <- getLog o
   log "New run of nixpkgs-update"
@@ -226,9 +227,10 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
 
     -- Calculate output paths for rebuilds and our merge base
-    mergeBase <- if batchUpdate options
-      then Git.checkoutAtMergeBase (branchName updateEnv)
-      else pure "HEAD"
+    mergeBase <-
+      if batchUpdate options
+        then Git.checkoutAtMergeBase (branchName updateEnv)
+        else pure "HEAD"
     let calcOutpaths = calculateOutpaths options
     oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
     mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
@@ -638,11 +640,10 @@ cveReport updateEnv =
 doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
 doCachix log updateEnv resultPath =
   let o = options updateEnv
-  in
-    if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
-    then do
-      return
-        [interpolate|
+   in if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
+        then do
+          return
+            [interpolate|
        Either **download from Cachix**:
        ```
        nix-store -r $resultPath \
@@ -657,9 +658,9 @@ doCachix log updateEnv resultPath =
 
        Or, **build yourself**:
        |]
-    else do
-      lift $ log "skipping cachix"
-      return "Build yourself:"
+        else do
+          lift $ log "skipping cachix"
+          return "Build yourself:"
 
 updatePackage ::
   Options ->

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Git
   ( checkAutoUpdateBranchDoesntExist,
@@ -31,7 +32,8 @@ import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude hiding (throw)
-import System.Directory (doesDirectoryExist, doesFileExist, getModificationTime, getCurrentDirectory, setCurrentDirectory)
+import RIO
+import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getModificationTime, setCurrentDirectory)
 import System.Environment (getEnv)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit
@@ -132,7 +134,7 @@ push updateEnv =
         )
     )
 
-nixpkgsDir :: IO FilePath
+nixpkgsDir :: MonadIO m => m FilePath
 nixpkgsDir = do
   inNixpkgs <- inNixpkgsRepo
   if inNixpkgs
@@ -183,7 +185,7 @@ checkAutoUpdateBranchDoesntExist pName = do
     (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
     (throwE "Update branch already on origin.")
 
-inNixpkgsRepo :: IO Bool
+inNixpkgsRepo :: MonadIO m => m Bool
 inNixpkgsRepo = do
   currentDir <- getCurrentDirectory
   doesFileExist (currentDir <> "/nixos/release.nix")
