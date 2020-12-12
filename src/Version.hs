@@ -8,6 +8,7 @@ module Version
   )
 where
 
+import Data.Foldable (toList)
 import Data.Char (isAlpha, isDigit)
 import Data.Function (on)
 import qualified Data.PartialOrd as PO
@@ -142,8 +143,9 @@ instance SimpleVersion ParsedVersion where
 instance SimpleVersion SemVer where
   simpleVersion SemVer {_svMajor, _svMinor, _svPatch, _svPreRel} =
     [IntPart _svMajor, IntPart _svMinor, IntPart _svPatch]
-      ++ map toPart (concat _svPreRel)
+      ++ map toPart (concat (fmap toList _svPreRel))
     where
+      toPart :: VUnit -> VersionPart
       toPart (Digits i) = IntPart i
       toPart (Str t) =
         case textPart t of

@@ -15,7 +15,7 @@ import GHC.Generics
 import Network.HTTP.Client.TLS (newTlsManager)
 import OurPrelude
 import Servant.API
-import Servant.Client (BaseUrl (..), ClientEnv (ClientEnv), ClientM, Scheme (..), client, runClientM)
+import Servant.Client (BaseUrl (..), mkClientEnv, ClientM, Scheme (..), client, runClientM)
 import System.IO
 
 baseUrl :: BaseUrl
@@ -202,7 +202,7 @@ fetch = do
   hSetBuffering stderr LineBuffering
   liftIO $ hPutStrLn stderr "starting"
   manager' <- newTlsManager
-  e <- runClientM allNixUpdateInfo (ClientEnv manager' baseUrl Nothing)
+  e <- runClientM allNixUpdateInfo (mkClientEnv manager' baseUrl)
   case e of
     Left ce -> liftIO $ hPutStrLn stderr $ show ce
     Right _ -> liftIO $ hPutStrLn stderr $ "done"

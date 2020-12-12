@@ -28,7 +28,7 @@
           NIXPKGSREVIEW = (import nixpkgs-review { inherit pkgs; });
         };
 
-        haskellPackages = pkgs.haskell.packages.ghc884.override {
+        haskellPackages = pkgs.haskell.packages.ghc8102.override {
           overrides = _: haskellPackages: {
             nixpkgs-update =
               pkgs.haskell.lib.justStaticExecutables (
