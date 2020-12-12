@@ -5,7 +5,6 @@
 module Skiplist
   ( packageName,
     content,
-    srcUrl,
     attrPath,
     checkResult,
     python,
@@ -23,9 +22,6 @@ type TextSkiplister m =
   Text ->
   m ()
 
-srcUrl :: TextSkiplister m
-srcUrl = skiplister srcUrlList
-
 attrPath :: TextSkiplister m
 attrPath = skiplister attrPathList
 
@@ -40,9 +36,6 @@ content = skiplister contentList
 
 checkResult :: TextSkiplister m
 checkResult = skiplister checkResultList
-
-srcUrlList :: Skiplist
-srcUrlList = []
 
 attrPathList :: Skiplist
 attrPathList =

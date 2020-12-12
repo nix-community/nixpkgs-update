@@ -208,7 +208,6 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
     -- Filters: various cases where we shouldn't update the package
     attrPath <- Nix.lookupAttrPath updateEnv
     hasUpdateScript <- Nix.hasUpdateScript attrPath
-    srcUrls <- Nix.getSrcUrls attrPath
 
     whenBatch updateEnv do
       Skiplist.attrPath attrPath
@@ -219,7 +218,6 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
       Version.assertCompatibleWithPathPin updateEnv attrPath
-      Skiplist.srcUrl srcUrls
 
     derivationFile <- Nix.getDerivationFile attrPath
     unless hasUpdateScript do
