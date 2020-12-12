@@ -2,46 +2,19 @@
   description = "A flake for nixpkgs-update";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
-
-  inputs.flake-compat = {
-    url = "github:edolstra/flake-compat";
-    flake = false;
-  };
-
-  inputs.nixpkgs = {
-    type = "github";
-    owner = "nixos";
-    repo = "nixpkgs";
-  };
-
-  inputs.nixpkgs-review = {
-    type = "github";
-    owner = "Mic92";
-    repo = "nixpkgs-review";
-    flake = false;
-  };
+  inputs.nixpkgs-review.url = "github:mic92/nixpkgs-review";
+  inputs.flake-compat = { url = "github:edolstra/flake-compat"; flake = false; };
+  inputs.nixpkgs = { type = "github"; owner = "nixos"; repo = "nixpkgs"; };
 
   outputs = { self, flake-utils, flake-compat, nixpkgs, nixpkgs-review }:
     flake-utils.lib.eachSystem ["x86_64-linux"] (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          config = { allowBroken = true; };
-        };
-
-        compiler = pkgs.haskell.packages.ghc884;
+        pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
 
         developPackageAttrs = {
           name = "nixpkgs-update";
           root = self;
-          overrides = self: super: { };
-          source-overrides = { };
-          modifier = pkgs.haskell.lib.disableLibraryProfiling;
           returnShellEnv = false;
-        };
-
-        developPackageShellAttrs = developPackageAttrs // {
-          returnShellEnv = true;
         };
 
         drvAttrs = attrs: with pkgs; {
@@ -55,17 +28,36 @@
           NIXPKGSREVIEW = (import nixpkgs-review { inherit pkgs; });
         };
 
-        drvShellAttrs = attrs: (drvAttrs attrs) // (with pkgs; {
-          nativeBuildInputs = attrs.nativeBuildInputs ++ [ cabal-install ghcid ];
-        });
+        haskellPackages = pkgs.haskell.packages.ghc884.override {
+          overrides = _: haskellPackages: {
+            nixpkgs-update =
+              pkgs.haskell.lib.justStaticExecutables (
+                pkgs.haskell.lib.failOnAllWarnings (
+                  pkgs.haskell.lib.disableExecutableProfiling (
+                    pkgs.haskell.lib.disableLibraryProfiling (
+                      pkgs.haskell.lib.generateOptparseApplicativeCompletion "nixpkgs-update" (
+                        (haskellPackages.developPackage developPackageAttrs).overrideAttrs drvAttrs
+                      )
+                    )
+                  )
+                )
+              );
+          };
+        };
 
-        pkg = (compiler.developPackage developPackageAttrs).overrideAttrs drvAttrs;
-
-        shell = (compiler.developPackage developPackageShellAttrs).overrideAttrs drvShellAttrs;
+        shell = haskellPackages.shellFor {
+          nativeBuildInputs = with pkgs; [
+            cabal-install
+            ghcid
+          ];
+          packages = ps: [ ps.nixpkgs-update ];
+          shellHook = ''
+          '';
+        };
 
       in {
         devShell = shell;
-        packages.nixpkgs-update = pkg;
-        defaultPackage = pkg;
+        packages.nixpkgs-update = haskellPackages.nixpkgs-update;
+        defaultPackage = haskellPackages.nixpkgs-update;
       });
 }
