@@ -21,8 +21,8 @@ where
 
 import CVE (CVE, cveID, cveLI)
 import qualified Check
-import Control.Concurrent
-import qualified Data.ByteString.Lazy.Char8 as BSL
+-- import Control.Concurrent
+-- import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
@@ -32,7 +32,7 @@ import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
 import qualified GH
 import qualified Git
-import Language.Haskell.TH.Env (envQ)
+-- import Language.Haskell.TH.Env (envQ)
 import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import qualified NixpkgsReview
@@ -545,20 +545,20 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
        $maintainersCc
     |]
 
-jqBin :: String
-jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
+-- jqBin :: String
+-- jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
 
-untilOfBorgFree :: MonadIO m => m ()
-untilOfBorgFree = do
-  stats <-
-    shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
-  waiting <-
-    shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
-      & readProcessInterleaved_
-      & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
-  when (waiting > 2) $ do
-    liftIO $ threadDelay 60000000
-    untilOfBorgFree
+-- untilOfBorgFree :: MonadIO m => m ()
+-- untilOfBorgFree = do
+--   stats <-
+--     shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
+--   waiting <-
+--     shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
+--       & readProcessInterleaved_
+--       & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
+--   when (waiting > 2) $ do
+--     liftIO $ threadDelay 60000000
+--     untilOfBorgFree
 
 assertNotUpdatedOn ::
   MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
