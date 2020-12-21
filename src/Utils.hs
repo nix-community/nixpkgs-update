@@ -17,6 +17,7 @@ module Utils
     optionsL,
     Version,
     VersionMatcher (..),
+    NUException (..),
     branchName,
     branchPrefix,
     getGithubToken,
@@ -24,7 +25,6 @@ module Utils
     logDir,
     nixBuildOptions,
     nixCommonOptions,
-    overwriteErrorT,
     parseUpdates,
     prTitle,
     runLog,
@@ -52,9 +52,9 @@ import qualified GitHub as GH
 import OurPrelude
 import Polysemy.Output
 import RIO
+import RIO.Directory
+import RIO.FilePath
 import qualified RIO.List as L
-import System.Directory (doesDirectoryExist)
-import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv)
 import System.Posix.Files
   ( directoryMode,
@@ -68,6 +68,11 @@ import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
 import Text.Read (readEither)
 import qualified Prelude
+
+data NUException = AbortUpdate Text | Fatal Text
+  deriving (Show, Typeable)
+
+instance Exception NUException
 
 default (T.Text)
 
@@ -176,63 +181,36 @@ regDirMode =
   directoryMode .|. ownerModes .|. groupModes .|. otherReadMode
     .|. otherExecuteMode
 
-logsDirectory :: MonadIO m => m FilePath
+logsDirectory :: MonadThrow m => MonadIO m => m FilePath
 logsDirectory = do
-  dir <- getEnv "LOGS_DIRECTORY"
-    noteT "Could not get environment variable LOGS_DIRECTORY" $
-      MaybeT $
-        liftIO $
-        
-  dirExists <- liftIO $ doesDirectoryExist dir
-  tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
-  unless
-    dirExists
-    ( liftIO $
-        Prelude.putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
-    )
-  return dir
+  dir <- liftIO $ getEnv "LOGS_DIRECTORY"
+  case dir of
+    Nothing -> throwM $ Fatal "Could not get environment variable LOGS_DIRECTORY"
+    Just dir' -> do
+      createDirectoryIfMissing True dir'
+      return dir'
 
-xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
+xdgRuntimeDir :: MonadThrow m => MonadIO m => m FilePath
 xdgRuntimeDir = do
-  xDir <-
-    noteT "Could not get environment variable XDG_RUNTIME_DIR" $
-      MaybeT $
-        liftIO $
-          getEnv "XDG_RUNTIME_DIR"
-  xDirExists <- liftIO $ doesDirectoryExist xDir
-  tryAssert ("XDG_RUNTIME_DIR " <> T.pack xDir <> " does not exist.") xDirExists
-  let dir = xDir <> "/nixpkgs-update"
-  dirExists <- liftIO $ fileExist dir
-  unless
-    dirExists
-    ( liftIO $
-        Prelude.putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
-    )
-  return dir
+  xDir <- liftIO $ getEnv "XDG_RUNTIME_DIR"
+  case xDir of
+    Nothing -> throwM $ Fatal "Could not get environment variable XDG_RUNTIME_DIR"
+    Just xDir' -> do
+      let dir = xDir' </> "nixpkgs-update"
+      createDirectoryIfMissing True dir
+      return dir
 
-tmpRuntimeDir :: MonadIO m => ExceptT Text m FilePath
+tmpRuntimeDir :: MonadThrow m => MonadIO m => m FilePath
 tmpRuntimeDir = do
   dir <- liftIO $ mkdtemp "nixpkgs-update"
   dirExists <- liftIO $ doesDirectoryExist dir
-  tryAssert
-    ("Temporary directory " <> T.pack dir <> " does not exist.")
-    dirExists
+  unless dirExists (throwM $ Fatal ("Temporary directory " <> T.pack dir <> " does not exist."))
   return dir
 
 logDir :: IO FilePath
 logDir = do
-  r <-
-    runExceptT
-      ( logsDirectory <|> xdgRuntimeDir <|> tmpRuntimeDir
-          <|> throwE
-            "Failed to create log directory."
-      )
-  case r of
-    Right dir -> return dir
-    Left e -> error $ T.unpack e
-
-overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
-overwriteErrorT t = fmapLT (const t)
+  logsDirectory <|> xdgRuntimeDir <|> tmpRuntimeDir
+    <|> throwM (Fatal "Failed to create log directory.")
 
 branchPrefix :: Text
 branchPrefix = "auto-update/"

@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Skiplist
   ( packageName,
@@ -12,13 +13,14 @@ module Skiplist
 where
 
 import Data.Foldable (find)
-import qualified Data.Text as T
-import OurPrelude
+import RIO
+import qualified RIO.Text as T
+import Utils (NUException (..))
 
 type Skiplist = [(Text -> Bool, Text)]
 
 type TextSkiplister m =
-  (MonadError Text m) =>
+  (MonadThrow m) =>
   Text ->
   m ()
 
@@ -154,9 +156,10 @@ checkResultList =
   ]
 
 skiplister :: Skiplist -> TextSkiplister m
-skiplister skiplist input = forM_ result throwError
-  where
-    result = snd <$> find (\(isSkiplisted, _) -> isSkiplisted input) skiplist
+skiplister skiplist input =
+  forM_ skiplist $ do
+    (\(isSkiplisted, msg) ->
+       when (isSkiplisted input) (throwM $ AbortUpdate msg))
 
 prefix :: Text -> Text -> (Text -> Bool, Text)
 prefix part reason = ((part `T.isPrefixOf`), reason)
@@ -167,15 +170,16 @@ infixOf part reason = ((part `T.isInfixOf`), reason)
 eq :: Text -> Text -> (Text -> Bool, Text)
 eq part reason = ((part ==), reason)
 
-python :: Monad m => Int -> Text -> ExceptT Text m ()
-python numPackageRebuilds derivationContents =
-  tryAssert
-    ( "Python package with too many package rebuilds "
-        <> (T.pack . show) numPackageRebuilds
-        <> "  > "
-        <> tshow maxPackageRebuild
-    )
-    (not isPython || numPackageRebuilds <= maxPackageRebuild)
+python :: MonadThrow m => Monad m => Int -> Text -> m ()
+python numPackageRebuilds derivationContents = do
+  when
+    (isPython && numPackageRebuilds > maxPackageRebuild)
+    (throwM $ AbortUpdate errorMsg)
   where
     isPython = "buildPythonPackage" `T.isInfixOf` derivationContents
     maxPackageRebuild = 25
+    errorMsg =
+      "Python package with too many package rebuilds "
+        <> (T.pack . show) numPackageRebuilds
+        <> "  > "
+        <> tshow maxPackageRebuild
