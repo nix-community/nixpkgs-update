@@ -358,9 +358,9 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
     (doPR . options $ updateEnv)
     (Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv)
   isBroken <- Nix.getIsBroken attrPath
-  when
-    (batchUpdate . options $ updateEnv)
-    (lift untilOfBorgFree)
+  -- when
+  --   (batchUpdate . options $ updateEnv)
+  --   (lift untilOfBorgFree)
   let prMsg =
         prMessage
           updateEnv
