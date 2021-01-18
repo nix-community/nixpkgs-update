@@ -314,7 +314,7 @@ getHashFromBuild =
         (exitCode, _, stderr) <- buildCmd attrPath & readProcess
         when (exitCode == ExitSuccess) $ throwE "build succeeded unexpectedly"
         let stdErrText = bytestringToText stderr
-        let firstSplit = T.splitOn "got:    sha256:" stdErrText
+        let firstSplit = T.splitOn "got:    " stdErrText
         firstSplitSecondPart <-
           tryAt
             ("stderr did not split as expected full stderr was: \n" <> stdErrText)
