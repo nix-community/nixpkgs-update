@@ -6,11 +6,13 @@
 
 module Check
   ( result,
+    -- exposed for testing:
+    hasVersion
   )
 where
 
 import Control.Applicative (many)
-import Data.Char (isSpace)
+import Data.Char (isDigit, isLetter)
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Language.Haskell.TH.Env (envQ)
@@ -45,12 +47,24 @@ data BinaryCheck = BinaryCheck
     versionPresent :: Bool
   }
 
--- | Construct regex: [^\.]*${version}\.*\s*
+isWordCharacter :: Char -> Bool
+isWordCharacter c = (isDigit c) || (isLetter c)
+
+isNonWordCharacter :: Char -> Bool
+isNonWordCharacter c = not (isWordCharacter c)
+
+-- | Construct regex: /.*\b${version}\b.*/s
 versionRegex :: Text -> RE' ()
 versionRegex version =
-  (\_ _ _ _ -> ()) <$> many (RE.psym (/= '.')) <*> RE.string version
-    <*> many (RE.sym '.')
-    <*> many (RE.psym isSpace)
+  (\_ -> ()) <$> (
+    (((many RE.anySym) <* (RE.psym isNonWordCharacter)) <|> (RE.pure ""))
+    *> (RE.string version) <*
+    ((RE.pure "") <|> ((RE.psym isNonWordCharacter) *> (many RE.anySym)))
+  )
+
+hasVersion :: Text -> Text -> Bool
+hasVersion contents expectedVersion =
+  isJust $ contents =~ versionRegex expectedVersion
 
 checkTestsBuild :: Text -> IO Bool
 checkTestsBuild attrPath =
@@ -80,9 +94,8 @@ checkBinary argument expectedVersion program = do
         )
   case eResult of
     Left (_ :: Text) -> return $ BinaryCheck program False False
-    Right (exitCode, contents) -> do
-      let hasVersion = isJust $ contents =~ versionRegex expectedVersion
-      return $ BinaryCheck program (exitCode == ExitSuccess) hasVersion
+    Right (exitCode, contents) ->
+      return $ BinaryCheck program (exitCode == ExitSuccess) (hasVersion contents expectedVersion)
 
 checks :: [Version -> FilePath -> IO BinaryCheck]
 checks =
