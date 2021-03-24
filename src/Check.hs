@@ -36,6 +36,9 @@ gistBin = fromJust ($$(envQ "GIST") :: Maybe String) <> "/bin/gist"
 procGist :: [String] -> ProcessConfig () () ()
 procGist = proc gistBin
 
+timeoutBin :: String
+timeoutBin = fromJust ($$(envQ "TIMEOUT") :: Maybe String) <> "/bin/timeout"
+
 data BinaryCheck = BinaryCheck
   { filePath :: FilePath,
     zeroExitCode :: Bool,
@@ -71,9 +74,9 @@ checkBinary argument expectedVersion program = do
   eResult <-
     runExceptT $
       withSystemTempDirectory
-        ("nixpkgs-update-" <> program)
+        "nixpkgs-update"
         ( ourLockedDownReadProcessInterleaved $
-            shell ("timeout -k 2 1 " <> program <> " " <> T.unpack argument)
+            shell (timeoutBin <> " -k 2 1 " <> program <> " " <> T.unpack argument)
         )
   case eResult of
     Left (_ :: Text) -> return $ BinaryCheck program False False
@@ -213,7 +216,7 @@ result updateEnv resultPath =
         then
           ( do
               fs <- listDirectory binaryDir
-              filterM doesFileExist fs
+              filterM doesFileExist (map (\f -> binaryDir ++ "/" ++ f) fs)
           )
         else return []
     checks' <- forM binaries $ \binary -> runChecks expectedVersion binary

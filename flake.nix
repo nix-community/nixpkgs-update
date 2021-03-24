@@ -18,13 +18,14 @@
         };
 
         drvAttrs = attrs: with pkgs; {
-          # TODO: lock down coreutils paths too
           NIX = nix;
           GIT = git;
           HUB = gitAndTools.hub;
           JQ = jq;
           TREE = tree;
           GIST = gist;
+          # TODO: are there more coreutils paths that need locking down?
+          TIMEOUT = coreutils;
           NIXPKGSREVIEW = (import nixpkgs-review { inherit pkgs; });
         };
 
