@@ -7,7 +7,7 @@
   inputs.nixpkgs = { type = "github"; owner = "nixos"; repo = "nixpkgs"; };
 
   outputs = { self, flake-utils, flake-compat, nixpkgs, nixpkgs-review }:
-    flake-utils.lib.eachSystem ["x86_64-linux"] (system:
+    flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
       let
         pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
 
@@ -56,7 +56,8 @@
           '';
         };
 
-      in {
+      in
+      {
         devShell = shell;
         packages.nixpkgs-update = haskellPackages.nixpkgs-update;
         defaultPackage = haskellPackages.nixpkgs-update;
