@@ -113,7 +113,8 @@ nameList =
     eq "kodelife" "multiple system hashes need to be updated at once",
     eq "openbazaar" "multiple system hashes need to be updated at once",
     eq "eaglemode" "build hangs or takes way too long",
-    eq "autoconf" "@prusnak asked to skip"
+    eq "autoconf" "@prusnak asked to skip",
+    eq "abseil-cpp" "@andersk asked to skip"
   ]
 
 contentList :: Skiplist
