@@ -109,13 +109,34 @@ assertNewerVersion updateEnv = do
             <> " "
         )
 
--- This is extremely slow but gives us the best results we know of
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
+  runExceptT (lookupAttrPathNixEnv name vsn) >>= \case
+    Right t -> return t
+    Left e -> runExceptT (lookupAttrPathByAttrName name vsn) >>= \case
+      Right t -> return t
+      Left e2 -> throwE $ e <> "\n" <> e2
+  where
+    name = packageName updateEnv
+    vsn = oldVersion updateEnv
+
+lookupAttrPathByAttrName :: MonadIO m => Text -> Text -> ExceptT Text m Text
+lookupAttrPathByAttrName name vsn = do
+  drvVsn <-
+    nixEvalET
+    (EvalOptions Raw (Env []))
+    ( "(builtins.parseDrvName (import ./. {})." <> name <> ".name).version" )
+  if drvVsn /= vsn
+    then throwE $ "nix version \"" <> drvVsn <> "\" doesn't match old version \"" <> vsn <> "\""
+    else pure name
+
+-- This is extremely slow but gives us the best results we know of
+lookupAttrPathNixEnv :: MonadIO m => Text -> Text -> ExceptT Text m Text
+lookupAttrPathNixEnv name vsn =
   proc
     (binPath <> "/nix-env")
     ( [ "-qa",
-        (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
+        (name <> "-" <> vsn) & T.unpack,
         "-f",
         ".",
         "--attr-path"
