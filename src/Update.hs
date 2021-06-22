@@ -436,7 +436,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
       rewriteMsgsLine = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" rewriteMsgs
       maintainersCc =
         if not (T.null maintainers)
-          then "cc " <> maintainers <> " for testing."
+          then "cc " <> maintainers <> " for [testing and approval](https://github.com/Mic92/nixpkgs-review#readme)."
           else ""
       releaseUrlMessage =
         if releaseUrl == T.empty
