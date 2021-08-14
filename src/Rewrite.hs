@@ -16,7 +16,8 @@ module Rewrite
 where
 
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8)
+import Data.Text.Encoding as T
+import Data.Text.Encoding.Error as T
 import Data.Text.IO as T
 import qualified File
 import qualified Network.HTTP.Client as HTTP
@@ -160,7 +161,7 @@ redirectedUrls log Args {..} = do
         Nothing -> do
           lift $ log "Server did not return a location"
           return Nothing
-        Just (decodeUtf8 -> newHomepage) -> do
+        Just ((T.decodeUtf8With T.lenientDecode) -> newHomepage) -> do
           _ <- File.replaceIO homepage newHomepage derivationFile
           lift $ log "Replaced homepage"
           return $

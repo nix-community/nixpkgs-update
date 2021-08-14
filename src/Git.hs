@@ -25,7 +25,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
@@ -232,5 +231,5 @@ readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
           | "index.lock" `BS.isInfixOf` BSL.toStrict out -> do
             threadDelay 100000
             go
-        ExitSuccess -> return $ (BSL.toStrict >>> T.decodeUtf8) out
+        ExitSuccess -> return $ bytestringToText out
         ExitFailure _ -> throw $ ExitCodeException code config out out

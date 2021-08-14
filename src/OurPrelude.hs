@@ -46,6 +46,7 @@ import Data.Functor ((<&>))
 import Data.Set (Set)
 import Data.Text (Text, pack)
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.Encoding.Error as T
 import Data.Vector (Vector)
 import Language.Haskell.TH.Quote
 import qualified NeatInterpolation
@@ -68,7 +69,7 @@ whenM :: Monad m => m Bool -> m () -> m ()
 whenM c a = c >>= \res -> when res a
 
 bytestringToText :: BSL.ByteString -> Text
-bytestringToText = BSL.toStrict >>> T.decodeUtf8
+bytestringToText = BSL.toStrict >>> (T.decodeUtf8With T.lenientDecode)
 
 ourReadProcessInterleavedBS_ ::
   MonadIO m =>
