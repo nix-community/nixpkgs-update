@@ -59,7 +59,10 @@ attrPathList =
       "@Ma27 asked to skip",
     prefix
       "element-web"
-      "has to be updated along with element-desktop"
+      "has to be updated along with element-desktop",
+    prefix
+      "keybinder"
+      "it has weird tags. see nixpkgs-update#232"
   ]
 
 nameList :: Skiplist
