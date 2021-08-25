@@ -1,5 +1,5 @@
 name: nixpkgs-update
-version: 0.2.0
+version: 0.3.0
 synopsis: Tool for semi-automatic updating of nixpkgs repository
 description: nixpkgs-update provides tools for updating of nixpkgs
   packages in a semi-automatic way. Mainly, it is used to run the GitHub
@@ -76,6 +76,9 @@ dependencies:
 
 library:
   source-dirs: src
+  when:
+    - condition: false
+      other-modules: Paths_nixpkgs_update
 
 tests:
   spec:
@@ -87,6 +90,9 @@ tests:
       - hspec-discover
       - nixpkgs-update
       - doctest
+    when:
+      - condition: false
+        other-modules: Paths_nixpkgs_update
 
 executables:
   nixpkgs-update:
@@ -94,3 +100,6 @@ executables:
     main: Main.hs
     dependencies:
       - nixpkgs-update
+    when:
+      - condition: false
+        other-modules: Paths_nixpkgs_update

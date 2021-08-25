@@ -29,8 +29,10 @@
           NIXPKGSREVIEW = (import nixpkgs-review { inherit pkgs; });
         };
 
-        haskellPackages = pkgs.haskell.packages.ghc8102.override {
+        haskellPackages = pkgs.haskellPackages.override {
           overrides = _: haskellPackages: {
+            polysemy-plugin = pkgs.haskell.lib.dontCheck haskellPackages.polysemy-plugin;
+         polysemy = pkgs.haskell.lib.dontCheck haskellPackages.polysemy;
             nixpkgs-update =
               pkgs.haskell.lib.justStaticExecutables (
                 pkgs.haskell.lib.failOnAllWarnings (

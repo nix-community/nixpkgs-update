@@ -1,13 +1,13 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 58424b4f6d939fb54c291e341863d658ea2403d27b8caaa422662f6d428ea62a
+-- hash: 6778c17aab195efecb532625c1155500d873a35ed7db9bd27fe86cb841a65bd4
 
 name:           nixpkgs-update
-version:        0.2.0
+version:        0.3.0
 synopsis:       Tool for semi-automatic updating of nixpkgs repository
 description:    nixpkgs-update provides tools for updating of nixpkgs packages in a semi-automatic way. Mainly, it is used to run the GitHub bot @r-ryantm, but the underlying update mechanisms should be generally useful and in a later version should be exposed as a command-line tool.
 category:       Web
@@ -49,11 +49,20 @@ library
       Update
       Utils
       Version
-  other-modules:
-      Paths_nixpkgs_update
   hs-source-dirs:
       src
-  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
+  default-extensions:
+      DataKinds
+      FlexibleContexts
+      GADTs
+      LambdaCase
+      PolyKinds
+      RankNTypes
+      ScopedTypeVariables
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      BlockArguments
   ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
   build-depends:
       aeson
@@ -101,11 +110,20 @@ library
 
 executable nixpkgs-update
   main-is: Main.hs
-  other-modules:
-      Paths_nixpkgs_update
   hs-source-dirs:
       app
-  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
+  default-extensions:
+      DataKinds
+      FlexibleContexts
+      GADTs
+      LambdaCase
+      PolyKinds
+      RankNTypes
+      ScopedTypeVariables
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      BlockArguments
   ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
   build-depends:
       aeson
@@ -156,14 +174,25 @@ test-suite spec
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      CheckSpec
       DoctestSpec
       RewriteSpec
       UpdateSpec
       UtilsSpec
-      Paths_nixpkgs_update
   hs-source-dirs:
       test
-  default-extensions: DataKinds FlexibleContexts GADTs LambdaCase PolyKinds RankNTypes ScopedTypeVariables TypeApplications TypeFamilies TypeOperators BlockArguments
+  default-extensions:
+      DataKinds
+      FlexibleContexts
+      GADTs
+      LambdaCase
+      PolyKinds
+      RankNTypes
+      ScopedTypeVariables
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      BlockArguments
   ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
   build-depends:
       aeson
