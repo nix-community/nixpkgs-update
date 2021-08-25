@@ -1,4 +1,4 @@
-# Nixpkgs Maintainer FAQ
+# Nixpkgs Maintainer FAQ {#nixpkgs-maintainer-faq}
 
 ## @r-ryantm opened a PR for my package, what do I do?
 
