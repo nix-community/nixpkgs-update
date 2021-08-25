@@ -1,6 +1,7 @@
 # nixpkgs-update
 
 * [Introduction](#introduction)
+* [Installation](#installation)
 * [Interactive updates](#interactive-updates)
 * [Batch updates](#batch-updates)
 * [Details](#details)
