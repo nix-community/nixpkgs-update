@@ -21,7 +21,7 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-      - run: nix run .#nixpkgs-update-doc
+      - run: nix build .#nixpkgs-update-doc
       - if: success()
         uses: crazy-max/ghaction-github-pages@v2
         with:
