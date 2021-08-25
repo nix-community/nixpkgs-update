@@ -18,10 +18,14 @@ nixpkgs-update supports interactive, single package updates via the
 
 # Flags
 
-* `--cve`&mdash;adds CVE vulnerability reporting to the PR message. On
+`--cve`
+
+: adds CVE vulnerability reporting to the PR message. On
   first invocation with this option, a CVE database is
   built. Subsequent invocations will be much faster.
-* `--nixpkgs-review`&mdash;runs
-  [nixpkgs-review](https://github.com/Mic92/nixpkgs-review), which
-  tries to build all the packages that depend on the one being updated
-  and adds a report.
+
+`--nixpkgs-review`
+
+: runs [nixpkgs-review](https://github.com/Mic92/nixpkgs-review),
+  which tries to build all the packages that depend on the one being
+  updated and adds a report.
