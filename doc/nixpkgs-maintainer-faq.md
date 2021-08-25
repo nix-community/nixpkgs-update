@@ -12,4 +12,82 @@ Thanks for being a maintainer. Hopefully, @r-ryantm will be able to save you som
 
 ## Why is @r-ryantm not updating my package?
 
-There are lots of reasons a package might not be updated.
+There are lots of reasons a package might not be updated. You can usually figure out which one is the issue by looking at the [logs](https://r.ryantm.com/log/) or by asking @ryantm on Matrix or GitHub.
+
+### No new version information
+
+r-ryantm gets its new version information from three sources:
+
+* Repology - information from Repology is delayed because it only updates when there is an unstable channel release
+* GitHub releases
+* PyPi releases
+
+If none of these sources says the package is out of date, it will not attempt to update it.
+
+### Skiplist
+
+We maintain a [Skiplist](https://github.com/ryantm/nixpkgs-update/blob/master/src/Skiplist.hs) of different things not to update. It is possible your package is triggering one of the skip criteria.
+
+Python updates are skipped if they cause more than 25 rebuilds.
+
+### Existing Open or Draft PR
+
+If there is an existing PR with the exact title of `$attrPath: $oldVersion -> $newVersion`, it will not update the package.
+
+### Version not newer
+
+If Nix's `builtins.compareVersions` does not think the "new" version is newer, it will not update.
+
+### Incompatibile with "Path Pin"
+
+Some attrpaths have versions appended to the end of them, like `ruby_3_0`, the new version has to be compatible with this "Path pin". Here are some examples:
+
+```Haskell
+-- >>> versionCompatibleWithPathPin "libgit2_0_25" "0.25.3"
+-- True
+--
+-- >>> versionCompatibleWithPathPin "owncloud90" "9.0.3"
+-- True
+--
+-- >>> versionCompatibleWithPathPin "owncloud-client" "2.4.1"
+-- True
+--
+-- >>> versionCompatibleWithPathPin "owncloud90" "9.1.3"
+-- False
+--
+-- >>> versionCompatibleWithPathPin "nodejs-slim-10_x" "11.2.0"
+-- False
+--
+-- >>> versionCompatibleWithPathPin "nodejs-slim-10_x" "10.12.0"
+-- True
+```
+
+### Can't find derivation file
+
+If `nix edit $attrpath` does not open the correct file that contains the version string and fetcher hash, the update will fail.
+
+### Update already merged
+
+If the update is already on `master`, `staging`, or `staging-next`, the update will fail.
+
+### Can't find hash or source url
+
+If the derivation file has no hash or source URL, it will fail.
+
+### No updateScript and no version
+
+If the derivation file has no version and no updateScript, it will fail.
+
+### No changes
+
+If the derivation "Rewriters" fail to change the derivation, it will fail.
+
+If there is no updateScript, and the source url or the hash did not change, it will fail.
+
+### No rebuilds
+
+If the rewrites didn't cause any derivations to change, it will fail.
+
+### Didn't build
+
+If after the rewrites, it doesn't build, it will fail.
