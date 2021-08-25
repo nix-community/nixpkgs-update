@@ -10,7 +10,7 @@ Thanks for being a maintainer. Hopefully, @r-ryantm will be able to save you som
 3. Follow the "Instructions to test this update" section of the PR to get the built program on your computer quickly
 4. Make a GitHub Review approving or requesting changes. Include screenshots or other notes as appropriate.
 
-## Why is @r-ryantm not updating my package?
+## Why is @r-ryantm not updating my package? {#no-update}
 
 There are lots of reasons a package might not be updated. You can usually figure out which one is the issue by looking at the [logs](https://r.ryantm.com/log/) or by asking @ryantm on Matrix or GitHub.
 
