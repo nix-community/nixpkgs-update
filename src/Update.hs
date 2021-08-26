@@ -311,6 +311,11 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
               options
         else return updateEnv
 
+    when hasUpdateScript do
+      assertNotUpdatedOn updateEnv' derivationFile "master"
+      assertNotUpdatedOn updateEnv' derivationFile "staging"
+      assertNotUpdatedOn updateEnv' derivationFile "staging-next"
+
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
