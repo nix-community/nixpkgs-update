@@ -293,7 +293,6 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
     whenBatch updateEnv do
       Skiplist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
-    Nix.build attrPath
     --
     -- Update updateEnv if using updateScript
     updateEnv' <-
@@ -315,6 +314,8 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       assertNotUpdatedOn updateEnv' derivationFile "master"
       assertNotUpdatedOn updateEnv' derivationFile "staging"
       assertNotUpdatedOn updateEnv' derivationFile "staging-next"
+
+    Nix.build attrPath
 
     --
     -- Publish the result
