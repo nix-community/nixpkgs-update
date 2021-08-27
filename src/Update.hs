@@ -52,6 +52,7 @@ import Utils
     prTitle,
     whenBatch,
   )
+import qualified Utils as U
 import qualified Version
 import Prelude hiding (log)
 
@@ -93,6 +94,7 @@ notifyOptions log o = do
   let outpaths = repr calculateOutpaths
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
+  let exactAttrPath = repr U.attrpath
   npDir <- tshow <$> Git.nixpkgsDir
   log $
     [interpolate|
@@ -104,6 +106,7 @@ notifyOptions log o = do
     CVE Security Report:           $cve
     Run nixpkgs-review:            $review
     Nixpkgs Dir:                   $npDir
+    update info uses attrpath:     $exactAttrPath
     ----------------------------------|]
 
 updateAll :: Options -> Text -> IO ()
@@ -206,7 +209,9 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       Git.cleanAndResetTo "master"
 
     -- Filters: various cases where we shouldn't update the package
-    attrPath <- Nix.lookupAttrPath updateEnv
+    attrPath <- if attrpath options
+                then return packageName
+                else Nix.lookupAttrPath updateEnv
     hasUpdateScript <- Nix.hasUpdateScript attrPath
 
     whenBatch updateEnv do

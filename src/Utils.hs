@@ -109,7 +109,8 @@ data Options = Options
     githubToken :: Text,
     makeCVEReport :: Bool,
     runNixpkgsReview :: Bool,
-    calculateOutpaths :: Bool
+    calculateOutpaths :: Bool,
+    attrpath :: Bool
   }
   deriving (Show)
 
