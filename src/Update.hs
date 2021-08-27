@@ -218,7 +218,8 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       Skiplist.attrPath attrPath
       when pr do
         Git.checkAutoUpdateBranchDoesntExist packageName
-        GH.checkExistingUpdatePR updateEnv attrPath
+        unless hasUpdateScript do
+          GH.checkExistingUpdatePR updateEnv attrPath
 
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
@@ -319,6 +320,10 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       assertNotUpdatedOn updateEnv' derivationFile "master"
       assertNotUpdatedOn updateEnv' derivationFile "staging"
       assertNotUpdatedOn updateEnv' derivationFile "staging-next"
+    whenBatch updateEnv do
+      when pr do
+        when hasUpdateScript do
+          GH.checkExistingUpdatePR updateEnv' attrPath
 
     Nix.build attrPath
 
