@@ -446,7 +446,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
           then ""
           else "meta.description for " <> attrPath <> " is: " <> metaDescription
       metaChangelogLine =
-        if metaDescription == T.empty
+        if metaChangelog == T.empty
           then ""
           else "meta.changelog for " <> attrPath <> " is: " <> metaChangelog
       rewriteMsgsLine = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" rewriteMsgs
