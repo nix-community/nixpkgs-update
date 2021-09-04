@@ -63,10 +63,26 @@ data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
     mergeBaseOutpaths :: Set ResultLine
   }
 
+alsoLogToAttrPath :: Text -> (Text -> IO()) -> IO (Text -> IO())
+alsoLogToAttrPath attrPath topLevelLog = do
+  logFile <- attrPathLogFilePath attrPath
+  let attrPathLog = log' logFile
+  return \text -> do
+    topLevelLog text
+    attrPathLog text
+
 log' :: MonadIO m => FilePath -> Text -> m ()
 log' logFile msg = do
   runDate <- liftIO $ runM $ Time.runIO Time.runDate
   liftIO $ T.appendFile logFile (runDate <> " " <> msg <> "\n")
+
+attrPathLogFilePath :: Text -> IO String
+attrPathLogFilePath attrPath = do
+  lDir <- logDir
+  now <- getCurrentTime
+  let logFile = lDir <> "/" <> T.unpack attrPath <> "/" <> showGregorian (utctDay now) <> ".log"
+  putStrLn ("For attrpath " <> T.unpack attrPath <> ", using log file: " <> logFile)
+  return logFile
 
 logFileName :: IO String
 logFileName = do
@@ -165,12 +181,13 @@ updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
   log e
   updateLoop o log moreUpdates mergeBaseOutpathsContext
 updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOutpathsContext = do
-  log (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
+  let updateInfoLine = (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
+  log updateInfoLine
   let updateEnv = UpdateEnv pName oldVer newVer url o
   updated <- updatePackageBatch log updateEnv mergeBaseOutpathsContext
   case updated of
-    Left failure -> do
-      log $ "FAIL " <> failure
+    UpdatePackageFailure -> do
+      log $ "Failed to update: " <> updateInfoLine
       cleanupResult <- runExceptT $ Git.cleanup (branchName updateEnv)
       case cleanupResult of
         Left e -> liftIO $ print e
@@ -184,9 +201,11 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
                     (Right (pName, oldVer, newNewVersion, url) : moreUpdates)
                     mergeBaseOutpathsContext
             else updateLoop o log moreUpdates mergeBaseOutpathsContext
-    Right _ -> do
-      log "SUCCESS"
+    UpdatePackageSuccess -> do
+      log $ "Success updating: " <> updateInfoLine
       updateLoop o log moreUpdates mergeBaseOutpathsContext
+
+data UpdatePackageResult = UpdatePackageSuccess | UpdatePackageFailure
 
 -- Arguments this function should have to make it testable:
 -- - the merge base commit (should be updated externally to this function)
@@ -196,11 +215,9 @@ updatePackageBatch ::
   (Text -> IO ()) ->
   UpdateEnv ->
   IORef MergeBaseOutpathsInfo ->
-  IO (Either Text ())
-updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
-  runExceptT $ do
-    let pr = doPR options
-
+  IO UpdatePackageResult
+updatePackageBatch simpleLog updateEnv@UpdateEnv {..} mergeBaseOutpathsContext = do
+  eitherFailureOrAttrpath <- runExceptT $ do
     -- Filters that don't need git
     whenBatch updateEnv do
       Skiplist.packageName packageName
@@ -209,9 +226,28 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       Git.cleanAndResetTo "master"
 
     -- Filters: various cases where we shouldn't update the package
-    attrPath <- if attrpath options
-                then return packageName
-                else Nix.lookupAttrPath updateEnv
+    if attrpath options
+      then return packageName
+      else Nix.lookupAttrPath updateEnv
+
+  case eitherFailureOrAttrpath of
+    Left failure -> do
+      simpleLog failure
+      return UpdatePackageFailure
+    Right foundAttrPath -> do
+      log <- alsoLogToAttrPath foundAttrPath simpleLog
+      updateAttrPath log updateEnv mergeBaseOutpathsContext foundAttrPath
+
+updateAttrPath ::
+  (Text -> IO ()) ->
+  UpdateEnv ->
+  IORef MergeBaseOutpathsInfo ->
+  Text ->
+  IO UpdatePackageResult
+updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = do
+  let pr = doPR options
+
+  successOrFailure <- runExceptT $ do
     hasUpdateScript <- Nix.hasUpdateScript attrPath
 
     whenBatch updateEnv do
@@ -334,6 +370,12 @@ updatePackageBatch log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
     whenBatch updateEnv do
       Git.cleanAndResetTo "master"
+
+  case successOrFailure of
+    Left failure -> do
+      log failure
+      return UpdatePackageFailure
+    Right () -> return UpdatePackageSuccess
 
 publishPackage ::
   (Text -> IO ()) ->
@@ -680,7 +722,7 @@ doCachix log updateEnv resultPath =
 updatePackage ::
   Options ->
   Text ->
-  IO (Either Text ())
+  IO ()
 updatePackage o updateInfo = do
   let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
   let updateEnv = UpdateEnv p oldV newV url o
@@ -689,4 +731,9 @@ updatePackage o updateInfo = do
   twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
   mergeBaseOutpathSet <-
     liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
-  updatePackageBatch log updateEnv mergeBaseOutpathSet
+  updated <- updatePackageBatch log updateEnv mergeBaseOutpathSet
+  case updated of
+    UpdatePackageFailure -> do
+      log $ "Failed to update"
+    UpdatePackageSuccess -> do
+      log $ "Success updating "

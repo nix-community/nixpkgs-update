@@ -142,10 +142,7 @@ main = do
       updateAll (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) updates
     Update UpdateOptions {pr, cve, nixpkgsReview, attrpathOpt} update -> do
       Git.setupNixpkgs token
-      result <- updatePackage (Options pr False ghUser token cve nixpkgsReview False attrpathOpt) update
-      case result of
-        Left e -> T.putStrLn e
-        Right () -> T.putStrLn "Done."
+      updatePackage (Options pr False ghUser token cve nixpkgsReview False attrpathOpt) update
     Version -> do
       v <- runExceptT Nix.version
       case v of
