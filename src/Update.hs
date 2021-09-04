@@ -55,6 +55,7 @@ import Utils
 import qualified Utils as U
 import qualified Version
 import Prelude hiding (log)
+import System.Posix.Directory (createDirectory)
 
 default (T.Text)
 
@@ -80,7 +81,9 @@ attrPathLogFilePath :: Text -> IO String
 attrPathLogFilePath attrPath = do
   lDir <- logDir
   now <- getCurrentTime
-  let logFile = lDir <> "/" <> T.unpack attrPath <> "/" <> showGregorian (utctDay now) <> ".log"
+  let dir = lDir <> "/" <> T.unpack attrPath
+  createDirectory dir U.regDirMode
+  let logFile = dir <> "/" <> showGregorian (utctDay now) <> ".log"
   putStrLn ("For attrpath " <> T.unpack attrPath <> ", using log file: " <> logFile)
   return logFile
 

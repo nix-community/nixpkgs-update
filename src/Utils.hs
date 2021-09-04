@@ -26,6 +26,7 @@ module Utils
     stripQuotes,
     tRead,
     whenBatch,
+    regDirMode,
   )
 where
 
