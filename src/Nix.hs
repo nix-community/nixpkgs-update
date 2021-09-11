@@ -362,6 +362,12 @@ hasUpdateScript attrPath = do
 
 runUpdateScript :: MonadIO m => Text -> ExceptT Text m (ExitCode, Text)
 runUpdateScript attrPath = do
-  ourReadProcessInterleaved $
+  let timeout = "10m" :: Text
+  (exitCode, output) <- ourReadProcessInterleaved $
     TP.setStdin (TP.byteStringInput "\n") $
-    proc "nix-shell" ["maintainers/scripts/update.nix", "--argstr", "package", T.unpack attrPath]
+    proc "timeout" [T.unpack timeout, "nix-shell", "maintainers/scripts/update.nix", "--argstr", "package", T.unpack attrPath ]
+  case exitCode of
+    ExitFailure 124 -> do
+      return (exitCode, "updateScript for " <> attrPath <> " took longer than " <> timeout <> " and timed out. Other output: " <> output)
+    _ -> do
+      return (exitCode, output)
