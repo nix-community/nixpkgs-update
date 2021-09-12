@@ -15,6 +15,7 @@ import Control.Applicative (many)
 import Data.Char (isDigit, isLetter)
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
@@ -67,19 +68,29 @@ hasVersion contents expectedVersion =
   isJust $ contents =~ versionRegex expectedVersion
 
 checkTestsBuild :: Text -> IO Bool
-checkTestsBuild attrPath =
-  let args =
+checkTestsBuild attrPath = do
+  let timeout = "10m"
+  let
+    args =
+        [ T.unpack timeout, "nix-build" ] ++
         nixBuildOptions
           ++ [ "-E",
                "{ config }: (import ./. { inherit config; })."
                  ++ (T.unpack attrPath)
                  ++ ".tests or {}"
              ]
-   in do
-        r <- runExceptT $ ourReadProcessInterleaved $ proc "nix-build" args
-        case r of
-          Right (ExitSuccess, _) -> return True
-          _ -> return False
+  r <- runExceptT $ ourReadProcessInterleaved $ proc "timeout" args
+  case r of
+    Left errorMessage -> do
+      T.putStrLn $ attrPath <> ".tests process failed with output: " <> errorMessage
+      return False
+    Right (exitCode, output) -> do
+      case exitCode of
+        ExitFailure 124 -> do
+          T.putStrLn $ attrPath <> ".tests took longer than " <> timeout <> " and timed out. Other output: " <> output
+          return False
+        ExitSuccess -> return True
+        _ -> return False
 
 -- | Run a program with provided argument and report whether the output
 -- mentions the expected version
