@@ -62,7 +62,10 @@ attrPathList =
       "has to be updated along with element-desktop",
     prefix
       "keybinder"
-      "it has weird tags. see nixpkgs-update#232"
+      "it has weird tags. see nixpkgs-update#232",
+    infixOf
+      "pysc2"
+      "crashes nixpkgs-update"
   ]
 
 nameList :: Skiplist
