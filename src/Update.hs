@@ -22,6 +22,7 @@ where
 import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
+import Control.Exception (IOException, catch)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.IORef
 import Data.Maybe (fromJust)
@@ -191,7 +192,11 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
   let updateInfoLine = (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
   log updateInfoLine
   let updateEnv = UpdateEnv pName oldVer newVer url o
-  updated <- updatePackageBatch log updateEnv mergeBaseOutpathsContext
+  updated <-
+    Control.Exception.catch (updatePackageBatch log updateEnv mergeBaseOutpathsContext)
+    (\e -> do let errMsg = tshow (e :: IOException)
+              log $ "Caught exception: " <> errMsg
+              return UpdatePackageFailure)
   case updated of
     UpdatePackageFailure -> do
       log $ "Failed to update: " <> updateInfoLine
