@@ -196,6 +196,8 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
     Control.Exception.catch (updatePackageBatch log updateEnv mergeBaseOutpathsContext)
     (\e -> do let errMsg = tshow (e :: IOException)
               log $ "Caught exception: " <> errMsg
+              _ <- liftIO $ runExceptT $ whenBatch updateEnv do
+                Git.cleanAndResetTo "master"
               return UpdatePackageFailure)
   case updated of
     UpdatePackageFailure -> do
