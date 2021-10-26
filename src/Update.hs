@@ -302,7 +302,7 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile derivationFile
     oldHash <- Nix.getOldHash attrPath
-    oldSrcUrl <- Nix.getSrcUrl attrPath
+    oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
@@ -328,7 +328,7 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
       (diffAfterRewrites /= T.empty)
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
-    newSrcUrl <- Nix.getSrcUrl attrPath
+    newSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     newHash <- Nix.getHash attrPath
     newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
