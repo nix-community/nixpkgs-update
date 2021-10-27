@@ -339,7 +339,7 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
     -- Sanity checks to make sure the PR is worth opening
     unless hasUpdateScript do
       when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
-      when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
+      when (oldSrcUrl /= "" && oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
       when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
