@@ -301,7 +301,7 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
 
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile derivationFile
-    oldHash <- Nix.getOldHash attrPath
+    oldHash <- Nix.getOldHash attrPath <|> pure ""
     oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
@@ -329,7 +329,7 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
-    newHash <- Nix.getHash attrPath
+    newHash <- Nix.getHash attrPath <|> pure ""
     newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
@@ -340,7 +340,7 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
     unless hasUpdateScript do
       when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
       when (oldSrcUrl /= "" && oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+      when (oldHash /= "" && oldHash == newHash) $ throwE "Hashes equal; no update necessary"
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
