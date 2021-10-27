@@ -430,7 +430,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
   isBroken <- Nix.getIsBroken attrPath
   when
     (batchUpdate . options $ updateEnv)
-    (lift untilOfBorgFree)
+    (lift (untilOfBorgFree log))
   let prMsg =
         prMessage
           updateEnv
@@ -618,8 +618,8 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 jqBin :: String
 jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
 
-untilOfBorgFree :: MonadIO m => m ()
-untilOfBorgFree = do
+untilOfBorgFree :: MonadIO m => (Text -> IO ()) -> m ()
+untilOfBorgFree log = do
   stats <-
     shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
   waiting <-
@@ -627,8 +627,9 @@ untilOfBorgFree = do
       & readProcessInterleaved_
       & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
   when (waiting > 2) $ do
+    liftIO $ log ("Waiting for OfBorg: https://events.nix.ci/stats.php's evaluator.messages.waiting = " <> tshow waiting)
     liftIO $ threadDelay 60000000
-    untilOfBorgFree
+    untilOfBorgFree log
 
 assertNotUpdatedOn ::
   MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
