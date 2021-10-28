@@ -56,8 +56,13 @@ clearBreakOn boundary string =
 --
 -- >>> versionCompatibleWithPathPin "nodejs-slim-10_x" "10.12.0"
 -- True
+--
+-- >>> versionCompatibleWithPathPin "firefox-esr-78-unwrapped" "91.1.0esr"
+-- False
 versionCompatibleWithPathPin :: Text -> Version -> Bool
 versionCompatibleWithPathPin attrPath newVer
+  | "-unwrapped" `T.isSuffixOf` attrPath =
+    versionCompatibleWithPathPin (T.dropEnd 10 attrPath) newVer
   | "_x" `T.isSuffixOf` T.toLower attrPath =
     versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVer
   | "_" `T.isInfixOf` attrPath =
