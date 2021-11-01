@@ -34,10 +34,10 @@ let
     # we only evaluate one architecture per OS as we most likely catch all
     # mass-rebuilds this way.
     {
-      supportedSystems = [       
-        "x86_64-linux"           
-        "x86_64-darwin"          
-     ];                         
+      supportedSystems = [
+        "x86_64-linux"
+        "x86_64-darwin"
+     ];
 
       nixpkgsArgs = {
         config = {
