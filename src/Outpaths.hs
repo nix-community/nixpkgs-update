@@ -31,13 +31,13 @@ let
   lib = import (path + "/lib");
   hydraJobs = import (path + "/pkgs/top-level/release.nix")
     # Compromise: accuracy vs. resources needed for evaluation.
+    # we only evaluate one architecture per OS as we most likely catch all
+    # mass-rebuilds this way.
     {
-      supportedSystems = [
-        "aarch64-linux"
-        "i686-linux"
-        "x86_64-linux"
-        "x86_64-darwin"
-      ];
+      supportedSystems = [       
+        "x86_64-linux"           
+        "x86_64-darwin"          
+     ];                         
 
       nixpkgsArgs = {
         config = {
