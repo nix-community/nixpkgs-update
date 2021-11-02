@@ -303,8 +303,9 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
 
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile derivationFile
-    oldHash <- Nix.getOldHash attrPath
-    oldSrcUrl <- Nix.getSrcUrl attrPath
+    oldHash <- Nix.getOldHash attrPath <|> pure ""
+    oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
+    oldRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
     oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
@@ -330,8 +331,9 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
       (diffAfterRewrites /= T.empty)
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
     updatedDerivationContents <- liftIO $ T.readFile derivationFile
-    newSrcUrl <- Nix.getSrcUrl attrPath
-    newHash <- Nix.getHash attrPath
+    newSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
+    newHash <- Nix.getHash attrPath <|> pure ""
+    newRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
     newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
     tryAssert
@@ -341,8 +343,9 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
     -- Sanity checks to make sure the PR is worth opening
     unless hasUpdateScript do
       when (derivationContents == updatedDerivationContents) $ throwE "No rewrites performed on derivation."
-      when (oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
-      when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+      when (oldSrcUrl /= "" && oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
+      when (oldHash /= "" && oldHash == newHash) $ throwE "Hashes equal; no update necessary"
+      when (oldRev /= "" && oldRev == newRev) $ throwE "rev equal; no update necessary"
     editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = numPackageRebuilds opDiff
@@ -432,7 +435,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
   isBroken <- Nix.getIsBroken attrPath
   when
     (batchUpdate . options $ updateEnv)
-    (lift untilOfBorgFree)
+    (lift (untilOfBorgFree log))
   let prMsg =
         prMessage
           updateEnv
@@ -620,8 +623,8 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 jqBin :: String
 jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
 
-untilOfBorgFree :: MonadIO m => m ()
-untilOfBorgFree = do
+untilOfBorgFree :: MonadIO m => (Text -> IO ()) -> m ()
+untilOfBorgFree log = do
   stats <-
     shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
   waiting <-
@@ -629,8 +632,9 @@ untilOfBorgFree = do
       & readProcessInterleaved_
       & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
   when (waiting > 2) $ do
+    liftIO $ log ("Waiting for OfBorg: https://events.nix.ci/stats.php's evaluator.messages.waiting = " <> tshow waiting)
     liftIO $ threadDelay 60000000
-    untilOfBorgFree
+    untilOfBorgFree log
 
 assertNotUpdatedOn ::
   MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
