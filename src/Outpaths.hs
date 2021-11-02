@@ -16,6 +16,9 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Vector as V
+import qualified System.Posix.Files as F
+import qualified Git
+import qualified Utils
 import OurPrelude
 import Text.Parsec (parse)
 import Text.Parser.Char
@@ -110,8 +113,28 @@ data ResultLine = ResultLine
 --   "haskellPackages.amazonka-dynamodb-streams.x86_64-linux                        doc=/nix/store/m4rpsc9nx0qcflh9ni6qdlg6hbkwpicc-amazonka-dynamodb-streams-1.6.0-doc;/nix/store/rvd4zydr22a7j5kgnmg5x6695c7bgqbk-amazonka-dynamodb-streams-1.6.0\nhaskellPackages.agum.x86_64-darwin                                            doc=/nix/store/n526rc0pa5h0krdzsdni5agcpvcd3cb9-agum-2.7-doc;/nix/store/s59r75svbjm724q5iaprq4mln5k6wcr9-agum-2.7"
 currentOutpathSet :: MonadIO m => ExceptT Text m (Set ResultLine)
 currentOutpathSet = do
-  op <- outPath
+  rev <- Git.headRev
+  mayOp <- lift $ lookupOutPathByRev rev
+  op <- case mayOp of
+    Just paths -> pure paths
+    Nothing -> do
+      paths <- outPath
+      dir <- Utils.outpathCacheDir
+      let file = dir <> "/" <> T.unpack rev
+      liftIO $ T.writeFile file paths
+      pure paths
   parse parseResults "outpath" op & fmapL tshow & hoistEither
+
+lookupOutPathByRev :: MonadIO m => Text -> m (Maybe Text)
+lookupOutPathByRev rev = do
+  dir <- Utils.outpathCacheDir
+  let file = dir <> "/" <> T.unpack rev
+  fileExists <- liftIO $ F.fileExist file
+  case fileExists of
+    False -> return Nothing
+    True -> do
+      paths <- liftIO $ readFile file
+      return $ Just $ T.pack paths
 
 dummyOutpathSetBefore :: Text -> Set ResultLine
 dummyOutpathSetBefore attrPath = S.singleton (ResultLine attrPath "x86-64" (V.singleton (Outpath (Just "attrPath") "fakepath")))

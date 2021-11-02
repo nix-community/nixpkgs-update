@@ -11,7 +11,7 @@ module Git
     diff,
     fetch,
     fetchIfStale,
-    headHash,
+    headRev,
     push,
     nixpkgsDir,
     setupNixpkgs,
@@ -191,8 +191,8 @@ commit :: MonadIO m => Text -> ExceptT Text m ()
 commit ref =
   runProcessNoIndexIssue_ (procGit ["commit", "-am", T.unpack ref])
 
-headHash :: MonadIO m => ExceptT Text m Text
-headHash = T.strip <$> readProcessInterleavedNoIndexIssue_ (procGit ["rev-parse", "HEAD"])
+headRev :: MonadIO m => ExceptT Text m Text
+headRev = T.strip <$> readProcessInterleavedNoIndexIssue_ (procGit ["rev-parse", "HEAD"])
 
 deleteBranchesEverywhere :: Vector Text -> IO ()
 deleteBranchesEverywhere branches = do

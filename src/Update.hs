@@ -423,10 +423,10 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
   maintainers <- Nix.getMaintainers attrPath
   let commitMsg = commitMessage updateEnv attrPath
   Git.commit commitMsg
-  commitHash <- Git.headHash
+  commitRev <- Git.headRev
   nixpkgsReviewMsg <-
     if prBase /= "staging" && (runNixpkgsReview . options $ updateEnv)
-      then liftIO $ NixpkgsReview.runReport log commitHash
+      then liftIO $ NixpkgsReview.runReport log commitRev
       else return ""
   -- Try to push it three times
   when
@@ -447,7 +447,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
           releaseUrl
           compareUrl
           resultCheckReport
-          commitHash
+          commitRev
           attrPath
           maintainers
           result
@@ -490,7 +490,7 @@ prMessage ::
   Text ->
   Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainers resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
+prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitRev attrPath maintainers resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
   -- Some components of the PR description are pre-generated prior to calling
   -- because they require IO, but in general try to put as much as possible for
   -- the formatting into the pure function so that we can control the body
@@ -593,7 +593,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 
        $cachixTestInstructions
        ```
-       nix-build -A $attrPath https://github.com/$ghUser/nixpkgs/archive/$commitHash.tar.gz
+       nix-build -A $attrPath https://github.com/$ghUser/nixpkgs/archive/$commitRev.tar.gz
        ```
 
        After you've downloaded or built it, look at the files and if there are any, run the binaries:

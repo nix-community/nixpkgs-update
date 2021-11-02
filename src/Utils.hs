@@ -27,6 +27,7 @@ module Utils
     tRead,
     whenBatch,
     regDirMode,
+    outpathCacheDir
   )
 where
 
@@ -47,9 +48,10 @@ import Database.SQLite.Simple.ToField (ToField, toField)
 import qualified GitHub as GH
 import OurPrelude
 import Polysemy.Output
-import System.Directory (doesDirectoryExist)
+import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv)
+import System.Environment (lookupEnv)
 import System.Posix.Files
   ( directoryMode,
     fileExist,
@@ -151,6 +153,20 @@ logsDirectory = do
     ( liftIO $
         putStrLn "creating xdgRuntimeDir" >> createDirectory dir regDirMode
     )
+  return dir
+
+cacheDir :: MonadIO m => m FilePath
+cacheDir = do
+  dir <- liftIO $ fromJust <$> (lookupEnv "CACHE_DIRECTORY" <|>
+    (fmap (fmap (\ dir -> dir <> "/nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"))
+  liftIO $ createDirectoryIfMissing True dir
+  return dir
+
+outpathCacheDir :: MonadIO m => m FilePath
+outpathCacheDir = do
+  cache <- cacheDir
+  let dir = cache <> "/outpath"
+  liftIO $ createDirectoryIfMissing False dir
   return dir
 
 xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
