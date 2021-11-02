@@ -145,21 +145,22 @@ checkResultList =
       "busybox"
       "- busybox result is not automatically checked, because some binaries kill the shell",
     infixOf
-      "fcitx"
-      "- fcitx result is not automatically checked, because some binaries gets stuck in daemons",
-    infixOf
-      "x2goclient"
-      "- x2goclient result is not automatically checked, because some binaries don't timeout properly",
-    infixOf
-      "kicad"
-      "- kicad result is not automatically checked, because some binaries don't timeout properly",
-    infixOf
       "gjs"
       "- gjs result is not automatically checked, because some tests take a long time to run",
     infixOf
       "casperjs"
-      "- casperjs result is not automatically checked, because some tests take a long time to run"
+      "- casperjs result is not automatically checked, because some tests take a long time to run",
+    binariesStickAround "kicad",
+    binariesStickAround "fcitx",
+    binariesStickAround "x2goclient",
+    binariesStickAround "gpg-agent",
+    binariesStickAround "dirmngr",
+    binariesStickAround "barrier"
   ]
+
+binariesStickAround :: Text -> (Text -> Bool, Text)
+binariesStickAround name =
+  infixOf name ("- " <> name <> "result is not automatically checekd because some binaries stick around")
 
 skiplister :: Skiplist -> TextSkiplister m
 skiplister skiplist input = forM_ result throwError
