@@ -162,20 +162,12 @@ darwinRebuilds = archRebuilds "x86_64-darwin"
 linuxRebuilds :: Set ResultLine -> Int
 linuxRebuilds = archRebuilds "x86_64-linux"
 
-linux32bRebuilds :: Set ResultLine -> Int
-linux32bRebuilds = archRebuilds "i686-linux"
-
-armRebuilds :: Set ResultLine -> Int
-armRebuilds = archRebuilds "aarch64-linux"
-
 outpathReport :: Set ResultLine -> Text
 outpathReport diff =
   let pkg = tshow $ V.length $ packageRebuilds diff
       firstFifty = T.unlines $ V.toList $ V.take 50 $ packageRebuilds diff
       darwin = tshow $ darwinRebuilds diff
       linux = tshow $ linuxRebuilds diff
-      linux32b = tshow $ linux32bRebuilds diff
-      arm = tshow $ armRebuilds diff
       numPaths = tshow $ S.size diff
    in [interpolate|
         $numPaths total rebuild path(s)
@@ -183,9 +175,7 @@ outpathReport diff =
         $pkg package rebuild(s)
 
         $linux x86_64-linux rebuild(s)
-        $linux32b i686-linux rebuild(s)
         $darwin x86_64-darwin rebuild(s)
-        $arm aarch64-linux rebuild(s)
 
 
         First fifty rebuilds by attrpath
