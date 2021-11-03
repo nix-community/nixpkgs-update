@@ -155,7 +155,10 @@ checkResultList =
     binariesStickAround "x2goclient",
     binariesStickAround "gpg-agent",
     binariesStickAround "dirmngr",
-    binariesStickAround "barrier"
+    binariesStickAround "barrier",
+    binariesStickAround "fail2ban",
+    binariesStickAround "zed",
+    binariesStickAround "haveged"
   ]
 
 binariesStickAround :: Text -> (Text -> Bool, Text)
