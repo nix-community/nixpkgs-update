@@ -197,14 +197,17 @@ headRev = T.strip <$> readProcessInterleavedNoIndexIssue_ (procGit ["rev-parse",
 deleteBranchesEverywhere :: Vector Text -> IO ()
 deleteBranchesEverywhere branches = do
   let branchList = V.toList $ branches
-  result <- runExceptT $ runProcessNoIndexIssue_ (delete branchList)
-  case result of
-    Left error1 -> T.putStrLn $ tshow error1
-    Right success1 -> T.putStrLn $ tshow success1
-  result2 <- runExceptT $ runProcessNoIndexIssue_ (deleteOrigin branchList)
-  case result2 of
-    Left error2 -> T.putStrLn $ tshow error2
-    Right success2 -> T.putStrLn $ tshow success2
+  if null branchList
+    then return ()
+    else do
+      result <- runExceptT $ runProcessNoIndexIssue_ (delete branchList)
+      case result of
+        Left error1 -> T.putStrLn $ tshow error1
+        Right success1 -> T.putStrLn $ tshow success1
+      result2 <- runExceptT $ runProcessNoIndexIssue_ (deleteOrigin branchList)
+      case result2 of
+        Left error2 -> T.putStrLn $ tshow error2
+        Right success2 -> T.putStrLn $ tshow success2
 
 runProcessNoIndexIssue_ ::
   MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
