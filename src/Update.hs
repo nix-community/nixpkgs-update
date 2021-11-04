@@ -24,13 +24,12 @@ import qualified Check
 import Control.Concurrent
 import Control.Exception (IOException, catch)
 import qualified Data.ByteString.Lazy.Char8 as BSL
-import Data.IORef
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
-import Data.Time.Clock (UTCTime, getCurrentTime, utctDay)
+import Data.Time.Clock (getCurrentTime, utctDay)
 import qualified GH
 import qualified Git
 import Language.Haskell.TH.Env (envQ)
@@ -38,7 +37,7 @@ import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import qualified NixpkgsReview
 import OurPrelude
-import Outpaths
+import qualified Outpaths
 import qualified Rewrite
 import qualified Skiplist
 import qualified Time
@@ -60,11 +59,6 @@ import System.Directory (doesDirectoryExist)
 import System.Posix.Directory (createDirectory)
 
 default (T.Text)
-
-data MergeBaseOutpathsInfo = MergeBaseOutpathsInfo
-  { lastUpdated :: UTCTime,
-    mergeBaseOutpaths :: Set ResultLine
-  }
 
 alsoLogToAttrPath :: Text -> (Text -> IO()) -> IO (Text -> IO())
 alsoLogToAttrPath attrPath topLevelLog = do
@@ -138,10 +132,7 @@ updateAll o updates = do
   log <- getLog o
   log "New run of nixpkgs-update"
   notifyOptions log o
-  twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
-  mergeBaseOutpathSet <-
-    liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
-  updateLoop o log (parseUpdates updates) mergeBaseOutpathSet
+  updateLoop o log (parseUpdates updates)
 
 cveAll :: Options -> Text -> IO ()
 cveAll o updates = do
@@ -182,18 +173,17 @@ updateLoop ::
   Options ->
   (Text -> IO ()) ->
   [Either Text (Text, Version, Version, Maybe URL)] ->
-  IORef MergeBaseOutpathsInfo ->
   IO ()
-updateLoop _ log [] _ = log "nixpkgs-update finished"
-updateLoop o log (Left e : moreUpdates) mergeBaseOutpathsContext = do
+updateLoop _ log [] = log "nixpkgs-update finished"
+updateLoop o log (Left e : moreUpdates) = do
   log e
-  updateLoop o log moreUpdates mergeBaseOutpathsContext
-updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOutpathsContext = do
+  updateLoop o log moreUpdates
+updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) = do
   let updateInfoLine = (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
   log updateInfoLine
   let updateEnv = UpdateEnv pName oldVer newVer url o
   updated <-
-    Control.Exception.catch (updatePackageBatch log updateEnv mergeBaseOutpathsContext)
+    Control.Exception.catch (updatePackageBatch log updateEnv)
     (\e -> do let errMsg = tshow (e :: IOException)
               log $ "Caught exception: " <> errMsg
               _ <- liftIO $ runExceptT $ whenBatch updateEnv do
@@ -213,24 +203,21 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) mergeBaseOut
                     o
                     log
                     (Right (pName, oldVer, newNewVersion, url) : moreUpdates)
-                    mergeBaseOutpathsContext
-            else updateLoop o log moreUpdates mergeBaseOutpathsContext
+            else updateLoop o log moreUpdates
     UpdatePackageSuccess -> do
       log $ "Success updating: " <> updateInfoLine
-      updateLoop o log moreUpdates mergeBaseOutpathsContext
+      updateLoop o log moreUpdates
 
 data UpdatePackageResult = UpdatePackageSuccess | UpdatePackageFailure
 
 -- Arguments this function should have to make it testable:
 -- - the merge base commit (should be updated externally to this function)
--- - the merge base context should be updated externally to this function
 -- - the commit for branches: master, staging, staging-next
 updatePackageBatch ::
   (Text -> IO ()) ->
   UpdateEnv ->
-  IORef MergeBaseOutpathsInfo ->
   IO UpdatePackageResult
-updatePackageBatch simpleLog updateEnv@UpdateEnv {..} mergeBaseOutpathsContext = do
+updatePackageBatch simpleLog updateEnv@UpdateEnv {..} = do
   eitherFailureOrAttrpath <- runExceptT $ do
     -- Filters that don't need git
     whenBatch updateEnv do
@@ -250,15 +237,14 @@ updatePackageBatch simpleLog updateEnv@UpdateEnv {..} mergeBaseOutpathsContext =
       return UpdatePackageFailure
     Right foundAttrPath -> do
       log <- alsoLogToAttrPath foundAttrPath simpleLog
-      updateAttrPath log updateEnv mergeBaseOutpathsContext foundAttrPath
+      updateAttrPath log updateEnv foundAttrPath
 
 updateAttrPath ::
   (Text -> IO ()) ->
   UpdateEnv ->
-  IORef MergeBaseOutpathsInfo ->
   Text ->
   IO UpdatePackageResult
-updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = do
+updateAttrPath log updateEnv@UpdateEnv {..} attrPath = do
   let pr = doPR options
 
   successOrFailure <- runExceptT $ do
@@ -286,20 +272,10 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
       then Git.checkoutAtMergeBase (branchName updateEnv)
       else pure "HEAD"
     let calcOutpaths = calculateOutpaths options
-    oneHourAgo <- liftIO $ runM $ Time.runIO Time.oneHourAgo
-    mergeBaseOutpathsInfo <- liftIO $ readIORef mergeBaseOutpathsContext
     mergeBaseOutpathSet <-
-      if calcOutpaths && lastUpdated mergeBaseOutpathsInfo < oneHourAgo
-        then do
-          mbos <- currentOutpathSet
-          now <- liftIO getCurrentTime
-          liftIO $
-            writeIORef mergeBaseOutpathsContext (MergeBaseOutpathsInfo now mbos)
-          return mbos
-        else
-          if calcOutpaths
-            then return $ mergeBaseOutpaths mergeBaseOutpathsInfo
-            else return $ dummyOutpathSetBefore attrPath
+      if calcOutpaths
+        then Outpaths.currentOutpathSet
+        else return $ Outpaths.dummyOutpathSetBefore attrPath
 
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile derivationFile
@@ -346,9 +322,9 @@ updateAttrPath log updateEnv@UpdateEnv {..} mergeBaseOutpathsContext attrPath = 
       when (oldSrcUrl /= "" && oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
       when (oldHash /= "" && oldHash == newHash) $ throwE "Hashes equal; no update necessary"
       when (oldRev /= "" && oldRev == newRev) $ throwE "rev equal; no update necessary"
-    editedOutpathSet <- if calcOutpaths then currentOutpathSet else return $ dummyOutpathSetAfter attrPath
+    editedOutpathSet <- if calcOutpaths then Outpaths.currentOutpathSet else return $ Outpaths.dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
-    let numPRebuilds = numPackageRebuilds opDiff
+    let numPRebuilds = Outpaths.numPackageRebuilds opDiff
     whenBatch updateEnv do
       Skiplist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
@@ -401,12 +377,12 @@ publishPackage ::
   Text ->
   Text ->
   Text ->
-  Maybe (Set ResultLine) ->
+  Maybe (Set Outpaths.ResultLine) ->
   [Text] ->
   ExceptT Text IO ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteMsgs = do
   let prBase =
-        if (isNothing opDiff || numPackageRebuilds (fromJust opDiff) < 100)
+        if (isNothing opDiff || Outpaths.numPackageRebuilds (fromJust opDiff) < 100)
           then "master"
           else "staging"
   cachixTestInstructions <- doCachix log updateEnv result
@@ -451,7 +427,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
           attrPath
           maintainers
           result
-          (fromMaybe "" (outpathReport <$> opDiff))
+          (fromMaybe "" (Outpaths.outpathReport <$> opDiff))
           cveRep
           cachixTestInstructions
           nixpkgsReviewMsg
@@ -746,10 +722,7 @@ updatePackage o updateInfo = do
   let updateEnv = UpdateEnv p oldV newV url o
   let log = T.putStrLn
   liftIO $ notifyOptions log o
-  twoHoursAgo <- runM $ Time.runIO Time.twoHoursAgo
-  mergeBaseOutpathSet <-
-    liftIO $ newIORef (MergeBaseOutpathsInfo twoHoursAgo S.empty)
-  updated <- updatePackageBatch log updateEnv mergeBaseOutpathSet
+  updated <- updatePackageBatch log updateEnv
   case updated of
     UpdatePackageFailure -> do
       log $ "Failed to update"
