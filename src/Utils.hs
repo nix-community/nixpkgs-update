@@ -27,7 +27,8 @@ module Utils
     tRead,
     whenBatch,
     regDirMode,
-    outpathCacheDir
+    outpathCacheDir,
+    worktreeDir
   )
 where
 
@@ -144,7 +145,7 @@ logsDirectory = do
   dir <-
     noteT "Could not get environment variable LOGS_DIRECTORY" $
       MaybeT $
-        liftIO $
+       liftIO $
           getEnv "LOGS_DIRECTORY"
   dirExists <- liftIO $ doesDirectoryExist dir
   tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
@@ -157,8 +158,10 @@ logsDirectory = do
 
 cacheDir :: MonadIO m => m FilePath
 cacheDir = do
-  dir <- liftIO $ fromJust <$> (lookupEnv "CACHE_DIRECTORY" <|>
-    (fmap (fmap (\ dir -> dir <> "/nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"))
+  cacheDirectory <- liftIO $ lookupEnv "CACHE_DIRECTORY"
+  xdgCacheHome <- liftIO $ fmap (fmap (\ dir -> dir <> "/nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"
+  cacheHome <- liftIO $ fmap (fmap (\ dir -> dir <> "/.cache/nixpkgs-update")) $ lookupEnv "HOME"
+  let dir = fromJust (cacheDirectory <|> xdgCacheHome <|> cacheHome)
   liftIO $ createDirectoryIfMissing True dir
   return dir
 
@@ -167,6 +170,13 @@ outpathCacheDir = do
   cache <- cacheDir
   let dir = cache <> "/outpath"
   liftIO $ createDirectoryIfMissing False dir
+  return dir
+
+worktreeDir :: IO FilePath
+worktreeDir = do
+  cache <- cacheDir
+  let dir = cache <> "/worktree"
+  createDirectoryIfMissing False dir
   return dir
 
 xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
@@ -245,9 +255,6 @@ nixBuildOptions :: [String]
 nixBuildOptions =
   [ "--option",
     "sandbox",
-    "true",
-    "--option",
-    "restrict-eval",
     "true"
   ]
     <> nixCommonOptions

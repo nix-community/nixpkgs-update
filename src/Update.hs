@@ -22,7 +22,7 @@ where
 import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
-import Control.Exception (IOException, catch)
+import Control.Exception (IOException, catch, bracket)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
@@ -55,7 +55,7 @@ import Utils
 import qualified Utils as U
 import qualified Version
 import Prelude hiding (log)
-import System.Directory (doesDirectoryExist)
+import System.Directory (doesDirectoryExist, withCurrentDirectory)
 import System.Posix.Directory (createDirectory)
 
 default (T.Text)
@@ -186,24 +186,18 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) = do
     Control.Exception.catch (updatePackageBatch log updateEnv)
     (\e -> do let errMsg = tshow (e :: IOException)
               log $ "Caught exception: " <> errMsg
-              _ <- liftIO $ runExceptT $ whenBatch updateEnv do
-                Git.cleanAndResetTo "master"
               return UpdatePackageFailure)
   case updated of
     UpdatePackageFailure -> do
       log $ "Failed to update: " <> updateInfoLine
-      cleanupResult <- runExceptT $ Git.cleanup (branchName updateEnv)
-      case cleanupResult of
-        Left e -> liftIO $ print e
-        _ ->
-          if ".0" `T.isSuffixOf` newVer
-            then
-              let Just newNewVersion = ".0" `T.stripSuffix` newVer
-               in updateLoop
-                    o
-                    log
-                    (Right (pName, oldVer, newNewVersion, url) : moreUpdates)
-            else updateLoop o log moreUpdates
+      if ".0" `T.isSuffixOf` newVer
+        then
+          let Just newNewVersion = ".0" `T.stripSuffix` newVer
+          in updateLoop
+             o
+             log
+             (Right (pName, oldVer, newNewVersion, url) : moreUpdates)
+        else updateLoop o log moreUpdates
     UpdatePackageSuccess -> do
       log $ "Success updating: " <> updateInfoLine
       updateLoop o log moreUpdates
@@ -224,7 +218,6 @@ updatePackageBatch simpleLog updateEnv@UpdateEnv {..} = do
       Skiplist.packageName packageName
       -- Update our git checkout
       Git.fetchIfStale <|> liftIO (T.putStrLn "Failed to fetch.")
-      Git.cleanAndResetTo "master"
 
     -- Filters: various cases where we shouldn't update the package
     if attrpath options
@@ -237,14 +230,19 @@ updatePackageBatch simpleLog updateEnv@UpdateEnv {..} = do
       return UpdatePackageFailure
     Right foundAttrPath -> do
       log <- alsoLogToAttrPath foundAttrPath simpleLog
-      updateAttrPath log updateEnv foundAttrPath
+      mergeBase <- if batchUpdate options
+        then Git.mergeBase
+        else pure "HEAD"
+      withWorktree mergeBase foundAttrPath updateEnv $
+        updateAttrPath log mergeBase updateEnv foundAttrPath
 
 updateAttrPath ::
   (Text -> IO ()) ->
+  Text ->
   UpdateEnv ->
   Text ->
   IO UpdatePackageResult
-updateAttrPath log updateEnv@UpdateEnv {..} attrPath = do
+updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
   let pr = doPR options
 
   successOrFailure <- runExceptT $ do
@@ -268,9 +266,6 @@ updateAttrPath log updateEnv@UpdateEnv {..} attrPath = do
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
 
     -- Calculate output paths for rebuilds and our merge base
-    mergeBase <- if batchUpdate options
-      then Git.checkoutAtMergeBase (branchName updateEnv)
-      else pure "HEAD"
     let calcOutpaths = calculateOutpaths options
     mergeBaseOutpathSet <-
       if calcOutpaths
@@ -361,8 +356,6 @@ updateAttrPath log updateEnv@UpdateEnv {..} attrPath = do
     lift . log $ "Successfully finished processing"
     result <- Nix.resultLink
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
-    whenBatch updateEnv do
-      Git.cleanAndResetTo "master"
 
   case successOrFailure of
     Left failure -> do
@@ -728,3 +721,17 @@ updatePackage o updateInfo = do
       log $ "Failed to update"
     UpdatePackageSuccess -> do
       log $ "Success updating "
+
+
+withWorktree :: Text -> Text -> UpdateEnv -> IO a -> IO a
+withWorktree branch attrpath updateEnv action = do
+  bracket
+    (do
+        dir <- U.worktreeDir
+        let path = dir <> "/" <> T.unpack attrpath
+        Git.worktreeRemove path
+        Git.worktreeAdd path branch updateEnv
+        pure path)
+    (\ path ->
+        Git.worktreeRemove path)
+    (\ path -> withCurrentDirectory path action)

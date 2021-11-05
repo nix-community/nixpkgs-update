@@ -3,7 +3,7 @@
 
 module Git
   ( checkAutoUpdateBranchDoesntExist,
-    checkoutAtMergeBase,
+    mergeBase,
     cleanAndResetTo,
     cleanup,
     commit,
@@ -16,6 +16,8 @@ module Git
     nixpkgsDir,
     setupNixpkgs,
     Git.show,
+    worktreeAdd,
+    worktreeRemove
   )
 where
 
@@ -53,6 +55,17 @@ procHub = proc hubBin
 
 clean :: ProcessConfig () () ()
 clean = silently $ procGit ["clean", "-fdx"]
+
+worktreeAdd :: FilePath -> Text -> UpdateEnv -> IO ()
+worktreeAdd path commitish updateEnv =
+  runProcessNoIndexIssue_IO $ silently $ procGit ["worktree", "add", "-b", T.unpack (branchName updateEnv), path, T.unpack commitish]
+
+worktreeRemove :: FilePath -> IO ()
+worktreeRemove path = do
+  exist <- doesDirectoryExist path
+  if exist
+  then runProcessNoIndexIssue_IO $ silently $ procGit ["worktree", "remove", "--force", path]
+  else return ()
 
 checkout :: Text -> Text -> ProcessConfig () () ()
 checkout branch target =
@@ -164,14 +177,11 @@ setupNixpkgs githubt = do
     return ()
   System.Posix.Env.setEnv "NIX_PATH" ("nixpkgs=" <> fp) True
 
-checkoutAtMergeBase :: MonadIO m => Text -> ExceptT Text m Text
-checkoutAtMergeBase bName = do
-  base <-
-    readProcessInterleavedNoIndexIssue_
-      (procGit ["merge-base", "upstream/master", "upstream/staging"])
-      & fmapRT T.strip
-  runProcessNoIndexIssue_ (checkout bName base)
-  return base
+mergeBase :: IO Text
+mergeBase = do
+  readProcessInterleavedNoIndexIssue_IO
+    (procGit ["merge-base", "upstream/master", "upstream/staging"])
+    & fmap T.strip
 
 checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
 checkAutoUpdateBranchDoesntExist pName = do
@@ -209,6 +219,21 @@ deleteBranchesEverywhere branches = do
         Left error2 -> T.putStrLn $ tshow error2
         Right success2 -> T.putStrLn $ tshow success2
 
+
+runProcessNoIndexIssue_IO ::
+  ProcessConfig () () () -> IO ()
+runProcessNoIndexIssue_IO config = go
+  where
+    go = do
+      (code, out, e) <- readProcess config
+      case code of
+        ExitFailure 128
+          | "index.lock" `BS.isInfixOf` BSL.toStrict e -> do
+            threadDelay 100000
+            go
+        ExitSuccess -> return ()
+        ExitFailure _ -> throw $ ExitCodeException code config out e
+
 runProcessNoIndexIssue_ ::
   MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
 runProcessNoIndexIssue_ config = tryIOTextET go
@@ -226,6 +251,21 @@ runProcessNoIndexIssue_ config = tryIOTextET go
 readProcessInterleavedNoIndexIssue_ ::
   MonadIO m => ProcessConfig () () () -> ExceptT Text m Text
 readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
+  where
+    go = do
+      (code, out) <- readProcessInterleaved config
+      case code of
+        ExitFailure 128
+          | "index.lock" `BS.isInfixOf` BSL.toStrict out -> do
+            threadDelay 100000
+            go
+        ExitSuccess -> return $ bytestringToText out
+        ExitFailure _ -> throw $ ExitCodeException code config out out
+
+
+readProcessInterleavedNoIndexIssue_IO ::
+  ProcessConfig () () () -> IO Text
+readProcessInterleavedNoIndexIssue_IO config = go
   where
     go = do
       (code, out) <- readProcessInterleaved config
