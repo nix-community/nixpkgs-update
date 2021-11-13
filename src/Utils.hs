@@ -28,6 +28,7 @@ module Utils
     whenBatch,
     regDirMode,
     outpathCacheDir,
+    cacheDir,
     worktreeDir
   )
 where
@@ -159,8 +160,8 @@ logsDirectory = do
 cacheDir :: MonadIO m => m FilePath
 cacheDir = do
   cacheDirectory <- liftIO $ lookupEnv "CACHE_DIRECTORY"
-  xdgCacheHome <- liftIO $ fmap (fmap (\ dir -> dir <> "/nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"
-  cacheHome <- liftIO $ fmap (fmap (\ dir -> dir <> "/.cache/nixpkgs-update")) $ lookupEnv "HOME"
+  xdgCacheHome <- liftIO $ fmap (fmap (\ dir -> dir </> "nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"
+  cacheHome <- liftIO $ fmap (fmap (\ dir -> dir </> ".cache/nixpkgs-update")) $ lookupEnv "HOME"
   let dir = fromJust (cacheDirectory <|> xdgCacheHome <|> cacheHome)
   liftIO $ createDirectoryIfMissing True dir
   return dir
@@ -168,14 +169,14 @@ cacheDir = do
 outpathCacheDir :: MonadIO m => m FilePath
 outpathCacheDir = do
   cache <- cacheDir
-  let dir = cache <> "/outpath"
+  let dir = cache </> "outpath"
   liftIO $ createDirectoryIfMissing False dir
   return dir
 
 worktreeDir :: IO FilePath
 worktreeDir = do
   cache <- cacheDir
-  let dir = cache <> "/worktree"
+  let dir = cache </> "worktree"
   createDirectoryIfMissing False dir
   return dir
 
@@ -188,7 +189,7 @@ xdgRuntimeDir = do
           getEnv "XDG_RUNTIME_DIR"
   xDirExists <- liftIO $ doesDirectoryExist xDir
   tryAssert ("XDG_RUNTIME_DIR " <> T.pack xDir <> " does not exist.") xDirExists
-  let dir = xDir <> "/nixpkgs-update"
+  let dir = xDir </> "nixpkgs-update"
   dirExists <- liftIO $ fileExist dir
   unless
     dirExists
@@ -280,8 +281,8 @@ localToken = do
 
 hubFileLocation :: IO (Maybe FilePath)
 hubFileLocation = do
-  xloc <- fmap (<> "/hub") <$> getEnv "XDG_CONFIG_HOME"
-  hloc <- fmap (<> "/.config/hub") <$> getEnv "HOME"
+  xloc <- fmap (</> "hub") <$> getEnv "XDG_CONFIG_HOME"
+  hloc <- fmap (</> ".config/hub") <$> getEnv "HOME"
   return (xloc <|> hloc)
 
 hubConfigField :: Text -> IO (Maybe Text)

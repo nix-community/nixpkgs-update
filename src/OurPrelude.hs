@@ -4,6 +4,7 @@ module OurPrelude
   ( (>>>),
     (<|>),
     (<>),
+    (</>),
     (<&>),
     (&),
     module Control.Error,
@@ -33,6 +34,7 @@ module OurPrelude
   )
 where
 
+import System.FilePath ((</>))
 import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Error

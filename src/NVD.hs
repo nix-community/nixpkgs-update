@@ -57,7 +57,6 @@ import System.Directory
     getXdgDirectory,
     removeFile,
   )
-import System.FilePath ((</>))
 import Utils (ProductID, Version)
 import Version (matchVersion)
 
