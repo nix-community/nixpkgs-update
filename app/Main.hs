@@ -140,9 +140,9 @@ main = do
       updates <- T.readFile "packages-to-update.txt"
       Git.setupNixpkgs token
       updateAll (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) updates
-    Update UpdateOptions {pr, cve, nixpkgsReview, attrpathOpt} update -> do
+    Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
       Git.setupNixpkgs token
-      updatePackage (Options pr False ghUser token cve nixpkgsReview False attrpathOpt) update
+      updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt) update
     Version -> do
       v <- runExceptT Nix.version
       case v of

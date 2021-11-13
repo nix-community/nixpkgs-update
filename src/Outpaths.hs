@@ -19,6 +19,7 @@ import qualified Data.Vector as V
 import qualified System.Posix.Files as F
 import qualified Git
 import qualified Utils
+import qualified System.Directory
 import OurPrelude
 import Text.Parsec (parse)
 import Text.Parser.Char
@@ -89,14 +90,16 @@ in
 outPath :: MonadIO m => ExceptT Text m Text
 outPath = do
   cacheDir <- liftIO $ Utils.outpathCacheDir
-  liftIO $ T.writeFile (cacheDir </> "/outpaths.nix") outPathsExpr
+  let outpathFile = (cacheDir </> "outpaths.nix")
+  liftIO $ T.writeFile outpathFile outPathsExpr
   liftIO $ putStrLn "Evaluating outpaths..."
+  currentDir <- liftIO $ System.Directory.getCurrentDirectory
   ourReadProcessInterleaved_ $ proc "nix-env" [
-    "-f", (cacheDir </> "/outpaths.nix"),
+    "-f", outpathFile,
     "-qaP",
     "--no-name",
     "--out-path",
-    "--arg", "path", ".",
+    "--arg", "path", currentDir,
     "--arg", "checkMeta", "true",
     "--show-trace"]
 
