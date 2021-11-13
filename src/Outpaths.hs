@@ -3,6 +3,7 @@
 
 module Outpaths
   ( currentOutpathSet,
+    currentOutpathSetUncached,
     ResultLine,
     dummyOutpathSetBefore,
     dummyOutpathSetAfter,
@@ -132,6 +133,11 @@ currentOutpathSet = do
       let file = dir <> "/" <> T.unpack rev
       liftIO $ T.writeFile file paths
       pure paths
+  parse parseResults "outpath" op & fmapL tshow & hoistEither
+
+currentOutpathSetUncached :: MonadIO m => ExceptT Text m (Set ResultLine)
+currentOutpathSetUncached = do
+  op <- outPath
   parse parseResults "outpath" op & fmapL tshow & hoistEither
 
 lookupOutPathByRev :: MonadIO m => Text -> m (Maybe Text)

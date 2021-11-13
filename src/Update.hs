@@ -317,7 +317,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       when (oldSrcUrl /= "" && oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
       when (oldHash /= "" && oldHash == newHash) $ throwE "Hashes equal; no update necessary"
       when (oldRev /= "" && oldRev == newRev) $ throwE "rev equal; no update necessary"
-    editedOutpathSet <- if calcOutpaths then Outpaths.currentOutpathSet else return $ Outpaths.dummyOutpathSetAfter attrPath
+    editedOutpathSet <- if calcOutpaths then Outpaths.currentOutpathSetUncached else return $ Outpaths.dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = Outpaths.numPackageRebuilds opDiff
     whenBatch updateEnv do
