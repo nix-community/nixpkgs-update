@@ -88,11 +88,11 @@ in
 
 outPath :: MonadIO m => ExceptT Text m Text
 outPath = do
-  liftIO $ putStrLn "Writing outpaths.nix..."
-  liftIO $ T.writeFile "./outpaths.nix" outPathsExpr
+  cacheDir <- liftIO $ Utils.outpathCacheDir
+  liftIO $ T.writeFile (cacheDir </> "/outpaths.nix") outPathsExpr
   liftIO $ putStrLn "Evaluating outpaths..."
   ourReadProcessInterleaved_
-    "nix-env -f ./outpaths.nix -qaP --no-name --out-path --arg checkMeta true --show-trace"
+    "nix-env -f " <> (cacheDir </> "/outpaths.nix") <> "-qaP --no-name --out-path --arg path . --arg checkMeta true --show-trace"
 
 data Outpath = Outpath
   { mayName :: Maybe Text,
