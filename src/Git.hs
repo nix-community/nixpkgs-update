@@ -75,8 +75,11 @@ checkout branch target =
 reset :: Text -> ProcessConfig () () ()
 reset target = silently $ procGit ["reset", "--hard", T.unpack target]
 
-delete1 :: Text -> ProcessConfig () () ()
-delete1 branch = delete [branch]
+delete1 :: Text -> IO ()
+delete1 bName = runProcessNoIndexIssue_IO (delete1' bName)
+
+delete1' :: Text -> ProcessConfig () () ()
+delete1' branch = delete [branch]
 
 delete :: [Text] -> ProcessConfig () () ()
 delete branches = silently $ procGit (["branch", "-D"] ++ fmap T.unpack branches)
@@ -103,7 +106,7 @@ cleanup :: MonadIO m => Text -> ExceptT Text m ()
 cleanup bName = do
   liftIO $ T.putStrLn ("Cleaning up " <> bName)
   cleanAndResetTo "master"
-  runProcessNoIndexIssue_ (delete1 bName)
+  runProcessNoIndexIssue_ (delete1' bName)
     <|> liftIO (T.putStrLn ("Couldn't delete " <> bName))
 
 diff :: MonadIO m => Text -> ExceptT Text m Text
