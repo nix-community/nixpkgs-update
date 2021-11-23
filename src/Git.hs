@@ -8,6 +8,7 @@ module Git
     cleanup,
     commit,
     deleteBranchesEverywhere,
+    delete1,
     diff,
     fetch,
     fetchIfStale,
