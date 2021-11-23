@@ -734,5 +734,5 @@ withWorktree branch attrpath updateEnv action = do
         pure path)
     (\ path -> do
         Git.worktreeRemove path
-        Git.delete1 branch)
+        Git.delete1 (branchName updateEnv))
     (\ path -> withCurrentDirectory path action)
