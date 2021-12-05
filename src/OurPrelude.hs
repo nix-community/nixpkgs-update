@@ -15,6 +15,7 @@ module OurPrelude
     module System.Process.Typed,
     module Polysemy,
     module Polysemy.Error,
+    ignoreExitCodeException,
     Set,
     Text,
     Vector,
@@ -38,6 +39,7 @@ import System.FilePath ((</>))
 import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Error
+import qualified Control.Exception
 import Control.Monad.Except
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -125,3 +127,6 @@ ourReadProcessInterleavedSem =
 
 silently :: ProcessConfig stdin stdout stderr -> ProcessConfig () () ()
 silently = setStderr closed >>> setStdin closed >>> setStdout closed
+
+ignoreExitCodeException :: IO () -> IO ()
+ignoreExitCodeException a = Control.Exception.catch a (\(_e :: ExitCodeException) -> pure ())

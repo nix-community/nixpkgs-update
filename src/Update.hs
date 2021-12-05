@@ -730,6 +730,7 @@ withWorktree branch attrpath updateEnv action = do
         dir <- U.worktreeDir
         let path = dir <> "/" <> T.unpack attrpath
         Git.worktreeRemove path
+        Git.delete1 (branchName updateEnv)
         Git.worktreeAdd path branch updateEnv
         pure path)
     (\ path -> do
