@@ -7,6 +7,7 @@ module Nix
     assertOldVersionOn,
     binPath,
     build,
+    cachix,
     getAttr,
     getChangelog,
     getDerivationFile,
@@ -40,6 +41,8 @@ where
 
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
@@ -272,6 +275,16 @@ build attrPath =
         ourReadProcessInterleaved_ (log attrPath)
           & fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog <> " ")
+
+cachix :: MonadIO m => Text -> ExceptT Text m ()
+cachix resultPath =
+  ( setStdin
+      (byteStringInput (TL.encodeUtf8 (TL.fromStrict resultPath)))
+      (shell "cachix push nix-community")
+      & runProcess_
+      & tryIOTextET
+  )
+    <|> throwE "pushing to cachix failed"
 
 numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =

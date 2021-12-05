@@ -686,6 +686,8 @@ doCachix log updateEnv resultPath =
   in
     if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
     then do
+      lift $ log ("cachix " <> (T.pack . show) resultPath)
+      Nix.cachix resultPath
       return
         [interpolate|
        Either **download from Cachix**:
