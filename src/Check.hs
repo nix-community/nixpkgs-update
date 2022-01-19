@@ -101,7 +101,7 @@ checkBinary argument expectedVersion program = do
       withSystemTempDirectory
         "nixpkgs-update"
         ( ourLockedDownReadProcessInterleaved $
-            shell (timeoutBin <> " -k 2 1 " <> program <> " " <> T.unpack argument)
+            shell ("systemd-run --user --wait --property=RuntimeMaxSec=2 " <> program <> " " <> T.unpack argument)
         )
   case eResult of
     Left (_ :: Text) -> return $ BinaryCheck program False False
