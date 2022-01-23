@@ -65,7 +65,10 @@ attrPathList =
       "it has weird tags. see nixpkgs-update#232",
     infixOf
       "pysc2"
-      "crashes nixpkgs-update"
+      "crashes nixpkgs-update",
+    infixOf
+      "tornado"
+      "python updatescript updates pinned versions"
   ]
 
 nameList :: Skiplist
