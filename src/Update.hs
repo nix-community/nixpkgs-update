@@ -730,7 +730,7 @@ withWorktree branch attrpath updateEnv action = do
   bracket
     (do
         dir <- U.worktreeDir
-        let path = dir <> "/" <> T.unpack attrpath
+        let path = dir <> "/" <> T.unpack (T.replace ".lock" "_lock" attrpath)
         Git.worktreeRemove path
         Git.delete1 (branchName updateEnv)
         Git.worktreeAdd path branch updateEnv
