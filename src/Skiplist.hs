@@ -77,9 +77,6 @@ nameList =
     infixOf "jquery" "this isn't a real package",
     infixOf "google-cloud-sdk" "complicated package",
     infixOf "github-release" "complicated package",
-    infixOf
-      "libxc"
-      "currently people don't want to update this https://github.com/NixOS/nixpkgs/pull/35821",
     infixOf "perl" "currently don't know how to update perl",
     infixOf "cdrtools" "We keep downgrading this by accident.",
     infixOf "gst" "gstreamer plugins are kept in lockstep.",
