@@ -8,6 +8,8 @@ module Skiplist
     attrPath,
     checkResult,
     python,
+    skipOutpathCalc,
+    overrideDerivationFile,
   )
 where
 
@@ -36,6 +38,12 @@ content = skiplister contentList
 
 checkResult :: TextSkiplister m
 checkResult = skiplister checkResultList
+
+skipOutpathCalc :: TextSkiplister m
+skipOutpathCalc = skiplister skipOutpathCalcList
+
+overrideDerivationFile :: TextSkiplister m
+overrideDerivationFile = skiplister overrideDerivationFileList
 
 attrPathList :: Skiplist
 attrPathList =
@@ -159,6 +167,20 @@ checkResultList =
     binariesStickAround "fail2ban",
     binariesStickAround "zed",
     binariesStickAround "haveged"
+  ]
+
+skipOutpathCalcList :: Skiplist
+skipOutpathCalcList =
+  [ eq "firefox-beta-bin-unwrapped" "master"
+  , eq "firefox-devedition-bin-unwrapped" "master"
+  -- "firefox-release-bin-unwrapped" is unneeded here because firefox-bin is a dependency of other packages that Hydra doesn't ignore.
+  ]
+
+overrideDerivationFileList :: Skiplist
+overrideDerivationFileList =
+  [ eq "firefox-beta-bin-unwrapped" "pkgs/applications/networking/browsers/firefox-bin/beta_sources.nix"
+  , eq "firefox-devedition-bin-unwrapped" "pkgs/applications/networking/browsers/firefox-bin/devedition_sources.nix"
+  , eq "firefox-release-bin-unwrapped" "pkgs/applications/networking/browsers/firefox-bin/release_sources.nix"
   ]
 
 binariesStickAround :: Text -> (Text -> Bool, Text)

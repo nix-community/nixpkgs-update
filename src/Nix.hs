@@ -44,6 +44,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Vector as V
+import qualified Git
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import qualified Polysemy.Error as Error
@@ -128,11 +129,12 @@ lookupAttrPath updateEnv =
     & ourReadProcess_
     & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head)
 
-getDerivationFile :: MonadIO m => Text -> ExceptT Text m FilePath
-getDerivationFile attrPath =
+getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
+getDerivationFile attrPath = do
+  npDir <- liftIO $ Git.nixpkgsDir
   proc "env" ["EDITOR=echo", (binPath <> "/nix"), "edit", attrPath & T.unpack, "-f", "."]
     & ourReadProcess_
-    & fmapRT (fst >>> T.strip >>> T.unpack)
+    & fmapRT (fst >>> T.strip >>> T.stripPrefix (T.pack npDir <> "/") >>> fromJust)
 
 getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getDrvAttr drvAttr =

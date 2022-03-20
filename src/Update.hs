@@ -258,22 +258,24 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
       Version.assertCompatibleWithPathPin updateEnv attrPath
+    
+    let skipOutpathBase = either Just (const Nothing) $ Skiplist.skipOutpathCalc packageName
 
-    derivationFile <- Nix.getDerivationFile attrPath
+    derivationFile <- either pure (const $ Nix.getDerivationFile attrPath) $ Skiplist.overrideDerivationFile packageName
     unless hasUpdateScript do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
 
     -- Calculate output paths for rebuilds and our merge base
-    let calcOutpaths = calculateOutpaths options
+    let calcOutpaths = calculateOutpaths options && isNothing skipOutpathBase
     mergeBaseOutpathSet <-
       if calcOutpaths
         then Outpaths.currentOutpathSet
         else return $ Outpaths.dummyOutpathSetBefore attrPath
 
     -- Get the original values for diffing purposes
-    derivationContents <- liftIO $ T.readFile derivationFile
+    derivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
     oldHash <- Nix.getOldHash attrPath <|> pure ""
     oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     oldRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
@@ -292,7 +294,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     -- At this point, we've stashed the old derivation contents and
     -- validated that we actually should be rewriting something. Get
     -- to work processing the various rewrite functions!
-    rewriteMsgs <- Rewrite.runAll log Rewrite.Args {..}
+    rewriteMsgs <- Rewrite.runAll log Rewrite.Args {derivationFile = T.unpack derivationFile, ..}
     ----------------------------------------------------------------------------
 
     -- Compute the diff and get updated values
@@ -301,7 +303,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       "The diff was empty after rewrites."
       (diffAfterRewrites /= T.empty)
     lift . log $ "Diff after rewrites:\n" <> diffAfterRewrites
-    updatedDerivationContents <- liftIO $ T.readFile derivationFile
+    updatedDerivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     newHash <- Nix.getHash attrPath <|> pure ""
     newRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
@@ -354,8 +356,17 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
-    result <- Nix.resultLink
-    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result (Just opDiff) rewriteMsgs
+    result <- Nix.resultLink  
+    let opReport =
+          if isJust skipOutpathBase
+          then "Outpath calculations were skipped for this package; total number of rebuilds unknown."
+          else Outpaths.outpathReport opDiff
+    let prBase =
+          flip fromMaybe skipOutpathBase
+            if Outpaths.numPackageRebuilds opDiff < 100
+            then "master"
+            else "staging"
+    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs
 
   case successOrFailure of
     Left failure -> do
@@ -370,14 +381,11 @@ publishPackage ::
   Text ->
   Text ->
   Text ->
-  Maybe (Set Outpaths.ResultLine) ->
+  Text ->
+  Text ->
   [Text] ->
   ExceptT Text IO ()
-publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteMsgs = do
-  let prBase =
-        if (isNothing opDiff || Outpaths.numPackageRebuilds (fromJust opDiff) < 100)
-          then "master"
-          else "staging"
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs = do
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Skiplist.checkResult (packageName updateEnv) of
@@ -420,7 +428,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opDiff rewriteM
           attrPath
           maintainers
           result
-          (fromMaybe "" (Outpaths.outpathReport <$> opDiff))
+          opReport
           cveRep
           cachixTestInstructions
           nixpkgsReviewMsg
@@ -606,11 +614,9 @@ untilOfBorgFree log = do
     untilOfBorgFree log
 
 assertNotUpdatedOn ::
-  MonadIO m => UpdateEnv -> FilePath -> Text -> ExceptT Text m ()
+  MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
 assertNotUpdatedOn updateEnv derivationFile branch = do
-  npDir <- liftIO $ Git.nixpkgsDir
-  let Just file = T.stripPrefix (T.pack npDir <> "/") (T.pack derivationFile)
-  derivationContents <- Git.show branch file
+  derivationContents <- Git.show branch derivationFile
   Nix.assertOldVersionOn updateEnv branch derivationContents
 
 addPatched :: Text -> Set CVE -> IO [(CVE, Bool)]
