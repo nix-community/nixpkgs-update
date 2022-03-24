@@ -171,7 +171,7 @@ setupNixpkgs githubt = do
         ]
       & runProcess_
     setCurrentDirectory fp
-    shell (bin <> "remote add upstream https://github.com/NixOS/nixpkgs")
+    shell (bin <> " remote add upstream https://github.com/NixOS/nixpkgs")
       & runProcess_
   inNixpkgs <- inNixpkgsRepo
   unless inNixpkgs do
