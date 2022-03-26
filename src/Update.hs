@@ -363,7 +363,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
           else Outpaths.outpathReport opDiff
     let prBase =
           flip fromMaybe skipOutpathBase
-            if Outpaths.numPackageRebuilds opDiff < 100
+            if Outpaths.numPackageRebuilds opDiff <= 500
             then "master"
             else "staging"
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs
