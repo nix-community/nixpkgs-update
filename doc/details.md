@@ -55,7 +55,7 @@ rebuilds and list some of the attrpaths that would need to be rebuilt.
 
 ## PRs against staging
 
-If a PR merge would cause more than 100 packages to be rebuilt, the PR
+If a PR merge would cause more than 500 packages to be rebuilt, the PR
 is made against staging.
 
 
