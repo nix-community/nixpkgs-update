@@ -37,11 +37,11 @@
         "nixpkgs-for-manual": "nixpkgs-for-manual"
       },
       "locked": {
-        "lastModified": 1626736992,
-        "narHash": "sha256-pgD5wGNKPrAO5ThfQjmdyezpc0RIXUeXyU/oFJRBfa0=",
+        "lastModified": 1648942939,
+        "narHash": "sha256-IvXTQcv32LptJGxHjffji1f0XyG+wh566YJuS5dEcoo=",
         "owner": "ryantm",
         "repo": "mmdoc",
-        "rev": "9793387e2d7c04fe8e35209de6da0b3b6e551fea",
+        "rev": "a308fd7ef02241216aac5dfa2c584b37fca3c26a",
         "type": "github"
       },
       "original": {
@@ -52,11 +52,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1620788202,
-        "narHash": "sha256-MupOww6wQHG2LiF7ALeT+TxvgzS1ROQy7dChZX5ohiA=",
+        "lastModified": 1647350163,
+        "narHash": "sha256-OcMI+PFEHTONthXuEQNddt16Ml7qGvanL3x8QOl2Aao=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c8750770c4f59b0825bf2b7b914c343543958a80",
+        "rev": "3eb07eeafb52bcbf02ce800f032f18d666a9498d",
         "type": "github"
       },
       "original": {
@@ -66,11 +66,11 @@
     },
     "nixpkgs-for-manual": {
       "locked": {
-        "lastModified": 1617080427,
-        "narHash": "sha256-4en5vjUto7I3FBWKU+NjhS33K0Z5yk+zxCtGcIgaRjs=",
+        "lastModified": 1644686402,
+        "narHash": "sha256-qxQKjsj51pIQ6qJrLOw93m9z+vJCngpRLfPgp2Ib28Q=",
         "owner": "ryantm",
         "repo": "nixpkgs",
-        "rev": "46fd6f0a282fdcebfeba221dba45adf12503afad",
+        "rev": "78d909765da7e23d5d5d59993bca0ee6a9e3d3ba",
         "type": "github"
       },
       "original": {
