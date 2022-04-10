@@ -5,6 +5,7 @@
   inputs.flake-compat = { url = "github:edolstra/flake-compat"; flake = false; };
   inputs.nixpkgs = { type = "github"; owner = "nixos"; repo = "nixpkgs"; };
   inputs.mmdoc.url = "github:ryantm/mmdoc";
+  inputs.mmdoc.inputs.nixpkgs.follows = "nixpkgs";
 
   nixConfig.extra-substituters = [ "https://nixpkgs-update.cachix.org" ];
   nixConfig.extra-trusted-public-keys = [ "nixpkgs-update.cachix.org-1:6y6Z2JdoL3APdu6/+Iy8eZX2ajf09e4EE9SnxSML1W8=" ];
