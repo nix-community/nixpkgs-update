@@ -1,5 +1,4 @@
 { nixpkgs
-, nixpkgs-review
 , mmdoc
 , system
 , self
@@ -25,7 +24,7 @@ let
     GIST = gist;
     # TODO: are there more coreutils paths that need locking down?
     TIMEOUT = coreutils;
-    NIXPKGSREVIEW = (import nixpkgs-review { inherit pkgs; });
+    NIXPKGSREVIEW = nixpkgs-review;
   };
 
   haskellPackages = pkgs.haskellPackages.override {
