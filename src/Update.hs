@@ -183,7 +183,7 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) = do
   log updateInfoLine
   let updateEnv = UpdateEnv pName oldVer newVer url o
   updated <-
-    Control.Exception.catch (updatePackageBatch log updateEnv)
+    Control.Exception.catch (updatePackageBatch log updateInfoLine updateEnv)
     (\e -> do let errMsg = tshow (e :: IOException)
               log $ "Caught exception: " <> errMsg
               return UpdatePackageFailure)
@@ -209,9 +209,10 @@ data UpdatePackageResult = UpdatePackageSuccess | UpdatePackageFailure
 -- - the commit for branches: master, staging, staging-next
 updatePackageBatch ::
   (Text -> IO ()) ->
+  Text ->
   UpdateEnv ->
   IO UpdatePackageResult
-updatePackageBatch simpleLog updateEnv@UpdateEnv {..} = do
+updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
   eitherFailureOrAttrpath <- runExceptT $ do
     -- Filters that don't need git
     whenBatch updateEnv do
@@ -230,6 +231,7 @@ updatePackageBatch simpleLog updateEnv@UpdateEnv {..} = do
       return UpdatePackageFailure
     Right foundAttrPath -> do
       log <- alsoLogToAttrPath foundAttrPath simpleLog
+      log updateInfoLine
       mergeBase <- if batchUpdate options
         then Git.mergeBase
         else pure "HEAD"
@@ -720,10 +722,11 @@ updatePackage ::
   IO ()
 updatePackage o updateInfo = do
   let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
+  let updateInfoLine = (p <> " " <> oldV <> " -> " <> newV <> fromMaybe "" (fmap (" " <>) url))
   let updateEnv = UpdateEnv p oldV newV url o
   let log = T.putStrLn
   liftIO $ notifyOptions log o
-  updated <- updatePackageBatch log updateEnv
+  updated <- updatePackageBatch log updateInfoLine updateEnv
   case updated of
     UpdatePackageFailure -> do
       log $ "Failed to update"
