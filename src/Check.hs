@@ -18,12 +18,10 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
-import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.Exit
-import System.IO.Temp (withSystemTempDirectory)
 import Text.Regex.Applicative.Text (RE', (=~))
 import qualified Text.Regex.Applicative.Text as RE
-import Utils (UpdateEnv (..), Version, nixBuildOptions)
+import Utils (UpdateEnv (..), nixBuildOptions)
 
 default (T.Text)
 
@@ -92,71 +90,11 @@ checkTestsBuild attrPath = do
         ExitSuccess -> return True
         _ -> return False
 
--- | Run a program with provided argument and report whether the output
--- mentions the expected version
-checkBinary :: Text -> Version -> FilePath -> IO BinaryCheck
-checkBinary argument expectedVersion program = do
-  eResult <-
-    runExceptT $
-      withSystemTempDirectory
-        "nixpkgs-update"
-        ( ourLockedDownReadProcessInterleaved $
-            shell ("systemd-run --user --wait --property=RuntimeMaxSec=2 " <> program <> " " <> T.unpack argument)
-        )
-  case eResult of
-    Left (_ :: Text) -> return $ BinaryCheck program False False
-    Right (exitCode, contents) ->
-      return $ BinaryCheck program (exitCode == ExitSuccess) (hasVersion contents expectedVersion)
-
-checks :: [Version -> FilePath -> IO BinaryCheck]
-checks =
-  [ checkBinary "",
-    checkBinary "-V",
-    checkBinary "-v",
-    checkBinary "--version",
-    checkBinary "version",
-    checkBinary "-h",
-    checkBinary "--help",
-    checkBinary "help"
-  ]
-
-someChecks :: BinaryCheck -> [IO BinaryCheck] -> IO BinaryCheck
-someChecks best [] = return best
-someChecks best (c : rest) = do
-  current <- c
-  let nb = newBest current
-  case nb of
-    BinaryCheck _ True True -> return nb
-    _ -> someChecks nb rest
-  where
-    newBest :: BinaryCheck -> BinaryCheck
-    newBest (BinaryCheck _ currentExit currentVersionPresent) =
-      BinaryCheck
-        (filePath best)
-        (zeroExitCode best || currentExit)
-        (versionPresent best || currentVersionPresent)
-
--- | Run a program with various version or help flags and report
--- when they succeded
-runChecks :: Version -> FilePath -> IO BinaryCheck
-runChecks expectedVersion program =
-  someChecks (BinaryCheck program False False) checks'
-  where
-    checks' = map (\c -> c expectedVersion program) checks
-
 checkTestsBuildReport :: Bool -> Text
 checkTestsBuildReport False =
   "- Warning: a test defined in `passthru.tests` did not pass"
 checkTestsBuildReport True =
   "- The tests defined in `passthru.tests`, if any, passed"
-
-checkReport :: BinaryCheck -> Text
-checkReport (BinaryCheck p False False) =
-  "- Warning: no invocation of "
-    <> T.pack p
-    <> " had a zero exit code or showed the expected version"
-checkReport (BinaryCheck p _ _) =
-  "- " <> T.pack p <> " passed the binary check."
 
 ourLockedDownReadProcessInterleaved ::
   MonadIO m =>
@@ -232,43 +170,7 @@ result :: MonadIO m => UpdateEnv -> String -> m Text
 result updateEnv resultPath =
   liftIO $ do
     let expectedVersion = newVersion updateEnv
-        binaryDir = resultPath <> "/bin"
     testsBuild <- checkTestsBuild (packageName updateEnv)
-    binExists <- doesDirectoryExist binaryDir
-    binaries <-
-      if binExists
-        then
-          ( do
-              fs <- listDirectory binaryDir
-              filterM doesFileExist (map (\f -> binaryDir ++ "/" ++ f) fs)
-          )
-        else return []
-    checks' <- forM binaries $ \binary -> runChecks expectedVersion binary
-    let passedZeroExitCode =
-          (T.pack . show)
-            ( foldl
-                ( \acc c ->
-                    if zeroExitCode c
-                      then acc + 1
-                      else acc
-                )
-                0
-                checks' ::
-                Int
-            )
-        passedVersionPresent =
-          (T.pack . show)
-            ( foldl
-                ( \acc c ->
-                    if versionPresent c
-                      then acc + 1
-                      else acc
-                )
-                0
-                checks' ::
-                Int
-            )
-        numBinaries = (T.pack . show) (length binaries)
     someReports <-
       fromMaybe ""
         <$> foundVersionInOutputs expectedVersion resultPath
@@ -277,23 +179,7 @@ result updateEnv resultPath =
         <> duGist resultPath
     return $
       let testsBuildSummary = checkTestsBuildReport testsBuild
-          c = T.intercalate "\n" (map checkReport checks')
-          binaryCheckSummary =
-            "- "
-              <> passedZeroExitCode
-              <> " of "
-              <> numBinaries
-              <> " passed binary check by having a zero exit code."
-          versionPresentSummary =
-            "- "
-              <> passedVersionPresent
-              <> " of "
-              <> numBinaries
-              <> " passed binary check by having the new version present in output."
        in [interpolate|
               $testsBuildSummary
-              $c
-              $binaryCheckSummary
-              $versionPresentSummary
               $someReports
             |]
