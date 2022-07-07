@@ -33,6 +33,7 @@ data UpdateOptions = UpdateOptions
 data Command
   = UpdateList UpdateOptions
   | Update UpdateOptions Text
+  | UpdateBatch UpdateOptions Text
   | DeleteDone Bool
   | Version
   | UpdateVulnDB
@@ -70,6 +71,9 @@ commandParser =
         <> O.command
           "update"
           (O.info (updateParser) (O.progDesc "Update one package"))
+        <> O.command
+          "update-batch"
+          (O.info (updateParser) (O.progDesc "Update one package in batch mode."))
         <> O.command
           "delete-done"
           ( O.info
@@ -143,6 +147,9 @@ main = do
     Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
       Git.setupNixpkgs token
       updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt) update
+    UpdateBatch UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
+      Git.setupNixpkgs token
+      updatePackage (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) update
     Version -> do
       v <- runExceptT Nix.version
       case v of
