@@ -109,6 +109,7 @@ notifyOptions log o = do
   let repr f = if f o then "YES" else "NO"
   let ghUser = GH.untagName . githubUser $ o
   let pr = repr doPR
+  let batch = repr batchUpdate
   let outpaths = repr calculateOutpaths
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
@@ -120,6 +121,7 @@ notifyOptions log o = do
     ----------------------------------
     GitHub User:                   $ghUser
     Send pull request on success:  $pr
+    Batch update:                  $batch
     Calculate Outpaths:            $outpaths
     CVE Security Report:           $cve
     Run nixpkgs-review:            $review
