@@ -253,6 +253,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     whenBatch updateEnv do
       Skiplist.attrPath attrPath
       when pr do
+        liftIO $ log "Checking auto update branch doesn't exist..."
         Git.checkAutoUpdateBranchDoesntExist packageName
         unless hasUpdateScript do
           GH.checkExistingUpdatePR updateEnv attrPath
@@ -260,7 +261,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
       Version.assertCompatibleWithPathPin updateEnv attrPath
-    
+
     let skipOutpathBase = either Just (const Nothing) $ Skiplist.skipOutpathCalc packageName
 
     derivationFile <- either pure (const $ Nix.getDerivationFile attrPath) $ Skiplist.overrideDerivationFile packageName
