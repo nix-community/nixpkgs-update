@@ -193,21 +193,15 @@ archRebuilds :: Text -> Set ResultLine -> Int
 archRebuilds arch =
   S.toList >>> fmap architecture >>> filter (== arch) >>> length
 
-linuxRebuilds :: Set ResultLine -> Int
-linuxRebuilds = archRebuilds "x86_64-linux"
-
 outpathReport :: Set ResultLine -> Text
 outpathReport diff =
   let pkg = tshow $ V.length $ packageRebuilds diff
       firstFifty = T.unlines $ V.toList $ V.take 50 $ packageRebuilds diff
-      linux = tshow $ linuxRebuilds diff
       numPaths = tshow $ S.size diff
    in [interpolate|
         $numPaths total rebuild path(s)
 
         $pkg package rebuild(s)
-
-        $linux x86_64-linux rebuild(s)
 
         First fifty rebuilds by attrpath
         $firstFifty
