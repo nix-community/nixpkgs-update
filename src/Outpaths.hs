@@ -189,10 +189,6 @@ packageRebuilds = S.toList >>> fmap package >>> sort >>> V.fromList >>> V.uniq
 numPackageRebuilds :: Set ResultLine -> Int
 numPackageRebuilds diff = V.length $ packageRebuilds diff
 
-archRebuilds :: Text -> Set ResultLine -> Int
-archRebuilds arch =
-  S.toList >>> fmap architecture >>> filter (== arch) >>> length
-
 outpathReport :: Set ResultLine -> Text
 outpathReport diff =
   let pkg = tshow $ V.length $ packageRebuilds diff
