@@ -41,7 +41,6 @@ let
     {
       supportedSystems = [
         "x86_64-linux"
-        "x86_64-darwin"
      ];
 
       nixpkgsArgs = {
@@ -194,9 +193,6 @@ archRebuilds :: Text -> Set ResultLine -> Int
 archRebuilds arch =
   S.toList >>> fmap architecture >>> filter (== arch) >>> length
 
-darwinRebuilds :: Set ResultLine -> Int
-darwinRebuilds = archRebuilds "x86_64-darwin"
-
 linuxRebuilds :: Set ResultLine -> Int
 linuxRebuilds = archRebuilds "x86_64-linux"
 
@@ -204,7 +200,6 @@ outpathReport :: Set ResultLine -> Text
 outpathReport diff =
   let pkg = tshow $ V.length $ packageRebuilds diff
       firstFifty = T.unlines $ V.toList $ V.take 50 $ packageRebuilds diff
-      darwin = tshow $ darwinRebuilds diff
       linux = tshow $ linuxRebuilds diff
       numPaths = tshow $ S.size diff
    in [interpolate|
@@ -213,8 +208,6 @@ outpathReport diff =
         $pkg package rebuild(s)
 
         $linux x86_64-linux rebuild(s)
-        $darwin x86_64-darwin rebuild(s)
-
 
         First fifty rebuilds by attrpath
         $firstFifty
