@@ -57,6 +57,12 @@ updateParser =
     <$> updateOptionsParser
     <*> O.strArgument (O.metavar "UPDATE_INFO" <> O.help "update string of the form: 'pkg oldVer newVer update-page'\n\n example: 'tflint 0.15.0 0.15.1 repology.org'")
 
+updateBatchParser :: O.Parser Command
+updateBatchParser =
+  UpdateBatch
+    <$> updateOptionsParser
+    <*> O.strArgument (O.metavar "UPDATE_INFO" <> O.help "update string of the form: 'pkg oldVer newVer update-page'\n\n example: 'tflint 0.15.0 0.15.1 repology.org'")
+
 deleteDoneParser :: O.Parser Command
 deleteDoneParser =
   DeleteDone
@@ -73,7 +79,7 @@ commandParser =
           (O.info (updateParser) (O.progDesc "Update one package"))
         <> O.command
           "update-batch"
-          (O.info (updateParser) (O.progDesc "Update one package in batch mode."))
+          (O.info (updateBatchParser) (O.progDesc "Update one package in batch mode."))
         <> O.command
           "delete-done"
           ( O.info
