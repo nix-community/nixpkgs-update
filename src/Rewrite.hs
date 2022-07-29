@@ -192,11 +192,11 @@ rustCrateVersion log args@Args {..} = do
         srcVersionFix args
         -- But then from there we need to do this a second time for the cargoSha256!
         oldCargoSha256 <- Nix.getAttr Nix.Raw "cargoSha256" attrPath
-        _ <- lift $ File.replaceIO oldCargoSha256 Nix.sha256Zero derivationFile
+        _ <- lift $ File.replaceIO oldCargoSha256 Nix.fakeHash derivationFile
         newCargoSha256 <- Nix.getHashFromBuild attrPath
         when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
         lift . log $ "Replacing cargoSha256 with " <> newCargoSha256
-        _ <- lift $ File.replaceIO Nix.sha256Zero newCargoSha256 derivationFile
+        _ <- lift $ File.replaceIO Nix.fakeHash newCargoSha256 derivationFile
         -- Ensure the package actually builds and passes its tests
         Nix.build attrPath
         lift $ log "Finished updating Crate version and replacing hashes"
@@ -229,9 +229,9 @@ golangModuleVersion log args@Args {..} = do
           if isLeft ok
             then do
               _ <- liftIO $ T.writeFile derivationFile original
-              _ <- lift $ File.replaceIO oldVendorSha256 Nix.sha256Zero derivationFile
+              _ <- lift $ File.replaceIO oldVendorSha256 Nix.fakeHash derivationFile
               newVendorSha256 <- Nix.getHashFromBuild attrPath
-              _ <- lift $ File.replaceIO Nix.sha256Zero newVendorSha256 derivationFile
+              _ <- lift $ File.replaceIO Nix.fakeHash newVendorSha256 derivationFile
               -- Note that on some small bumps, this may not actually change if go.sum did not
               lift . log $ "Replaced vendorSha256 with " <> newVendorSha256
             else do
@@ -267,8 +267,8 @@ srcVersionFix Args {..} = do
   let UpdateEnv {..} = updateEnv
   oldHash <- Nix.getOldHash attrPath
   _ <- lift $ File.replaceIO oldVersion newVersion derivationFile
-  _ <- lift $ File.replaceIO oldHash Nix.sha256Zero derivationFile
+  _ <- lift $ File.replaceIO oldHash Nix.fakeHash derivationFile
   newHash <- Nix.getHashFromBuild attrPath
   when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-  _ <- lift $ File.replaceIO Nix.sha256Zero newHash derivationFile
+  _ <- lift $ File.replaceIO Nix.fakeHash newHash derivationFile
   return ()

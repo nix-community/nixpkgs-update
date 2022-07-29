@@ -33,7 +33,7 @@ module Nix
     parseStringList,
     resultLink,
     runUpdateScript,
-    sha256Zero,
+    fakeHash,
     version,
     Raw (..),
   )
@@ -297,7 +297,7 @@ numberOfFetchers derivationContents =
 -- Sum the number of things that look like fixed-output derivation hashes
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents =
-  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "vendorSha256 ="]
+  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "vendorSha256 =", "hash ="]
   where
     countUp x = T.count x derivationContents
 
@@ -318,8 +318,8 @@ resultLink =
         )
     <|> throwE "Could not find result link. "
 
-sha256Zero :: Text
-sha256Zero = "0000000000000000000000000000000000000000000000000000"
+fakeHash :: Text
+fakeHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
 getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
