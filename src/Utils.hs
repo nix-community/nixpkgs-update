@@ -24,6 +24,7 @@ module Utils
     runLog,
     srcOrMain,
     stripQuotes,
+    titleTargetsSameVersion,
     tRead,
     whenBatch,
     regDirMode,
@@ -135,6 +136,11 @@ prTitle updateEnv attrPath =
   let oV = oldVersion updateEnv
       nV = newVersion updateEnv
    in T.strip [interpolate| $attrPath: $oV -> $nV |]
+
+titleTargetsSameVersion :: UpdateEnv -> Text -> Bool
+titleTargetsSameVersion updateEnv = T.isSuffixOf [interpolate| -> $nV |]
+  where
+    nV = newVersion updateEnv
 
 regDirMode :: FileMode
 regDirMode =

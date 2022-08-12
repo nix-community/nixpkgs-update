@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 module GH
@@ -15,10 +16,12 @@ module GH
     openAutoUpdatePR,
     openPullRequests,
     pr,
+    prUpdate,
   )
 where
 
 import Control.Applicative (some)
+import Data.Aeson (FromJSON)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
@@ -43,10 +46,10 @@ releaseUrl env url = do
   urlParts <- parseURL url
   gReleaseUrl (authFrom env) urlParts
 
-pr :: MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m Text
+pr :: MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
 pr env title body prHead base = do
   ExceptT $
-    bimap (T.pack . show) (GH.getUrl . GH.pullRequestUrl)
+    bimap (T.pack . show) ((False, ) . GH.getUrl . GH.pullRequestUrl)
       <$> ( liftIO $
               ( GH.github
                   (authFrom env)
@@ -57,6 +60,33 @@ pr env title body prHead base = do
                   )
               )
           )
+
+prUpdate :: forall m. MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
+prUpdate env title body prHead base = do
+  let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
+      runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
+  let inNixpkgs f = f (N "nixos") (N "nixpkgs")
+
+  prs <- runRequest $
+    inNixpkgs GH.pullRequestsForR (GH.optionsHead prHead) GH.FetchAll
+
+  case V.toList prs of
+    [] -> pr env title body prHead base
+
+    (_:_:_) -> throwE $ "Too many open PRs from " <> prHead
+
+    [thePR] -> do
+      let withExistingPR :: (GH.Name GH.Owner -> GH.Name GH.Repo -> GH.IssueNumber -> a) -> a
+          withExistingPR f = inNixpkgs f (GH.simplePullRequestNumber thePR)
+
+      _ <- runRequest $
+        withExistingPR GH.updatePullRequestR $
+          GH.EditPullRequest (Just title) Nothing Nothing Nothing Nothing
+
+      _ <- runRequest $
+        withExistingPR GH.createCommentR body
+
+      return (True, GH.getUrl $ GH.simplePullRequestUrl thePR)
 
 data URLParts = URLParts
   { owner :: GH.Name GH.Owner,
