@@ -1,5 +1,5 @@
 name: nixpkgs-update
-version: 0.3.0
+version: 0.4.0
 synopsis: Tool for semi-automatic updating of nixpkgs repository
 description: nixpkgs-update provides tools for updating of nixpkgs
   packages in a semi-automatic way. Mainly, it is used to run the GitHub
@@ -9,7 +9,7 @@ description: nixpkgs-update provides tools for updating of nixpkgs
 license: CC0-1.0
 author: Ryan Mulligan et al.
 maintainer: ryan@ryantm.com
-copyright: 2018-2020 Ryan Mulligan et al.
+copyright: 2018-2022 Ryan Mulligan et al.
 category: Web
 extra-source-files:
 - README.md
