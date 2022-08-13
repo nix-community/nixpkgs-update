@@ -249,6 +249,7 @@ updateAttrPath ::
   Text ->
   IO UpdatePackageResult
 updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
+  log $ "attrpath: " <> attrPath
   let pr = doPR options
 
   successOrFailure <- runExceptT $ do
