@@ -116,7 +116,8 @@ assertNewerVersion updateEnv = do
 -- This is extremely slow but gives us the best results we know of
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
-  proc
+  -- lookup attrpath by nix-env
+  (proc
     (binPath <> "/nix-env")
     ( [ "-qa",
         (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
@@ -127,7 +128,13 @@ lookupAttrPath updateEnv =
         <> nixCommonOptions
     )
     & ourReadProcess_
-    & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head)
+    & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head))
+  <|>
+  -- if that fails, check by attrpath
+  (nixEvalET
+    (EvalOptions Raw (Env []))
+    ("pkgs." <> packageName updateEnv)
+  & fmapRT (const (packageName updateEnv)))
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
 getDerivationFile attrPath = do
