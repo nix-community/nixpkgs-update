@@ -23,8 +23,10 @@ import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
 import Control.Exception (IOException, catch, bracket)
+import Control.Monad.Writer (execWriterT, tell)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe (fromJust)
+import Data.Monoid (Alt(..))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -252,13 +254,22 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
   successOrFailure <- runExceptT $ do
     hasUpdateScript <- Nix.hasUpdateScript attrPath
 
-    whenBatch updateEnv do
-      Skiplist.attrPath attrPath
-      when pr do
-        liftIO $ log "Checking auto update branch doesn't exist..."
-        Git.checkAutoUpdateBranchDoesntExist packageName
-        unless hasUpdateScript do
-          GH.checkExistingUpdatePR updateEnv attrPath
+    existingCommitMsg <- fmap getAlt . execWriterT $
+      whenBatch updateEnv do
+        Skiplist.attrPath attrPath
+        when pr do
+          liftIO $ log "Checking auto update branch..."
+          mbLastCommitMsg <- lift $ Git.findAutoUpdateBranchMessage packageName
+          tell $ Alt mbLastCommitMsg
+          unless hasUpdateScript do
+            case mbLastCommitMsg of
+              Nothing -> liftIO $ log "No auto update branch exists"
+              Just msg -> do
+                lift $ tryAssert
+                  "An auto update branch exists targeting the same version"
+                  (not $ U.titleTargetsSameVersion updateEnv msg)
+                liftIO $ log "An auto update branch exists but it is out of date"
+            lift $ GH.checkExistingUpdatePR updateEnv attrPath
 
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
@@ -354,6 +365,13 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     whenBatch updateEnv do
       when pr do
         when hasUpdateScript do
+          tryAssert
+            "An auto update branch exists targeting the same version"
+            (not $ any (U.titleTargetsSameVersion updateEnv) existingCommitMsg)
+
+          -- Note that this check looks for PRs with the same old and new
+          -- version numbers, so it won't stop us from updating an existing PR
+          -- if this run updates the package to a newer version.
           GH.checkExistingUpdatePR updateEnv' attrPath
 
     Nix.build attrPath
@@ -371,7 +389,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
             if Outpaths.numPackageRebuilds opDiff <= 500
             then "master"
             else "staging"
-    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs
+    publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs (isJust existingCommitMsg)
 
   case successOrFailure of
     Left failure -> do
@@ -389,8 +407,9 @@ publishPackage ::
   Text ->
   Text ->
   [Text] ->
+  Bool ->
   ExceptT Text IO ()
-publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs = do
+publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs branchExists = do
   cachixTestInstructions <- doCachix log updateEnv result
   resultCheckReport <-
     case Skiplist.checkResult (packageName updateEnv) of
@@ -411,6 +430,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
       then liftIO $ NixpkgsReview.runReport log commitRev
       else return ""
   -- Try to push it three times
+  -- (these pushes use --force, so it doesn't matter if branchExists is True)
   when
     (doPR . options $ updateEnv)
     (Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv)
@@ -441,7 +461,12 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
   if (doPR . options $ updateEnv)
     then do
       let ghUser = GH.untagName . githubUser . options $ updateEnv
-      pullRequestUrl <- GH.pr updateEnv (prTitle updateEnv attrPath) prMsg (ghUser <> ":" <> (branchName updateEnv)) prBase
+      let mkPR = if branchExists then GH.prUpdate else GH.pr
+      (reusedPR, pullRequestUrl) <- mkPR updateEnv (prTitle updateEnv attrPath) prMsg (ghUser <> ":" <> (branchName updateEnv)) prBase
+      when branchExists $ liftIO $ log
+        if reusedPR
+        then "Updated existing PR"
+        else "Reused existing auto update branch, but no corresponding open PR was found, so created a new PR"
       liftIO $ log pullRequestUrl
     else liftIO $ T.putStrLn prMsg
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Git
-  ( checkAutoUpdateBranchDoesntExist,
+  ( findAutoUpdateBranchMessage,
     mergeBase,
     cleanAndResetTo,
     cleanup,
@@ -187,14 +187,16 @@ mergeBase = do
     (procGit ["merge-base", "upstream/master", "upstream/staging"])
     & fmap T.strip
 
-checkAutoUpdateBranchDoesntExist :: MonadIO m => Text -> ExceptT Text m ()
-checkAutoUpdateBranchDoesntExist pName = do
+-- Return Nothing if a remote branch for this package doesn't exist. If a
+-- branch does exist, return a Just of its last commit message.
+findAutoUpdateBranchMessage :: MonadIO m => Text -> ExceptT Text m (Maybe Text)
+findAutoUpdateBranchMessage pName = do
   remoteBranches <-
-    readProcessInterleavedNoIndexIssue_ (procGit ["branch", "--remote"])
-      & fmapRT (T.lines >>> fmap T.strip)
-  when
-    (("origin/" <> branchPrefix <> pName) `elem` remoteBranches)
-    (throwE "Update branch already on origin.")
+    readProcessInterleavedNoIndexIssue_ (procGit ["branch", "--remote", "--format=%(refname:short) %(subject)"])
+      & fmapRT (T.lines >>> fmap (T.strip >>> T.breakOn " "))
+  return $
+    lookup ("origin/" <> branchPrefix <> pName) remoteBranches
+      & fmap (T.drop 1)
 
 inNixpkgsRepo :: IO Bool
 inNixpkgsRepo = do
