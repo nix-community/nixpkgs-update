@@ -368,7 +368,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
         when hasUpdateScript do
           tryAssert
             "An auto update branch exists targeting the same version"
-            (not $ any (U.titleTargetsSameVersion updateEnv) existingCommitMsg)
+            (not $ any (U.titleTargetsSameVersion updateEnv') existingCommitMsg)
 
           -- Note that this check looks for PRs with the same old and new
           -- version numbers, so it won't stop us from updating an existing PR
