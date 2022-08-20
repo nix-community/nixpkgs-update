@@ -242,6 +242,29 @@ updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
       withWorktree mergeBase foundAttrPath updateEnv $
         updateAttrPath log mergeBase updateEnv foundAttrPath
 
+checkExistingUpdate ::
+  (Text -> IO ()) ->
+  UpdateEnv ->
+  Maybe Text ->
+  Text ->
+  ExceptT Text IO ()
+checkExistingUpdate log updateEnv existingCommitMsg attrPath = do
+  case existingCommitMsg of
+    Nothing -> lift $ log "No auto update branch exists"
+    Just msg -> do
+      let nV = newVersion updateEnv
+      lift $ log
+        [interpolate|An auto update branch exists with message `$msg`. New version is $nV.|]
+
+      if U.titleTargetsSameVersion updateEnv msg
+      then throwError "An auto update branch exists targeting the same version"
+      else lift $ log "The auto update branch does not match the new version."
+
+  -- Note that this check looks for PRs with the same old and new
+  -- version numbers, so it won't stop us from updating an existing PR
+  -- if this run updates the package to a newer version.
+  GH.checkExistingUpdatePR updateEnv attrPath
+
 updateAttrPath ::
   (Text -> IO ()) ->
   Text ->
@@ -263,14 +286,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
           mbLastCommitMsg <- lift $ Git.findAutoUpdateBranchMessage packageName
           tell $ Alt mbLastCommitMsg
           unless hasUpdateScript do
-            case mbLastCommitMsg of
-              Nothing -> liftIO $ log "No auto update branch exists"
-              Just msg -> do
-                lift $ tryAssert
-                  "An auto update branch exists targeting the same version"
-                  (not $ U.titleTargetsSameVersion updateEnv msg)
-                liftIO $ log "An auto update branch exists but it is out of date"
-            lift $ GH.checkExistingUpdatePR updateEnv attrPath
+            lift $ checkExistingUpdate log updateEnv mbLastCommitMsg attrPath
 
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
@@ -366,14 +382,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     whenBatch updateEnv do
       when pr do
         when hasUpdateScript do
-          tryAssert
-            "An auto update branch exists targeting the same version"
-            (not $ any (U.titleTargetsSameVersion updateEnv') existingCommitMsg)
-
-          -- Note that this check looks for PRs with the same old and new
-          -- version numbers, so it won't stop us from updating an existing PR
-          -- if this run updates the package to a newer version.
-          GH.checkExistingUpdatePR updateEnv' attrPath
+          checkExistingUpdate log updateEnv' existingCommitMsg attrPath
 
     Nix.build attrPath
 
