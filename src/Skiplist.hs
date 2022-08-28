@@ -76,7 +76,9 @@ attrPathList =
       "crashes nixpkgs-update",
     infixOf
       "tornado"
-      "python updatescript updates pinned versions"
+      "python updatescript updates pinned versions",
+    eq "imagemagick_light" "same file and version as imagemagick",
+    eq "imagemagickBig" "same file and version as imagemagick",
   ]
 
 nameList :: Skiplist
