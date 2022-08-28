@@ -78,7 +78,7 @@ attrPathList =
       "tornado"
       "python updatescript updates pinned versions",
     eq "imagemagick_light" "same file and version as imagemagick",
-    eq "imagemagickBig" "same file and version as imagemagick",
+    eq "imagemagickBig" "same file and version as imagemagick"
   ]
 
 nameList :: Skiplist
