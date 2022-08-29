@@ -19,6 +19,7 @@ module Nix
     getHomepageET,
     getIsBroken,
     getMaintainers,
+    getMetaPosition,
     getOldHash,
     getOutpaths,
     getPatches,
@@ -212,6 +213,15 @@ getChangelog attrPath =
     ( "(let pkgs = import ./. {}; in pkgs."
         <> attrPath
         <> ".meta.changelog or \"\")"
+    )
+
+getMetaPosition :: MonadIO m => Text -> ExceptT Text m Text
+getMetaPosition attrPath =
+  nixEvalET
+    (EvalOptions NoRaw (Env []))
+    ( "(let pkgs = import ./. {}; in pkgs."
+        <> attrPath
+        <> ".meta.position or \"\")"
     )
 
 getDescription :: MonadIO m => Text -> ExceptT Text m Text

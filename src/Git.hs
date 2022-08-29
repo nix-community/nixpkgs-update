@@ -10,6 +10,7 @@ module Git
     deleteBranchesEverywhere,
     delete1,
     diff,
+    diffNameOnly,
     fetch,
     fetchIfStale,
     headRev,
@@ -111,6 +112,9 @@ cleanup bName = do
 
 diff :: MonadIO m => Text -> ExceptT Text m Text
 diff branch = readProcessInterleavedNoIndexIssue_ $ procGit ["diff", T.unpack branch]
+
+diffNameOnly :: MonadIO m => Text -> ExceptT Text m Text
+diffNameOnly branch = readProcessInterleavedNoIndexIssue_ $ procGit ["diff", "--name-only", T.unpack branch]
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
