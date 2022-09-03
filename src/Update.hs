@@ -44,10 +44,12 @@ import qualified Rewrite
 import qualified Skiplist
 import qualified Time
 import Utils
-  ( Options (..),
+  ( Boundary (..),
+    Options (..),
     URL,
     UpdateEnv (..),
     Version,
+    VersionMatcher (..),
     branchName,
     logDir,
     parseUpdates,
@@ -256,9 +258,11 @@ checkExistingUpdate log updateEnv existingCommitMsg attrPath = do
       lift $ log
         [interpolate|An auto update branch exists with message `$msg`. New version is $nV.|]
 
-      if U.titleTargetsSameVersion updateEnv msg
-      then throwError "An auto update branch exists targeting the same version"
-      else lift $ log "The auto update branch does not match the new version."
+      case U.titleVersion msg of
+        Just branchV | Version.matchVersion (RangeMatcher (Including nV) Unbounded) branchV ->
+          throwError "An auto update branch exists with an equal or greater version"
+        _ ->
+          lift $ log "The auto update branch does not match or exceed the new version."
 
   -- Note that this check looks for PRs with the same old and new
   -- version numbers, so it won't stop us from updating an existing PR

@@ -23,7 +23,7 @@ module Utils
     runLog,
     srcOrMain,
     stripQuotes,
-    titleTargetsSameVersion,
+    titleVersion,
     whenBatch,
     regDirMode,
     outpathCacheDir,
@@ -135,10 +135,10 @@ prTitle updateEnv attrPath =
       nV = newVersion updateEnv
    in T.strip [interpolate| $attrPath: $oV -> $nV |]
 
-titleTargetsSameVersion :: UpdateEnv -> Text -> Bool
-titleTargetsSameVersion updateEnv = T.isSuffixOf [interpolate| -> $nV |]
+titleVersion :: Text -> Maybe Version
+titleVersion title = if T.null prefix then Nothing else Just suffix
   where
-    nV = newVersion updateEnv
+    (prefix, suffix) = T.breakOnEnd " -> " title
 
 regDirMode :: FileMode
 regDirMode =
