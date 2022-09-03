@@ -12,7 +12,6 @@ module Nix
     getChangelog,
     getDerivationFile,
     getDescription,
-    getDrvAttr,
     getHash,
     getHashFromBuild,
     getHomepage,
@@ -20,17 +19,14 @@ module Nix
     getIsBroken,
     getMaintainers,
     getOldHash,
-    getOutpaths,
     getPatches,
     getSrcUrl,
-    getSrcUrls,
     hasPatchNamed,
     hasUpdateScript,
     lookupAttrPath,
     nixEvalET,
     numberOfFetchers,
     numberOfHashes,
-    parseStringList,
     resultLink,
     runUpdateScript,
     fakeHash,
@@ -43,7 +39,6 @@ import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
-import qualified Data.Vector as V
 import qualified Git
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
@@ -52,9 +47,6 @@ import qualified System.Process.Typed as TP
 import qualified Process
 import qualified Process as P
 import System.Exit
-import Text.Parsec (parse)
-import Text.Parser.Combinators
-import Text.Parser.Token
 import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
 import Prelude hiding (log)
 
@@ -143,11 +135,6 @@ getDerivationFile attrPath = do
     & ourReadProcess_
     & fmapRT (fst >>> T.strip >>> T.stripPrefix (T.pack npDir <> "/") >>> fromJust)
 
-getDrvAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getDrvAttr drvAttr =
-  srcOrMain
-    (\attrPath -> nixEvalET (EvalOptions Raw (Env [])) ("pkgs." <> attrPath <> ".drvAttrs." <> drvAttr))
-
 -- Get an attribute that can be evaluated off a derivation, as in:
 -- getAttr "cargoSha256" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
 getAttr :: MonadIO m => Raw -> Text -> Text -> ExceptT Text m Text
@@ -172,20 +159,6 @@ getMaintainers attrPath =
         <> attrPath
         <> ".meta.maintainers or []))))"
     )
-
-parseStringList :: MonadIO m => Text -> ExceptT Text m (Vector Text)
-parseStringList list =
-  parse nixStringList ("nix list " ++ T.unpack list) list & fmapL tshow
-    & hoistEither
-
-nixStringList :: TokenParsing m => m (Vector Text)
-nixStringList = V.fromList <$> brackets (many stringLiteral)
-
-getOutpaths :: MonadIO m => Text -> ExceptT Text m (Vector Text)
-getOutpaths attrPath = do
-  list <- nixEvalET (EvalOptions NoRaw (Env [("GC_INITIAL_HEAP_SIZE", "10g")])) (attrPath <> ".outputs")
-  outputs <- parseStringList list
-  V.sequence $ fmap (\o -> nixEvalET (EvalOptions Raw (Env [])) (attrPath <> "." <> o)) outputs
 
 readNixBool :: MonadIO m => ExceptT Text m Text -> ExceptT Text m Bool
 readNixBool t = do
@@ -256,13 +229,6 @@ getSrcUrl =
               <> ".drvAttrs.urls 0)"
           )
     )
-
-getSrcAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getSrcAttr attr =
-  srcOrMain (\attrPath -> nixEvalET (EvalOptions NoRaw (Env [])) ("pkgs." <> attrPath <> "." <> attr))
-
-getSrcUrls :: MonadIO m => Text -> ExceptT Text m Text
-getSrcUrls = getSrcAttr "urls"
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =

@@ -23,13 +23,13 @@ baseUrl = BaseUrl Https "repology.org" 443 "/api/v1"
 
 type Metapackage = Vector Package
 
-compareMetapackage :: Metapackage -> Metapackage -> Ordering
-compareMetapackage ps1 ps2 = compareMetapackage' (ps1 V.!? 0) (ps2 V.!? 0)
-  where
-    compareMetapackage' (Just p1) (Just p2) = compare (name p1) (name p2)
-    compareMetapackage' Nothing (Just _) = LT
-    compareMetapackage' (Just _) Nothing = GT
-    compareMetapackage' _ _ = EQ
+-- compareMetapackage :: Metapackage -> Metapackage -> Ordering
+-- compareMetapackage ps1 ps2 = compareMetapackage' (ps1 V.!? 0) (ps2 V.!? 0)
+--   where
+--     compareMetapackage' (Just p1) (Just p2) = compare (name p1) (name p2)
+--     compareMetapackage' Nothing (Just _) = LT
+--     compareMetapackage' (Just _) Nothing = GT
+--     compareMetapackage' _ _ = EQ
 
 type Metapackages = HashMap Text Metapackage
 
@@ -87,8 +87,8 @@ metapackage :<|> metapackages :<|> metapackages' = client api
 lastMetapackageName :: Metapackages -> Maybe Text
 lastMetapackageName = keys >>> sort >>> Prelude.reverse >>> headMay
 
-sortedMetapackages :: Metapackages -> Vector Metapackage
-sortedMetapackages = elems >>> sortBy compareMetapackage >>> V.fromList
+-- sortedMetapackages :: Metapackages -> Vector Metapackage
+-- sortedMetapackages = elems >>> sortBy compareMetapackage >>> V.fromList
 
 nixRepo :: Text
 nixRepo = "nix_unstable"

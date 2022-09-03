@@ -34,12 +34,6 @@ procTree = proc treeBin
 gistBin :: String
 gistBin = fromJust ($$(envQ "GIST") :: Maybe String) <> "/bin/gist"
 
-procGist :: [String] -> ProcessConfig () () ()
-procGist = proc gistBin
-
-timeoutBin :: String
-timeoutBin = fromJust ($$(envQ "TIMEOUT") :: Maybe String) <> "/bin/timeout"
-
 data BinaryCheck = BinaryCheck
   { filePath :: FilePath,
     zeroExitCode :: Bool,
@@ -95,16 +89,6 @@ checkTestsBuildReport False =
   "- Warning: a test defined in `passthru.tests` did not pass"
 checkTestsBuildReport True =
   "- The tests defined in `passthru.tests`, if any, passed"
-
-ourLockedDownReadProcessInterleaved ::
-  MonadIO m =>
-  ProcessConfig stdin stdoutIgnored stderrIgnored ->
-  FilePath ->
-  ExceptT Text m (ExitCode, Text)
-ourLockedDownReadProcessInterleaved processConfig tempDir =
-  processConfig & setWorkingDir tempDir
-    & setEnv [("EDITOR", "echo"), ("HOME", "/we-dont-write-to-home")]
-    & ourReadProcessInterleaved
 
 foundVersionInOutputs :: Text -> String -> IO (Maybe Text)
 foundVersionInOutputs expectedVersion resultPath =
