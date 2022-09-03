@@ -18,14 +18,12 @@ module Utils
     logDir,
     nixBuildOptions,
     nixCommonOptions,
-    overwriteErrorT,
     parseUpdates,
     prTitle,
     runLog,
     srcOrMain,
     stripQuotes,
     titleTargetsSameVersion,
-    tRead,
     whenBatch,
     regDirMode,
     outpathCacheDir,
@@ -225,9 +223,6 @@ logDir = do
     Right dir -> return dir
     Left e -> error $ T.unpack e
 
-overwriteErrorT :: MonadIO m => Text -> ExceptT Text m a -> ExceptT Text m a
-overwriteErrorT t = fmapLT (const t)
-
 branchPrefix :: Text
 branchPrefix = "auto-update/"
 
@@ -241,9 +236,6 @@ parseUpdates = map (toTriple . T.words) . T.lines
     toTriple [package, oldVer, newVer] = Right (package, oldVer, newVer, Nothing)
     toTriple [package, oldVer, newVer, url] = Right (package, oldVer, newVer, Just url)
     toTriple line = Left $ "Unable to parse update: " <> T.unwords line
-
-tRead :: Read a => Text -> a
-tRead = read . T.unpack
 
 srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
 srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath

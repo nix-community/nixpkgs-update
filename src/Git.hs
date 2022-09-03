@@ -5,7 +5,6 @@ module Git
   ( findAutoUpdateBranchMessage,
     mergeBase,
     cleanAndResetTo,
-    cleanup,
     commit,
     deleteBranchesEverywhere,
     delete1,
@@ -101,13 +100,6 @@ cleanAndResetTo branch =
 show :: MonadIO m => Text -> Text -> ExceptT Text m Text
 show branch file =
   readProcessInterleavedNoIndexIssue_ $ silently $ procGit ["show", T.unpack ("remotes/upstream/" <> branch <> ":" <> file)]
-
-cleanup :: MonadIO m => Text -> ExceptT Text m ()
-cleanup bName = do
-  liftIO $ T.putStrLn ("Cleaning up " <> bName)
-  cleanAndResetTo "master"
-  runProcessNoIndexIssue_ (delete1' bName)
-    <|> liftIO (T.putStrLn ("Couldn't delete " <> bName))
 
 diff :: MonadIO m => Text -> ExceptT Text m Text
 diff branch = readProcessInterleavedNoIndexIssue_ $ procGit ["diff", T.unpack branch]

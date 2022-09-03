@@ -13,8 +13,6 @@ module GH
     closedAutoUpdateRefs,
     compareUrl,
     latestVersion,
-    openAutoUpdatePR,
-    openPullRequests,
     pr,
     prUpdate,
   )
@@ -177,23 +175,6 @@ closedAutoUpdateRefs auth ghUser =
   runExceptT $ do
     aur :: Vector Text <- ExceptT $ GH.autoUpdateRefs auth ghUser
     ExceptT (Right <$> V.filterM (refShouldBeDeleted auth ghUser) aur)
-
--- This is too slow
-openPullRequests :: Text -> IO (Either Text (Vector GH.SimplePullRequest))
-openPullRequests githubToken =
-  GH.executeRequest
-    (GH.OAuth (T.encodeUtf8 githubToken))
-    (GH.pullRequestsForR "nixos" "nixpkgs" GH.stateOpen GH.FetchAll)
-    & fmap (first (T.pack . show))
-
-openAutoUpdatePR :: UpdateEnv -> Vector GH.SimplePullRequest -> Bool
-openAutoUpdatePR updateEnv oprs = oprs & (V.find isThisPkg >>> isJust)
-  where
-    isThisPkg simplePullRequest =
-      let title = GH.simplePullRequestTitle simplePullRequest
-          titleHasName = (packageName updateEnv <> ":") `T.isPrefixOf` title
-          titleHasNewVersion = newVersion updateEnv `T.isSuffixOf` title
-       in titleHasName && titleHasNewVersion
 
 authFromToken :: Text -> GH.Auth
 authFromToken = GH.OAuth . T.encodeUtf8
