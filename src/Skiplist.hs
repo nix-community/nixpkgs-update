@@ -147,6 +147,7 @@ contentList =
     infixOf "bundlerEnv" "Derivation contains bundlerEnv",
     infixOf "buildPerlPackage" "Derivation contains buildPerlPackage",
     -- Specific skips for classes of packages
+    infixOf "gnome" "Do not update GNOME during a release cycle",
     infixOf "goDeps" "Derivation contains goDeps attribute",
     infixOf "https://downloads.haskell.org/ghc/" "GHC packages are versioned per file"
   ]
