@@ -238,7 +238,7 @@ parseUpdates = map (toTriple . T.words) . T.lines
     toTriple line = Left $ "Unable to parse update: " <> T.unwords line
 
 srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
-srcOrMain et attrPath = et (attrPath <> ".src") <|> et attrPath
+srcOrMain et attrPath = et (attrPath <> ".src") <|> et (attrPath <> ".originalSrc") <|> et attrPath
 
 nixCommonOptions :: [String]
 nixCommonOptions =
