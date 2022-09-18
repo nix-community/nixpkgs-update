@@ -66,6 +66,8 @@ Some attrpaths have versions appended to the end of them, like `ruby_3_0`, the n
 
 If `nix edit $attrpath` does not open the correct file that contains the version string and fetcher hash, the update will fail.
 
+This might not work, for example, if a package doesn't have a `meta` attr (at all, or if the package uses a builder function that is discarding the `meta` attr).
+
 ### Update already merged
 
 If the update is already on `master`, `staging`, or `staging-next`, the update will fail.
@@ -73,6 +75,8 @@ If the update is already on `master`, `staging`, or `staging-next`, the update w
 ### Can't find hash or source url
 
 If the derivation file has no hash or source URL, it will fail.
+
+Since `nixpkgs-update` is trying to read these from `<pkg>.src`, this can also happen if the package's source is something unexpected such as another package. You can set the fallback `originalSrc` attr so that `nixpkgs-update` can find the correct source in cases like this.
 
 ### No updateScript and no version
 
