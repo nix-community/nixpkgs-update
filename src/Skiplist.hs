@@ -84,7 +84,8 @@ attrPathList =
     eq "imagemagickBig" "same file and version as imagemagick",
     prefix
       "cinnamon"
-      "asked to skip for now https://github.com/NixOS/nixpkgs/pull/201328#issuecomment-1315439364"
+      "asked to skip for now https://github.com/NixOS/nixpkgs/pull/201328#issuecomment-1315439364",
+    eq "libheimdal" "alias of heimdal"
   ]
 
 nameList :: Skiplist
