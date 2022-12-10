@@ -249,8 +249,9 @@ checkExistingUpdate ::
   UpdateEnv ->
   Maybe Text ->
   Text ->
+  Text ->
   ExceptT Text IO ()
-checkExistingUpdate log updateEnv existingCommitMsg attrPath = do
+checkExistingUpdate log updateEnv existingCommitMsg srcUrl attrPath = do
   case existingCommitMsg of
     Nothing -> lift $ log "No auto update branch exists"
     Just msg -> do
@@ -267,7 +268,7 @@ checkExistingUpdate log updateEnv existingCommitMsg attrPath = do
   -- Note that this check looks for PRs with the same old and new
   -- version numbers, so it won't stop us from updating an existing PR
   -- if this run updates the package to a newer version.
-  GH.checkExistingUpdatePR updateEnv attrPath
+  GH.checkExistingUpdatePR updateEnv attrPath srcUrl
 
 updateAttrPath ::
   (Text -> IO ()) ->
@@ -281,6 +282,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
 
   successOrFailure <- runExceptT $ do
     hasUpdateScript <- Nix.hasUpdateScript attrPath
+    oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
 
     existingCommitMsg <- fmap getAlt . execWriterT $
       whenBatch updateEnv do
@@ -290,7 +292,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
           mbLastCommitMsg <- lift $ Git.findAutoUpdateBranchMessage packageName
           tell $ Alt mbLastCommitMsg
           unless hasUpdateScript do
-            lift $ checkExistingUpdate log updateEnv mbLastCommitMsg attrPath
+            lift $ checkExistingUpdate log updateEnv mbLastCommitMsg attrPath oldSrcUrl
 
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
@@ -314,7 +316,6 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
     oldHash <- Nix.getOldHash attrPath <|> pure ""
-    oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     oldRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
     oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
 
@@ -383,17 +384,18 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       assertNotUpdatedOn updateEnv' derivationFile "master"
       assertNotUpdatedOn updateEnv' derivationFile "staging"
       assertNotUpdatedOn updateEnv' derivationFile "staging-next"
+
     whenBatch updateEnv do
       when pr do
         when hasUpdateScript do
-          checkExistingUpdate log updateEnv' existingCommitMsg attrPath
+          checkExistingUpdate log updateEnv' existingCommitMsg attrPath newSrcUrl
 
     Nix.build attrPath
 
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
-    result <- Nix.resultLink  
+    result <- Nix.resultLink
     let opReport =
           if isJust skipOutpathBase
           then "Outpath calculations were skipped for this package; total number of rebuilds unknown."
@@ -459,6 +461,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
           metaDescription
           metaHomepage
           metaChangelog
+          newSrcUrl
           rewriteMsgs
           releaseUrl
           compareUrl
@@ -498,6 +501,7 @@ prMessage ::
   Text ->
   Text ->
   Text ->
+  Text ->
   [Text] ->
   Text ->
   Text ->
@@ -511,7 +515,7 @@ prMessage ::
   Text ->
   Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitRev attrPath maintainers resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
+prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog newSrcUrl rewriteMsgs releaseUrl compareUrl resultCheckReport commitRev attrPath maintainers resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
   -- Some components of the PR description are pre-generated prior to calling
   -- because they require IO, but in general try to put as much as possible for
   -- the formatting into the pure function so that we can control the body
@@ -542,6 +546,8 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
         if compareUrl == T.empty
           then ""
           else "- [Compare changes on GitHub](" <> compareUrl <> ")"
+      -- Needed for search of existing PRs
+      newSrcUrlLine = "- new src url: " <> newSrcUrl
       nixpkgsReviewSection =
         if nixpkgsReviewMsg == T.empty
           then "NixPkgs review skipped"
@@ -574,6 +580,8 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
        $rewriteMsgsLine
 
        ###### To inspect upstream changes
+
+       $newSrcUrlLine
 
        $releaseUrlMessage
 

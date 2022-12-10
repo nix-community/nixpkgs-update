@@ -182,23 +182,34 @@ authFromToken = GH.OAuth . T.encodeUtf8
 authFrom :: UpdateEnv -> GH.Auth
 authFrom = authFromToken . U.githubToken . options
 
-checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
-checkExistingUpdatePR env attrPath = do
+checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
+checkExistingUpdatePR env attrPath srcUrl = do
   searchResult <-
     ExceptT $
       liftIO $
         GH.github (authFrom env) (GH.searchIssuesR search)
           & fmap (first (T.pack . show))
-  if T.length (openPRReport searchResult) == 0
-    then return ()
-    else
-      throwE
-        ( "There might already be an open PR for this update:\n"
-            <> openPRReport searchResult
-        )
+  when (T.length (openPRReport searchResult) /= 0)
+    (throwE
+    ( "There might already be an open PR for this update:\n"
+      <> openPRReport searchResult))
+
+  srcUrlSearchResult <-
+    ExceptT $
+      liftIO $
+        GH.github (authFrom env) (GH.searchIssuesR srcUrlSearch)
+          & fmap (first (T.pack . show))
+
+  when (srcUrl /= T.empty && T.length (openPRReport srcUrlSearchResult) /= 0)
+    (throwE
+    ( "There might already be an open PR for this update:\n"
+      <> openPRReport searchResult))
+
+  return ()
   where
     title = U.prTitle env attrPath
     search = [interpolate|repo:nixos/nixpkgs $title |]
+    srcUrlSearch = [interpolate|new src url: $srcUrl |]
     openPRReport searchResult =
       GH.searchResultResults searchResult
         & V.filter (GH.issueClosedAt >>> isNothing)
