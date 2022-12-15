@@ -298,7 +298,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
 
     let skipOutpathBase = either Just (const Nothing) $ Skiplist.skipOutpathCalc packageName
 
-    derivationFile <- either pure (const $ Nix.getDerivationFile attrPath) $ Skiplist.overrideDerivationFile packageName
+    derivationFile <- Nix.getDerivationFile attrPath
     unless hasUpdateScript do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
@@ -380,9 +380,11 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
         else return updateEnv
 
     when hasUpdateScript do
-      assertNotUpdatedOn updateEnv' derivationFile "master"
-      assertNotUpdatedOn updateEnv' derivationFile "staging"
-      assertNotUpdatedOn updateEnv' derivationFile "staging-next"
+      changedFiles <- Git.diffFileNames mergeBase
+      let rewrittenFile = case changedFiles of { [f] -> f; _ -> derivationFile }
+      assertNotUpdatedOn updateEnv' rewrittenFile "master"
+      assertNotUpdatedOn updateEnv' rewrittenFile "staging"
+      assertNotUpdatedOn updateEnv' rewrittenFile "staging-next"
     whenBatch updateEnv do
       when pr do
         when hasUpdateScript do
