@@ -288,6 +288,7 @@ resultLink =
   T.strip
     <$> ( ourReadProcessInterleaved_ "readlink ./result"
             <|> ourReadProcessInterleaved_ "readlink ./result-bin"
+            <|> ourReadProcessInterleaved_ "readlink ./result-dev"
         )
     <|> throwE "Could not find result link. "
 
