@@ -10,8 +10,10 @@
   outputs = { self, nixpkgs, mmdoc } @ args:
     {
       packages.x86_64-linux = import ./pkgs/default.nix (args // { system = "x86_64-linux"; });
-      devShell.x86_64-linux = self.packages."x86_64-linux".devShell;
-      packages.x86_64-darwin = import ./pkgs/default.nix (args // { system = "x86_64-darwin"; });
-      devShell.x86_64-darwin = self.packages."x86_64-darwin".devShell;
+      devShells.x86_64-linux.default = self.packages."x86_64-linux".devShell;
+
+      # nix flake check is broken for these when run on x86_64-linux
+      # packages.x86_64-darwin = import ./pkgs/default.nix (args // { system = "x86_64-darwin"; });
+      # devShells.x86_64-darwin.default = self.packages."x86_64-darwin".devShell;
     };
 }
