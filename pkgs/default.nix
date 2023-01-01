@@ -66,6 +66,7 @@ let
 in
 {
   nixpkgs-update = haskellPackages.nixpkgs-update;
+  default = haskellPackages.nixpkgs-update;
   nixpkgs-update-doc = doc;
   devShell = shell;
 }

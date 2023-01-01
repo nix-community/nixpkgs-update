@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "flake-compat": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1627913399,
-        "narHash": "sha256-hY8g6H2KFL8ownSiFeMOjwPC8P0ueXpCVEbxgda3pko=",
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "rev": "12c64ca55c1014cdc1b16ed5a804aa8576601ff2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "type": "github"
-      }
-    },
     "mmdoc": {
       "inputs": {
         "nixpkgs": [
@@ -24,11 +8,11 @@
         "nixpkgs-for-manual": "nixpkgs-for-manual"
       },
       "locked": {
-        "lastModified": 1648942939,
-        "narHash": "sha256-IvXTQcv32LptJGxHjffji1f0XyG+wh566YJuS5dEcoo=",
+        "lastModified": 1669050835,
+        "narHash": "sha256-4ppYRBBY6lIqwMNYp0XA2mku1lSPyX4JaoTf+gt5NDg=",
         "owner": "ryantm",
         "repo": "mmdoc",
-        "rev": "a308fd7ef02241216aac5dfa2c584b37fca3c26a",
+        "rev": "cec02bafac9456bd1ed9b261b8d163a893885e5b",
         "type": "github"
       },
       "original": {
@@ -39,26 +23,25 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1629859457,
-        "narHash": "sha256-JlAU1EboVCOJeMXNLJusf+0vnx++xK1Y4DW5y80zMfY=",
-        "owner": "nixos",
+        "lastModified": 1672428209,
+        "narHash": "sha256-eejhqkDz2cb2vc5VeaWphJz8UXNuoNoM8/Op8eWv2tQ=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "12613bf6d91543db59de89e231eafab72f4dc2e8",
+        "rev": "293a28df6d7ff3dec1e61e37cc4ee6e6c0fb0847",
         "type": "github"
       },
       "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "type": "github"
+        "id": "nixpkgs",
+        "type": "indirect"
       }
     },
     "nixpkgs-for-manual": {
       "locked": {
-        "lastModified": 1644686402,
-        "narHash": "sha256-qxQKjsj51pIQ6qJrLOw93m9z+vJCngpRLfPgp2Ib28Q=",
+        "lastModified": 1663819393,
+        "narHash": "sha256-SMWfyAOKRPBC95M8dhZJTlb0kHyilr2lKEAfQSHlM7I=",
         "owner": "ryantm",
         "repo": "nixpkgs",
-        "rev": "78d909765da7e23d5d5d59993bca0ee6a9e3d3ba",
+        "rev": "6a6caacfdd079a0fa249046514480a1c4597d861",
         "type": "github"
       },
       "original": {
@@ -70,7 +53,6 @@
     },
     "root": {
       "inputs": {
-        "flake-compat": "flake-compat",
         "mmdoc": "mmdoc",
         "nixpkgs": "nixpkgs"
       }
