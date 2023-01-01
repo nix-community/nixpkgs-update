@@ -42,7 +42,6 @@ import OurPrelude
 import qualified Outpaths
 import qualified Rewrite
 import qualified Skiplist
-import qualified Time
 import Utils
   ( Boundary (..),
     Options (..),
@@ -73,9 +72,7 @@ alsoLogToAttrPath attrPath topLevelLog = do
     attrPathLog text
 
 log' :: MonadIO m => FilePath -> Text -> m ()
-log' logFile msg = do
-  runDate <- liftIO $ runM $ Time.runIO Time.runDate
-  liftIO $ T.appendFile logFile (runDate <> " " <> msg <> "\n")
+log' logFile msg = liftIO $ T.appendFile logFile (msg <> "\n")
 
 attrPathLogFilePath :: Text -> IO String
 attrPathLogFilePath attrPath = do

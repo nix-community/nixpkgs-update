@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: def1de08738307f72bfcf97a872a2ff951f83ee880a9f6bcad482b8145b880fc
+-- hash: a211130dbcad57cde6ded74551b5390d00263e875e811750d2e3f168e96fcccf
 
 name:           nixpkgs-update
 version:        0.4.0
@@ -45,7 +45,6 @@ library
       Repology
       Rewrite
       Skiplist
-      Time
       Update
       Utils
       Version

@@ -28,6 +28,5 @@ spec = do
           "-fspecialise-aggressively",
           "-fplugin=Polysemy.Plugin",
           "src/Version.hs",
-          "src/GH.hs",
-          "src/Time.hs"
+          "src/GH.hs"
         ]
