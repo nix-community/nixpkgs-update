@@ -4,7 +4,7 @@ module Time where
 
 import qualified Data.Text as T
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
-import Data.Time.Format (defaultTimeLocale, formatTime, iso8601DateFormat)
+import Data.Time.Format.ISO8601 (iso8601Show)
 import OurPrelude
 
 data Time m a where
@@ -25,7 +25,7 @@ runPure t =
 -- | Return the UTC time 1 hour ago
 
 -- $setup
--- >>> import Data.Time.Format (parseTimeOrError)
+-- >>> import Data.Time.Format (parseTimeOrError, defaultTimeLocale)
 -- >>> let exampleCurrentTime = parseTimeOrError False defaultTimeLocale "%Y-%-m-%-d" "2019-06-06" :: UTCTime
 --
 -- Examples:
@@ -47,14 +47,9 @@ twoHoursAgo = now <&> addUTCTime (fromInteger $ -60 * 60 * 2)
 
 -- | Return the current ISO8601 date and time without timezone
 --
--- TODO: switch to Data.Time.Format.ISO8601 once time-1.9.0 is available
--- unix depends on an earlier version currently https://github.com/haskell/unix/issues/131
---
 -- Examples:
 --
 -- >>> run $ runPure exampleCurrentTime runDate
--- "2019-06-06T00:00:00"
+-- "2019-06-06T00:00:00Z"
 runDate :: Member Time r => Sem r Text
-runDate =
-  now <&> formatTime defaultTimeLocale (iso8601DateFormat (Just "%H:%M:%S"))
-    <&> T.pack
+runDate = now <&> iso8601Show <&> T.pack

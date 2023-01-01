@@ -36,7 +36,7 @@ import OurPrelude hiding (throw)
 import System.Directory (doesDirectoryExist, doesFileExist, getModificationTime, getCurrentDirectory, setCurrentDirectory)
 import System.Environment (getEnv)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
-import System.Exit
+import System.Exit()
 import System.IO.Error (tryIOError)
 import System.Posix.Env (setEnv)
 import qualified System.Process.Typed

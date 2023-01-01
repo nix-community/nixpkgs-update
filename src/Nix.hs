@@ -46,7 +46,7 @@ import qualified Polysemy.Error as Error
 import qualified System.Process.Typed as TP
 import qualified Process
 import qualified Process as P
-import System.Exit
+import System.Exit()
 import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
 import Prelude hiding (log)
 

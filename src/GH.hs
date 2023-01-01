@@ -187,7 +187,7 @@ checkExistingUpdatePR env attrPath = do
   searchResult <-
     ExceptT $
       liftIO $
-        GH.github (authFrom env) (GH.searchIssuesR search)
+        (GH.github (authFrom env) (GH.searchIssuesR search) GH.FetchAll)
           & fmap (first (T.pack . show))
   if T.length (openPRReport searchResult) == 0
     then return ()

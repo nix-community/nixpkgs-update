@@ -18,7 +18,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
-import System.Exit
+import System.Exit()
 import Text.Regex.Applicative.Text (RE', (=~))
 import qualified Text.Regex.Applicative.Text as RE
 import Utils (UpdateEnv (..), nixBuildOptions)

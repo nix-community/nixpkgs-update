@@ -198,7 +198,7 @@ updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) = do
       log $ "Failed to update: " <> updateInfoLine
       if ".0" `T.isSuffixOf` newVer
         then
-          let Just newNewVersion = ".0" `T.stripSuffix` newVer
+          let newNewVersion = fromJust (".0" `T.stripSuffix` newVer)
           in updateLoop
              o
              log
@@ -368,8 +368,8 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       if hasUpdateScript
         then do
           -- Already checked that these are Just above.
-          let Just oldVer = oldVerMay
-          let Just newVer = newVerMay
+          let oldVer = fromJust oldVerMay
+          let newVer = fromJust newVerMay
           return $
             UpdateEnv
               packageName

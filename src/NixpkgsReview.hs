@@ -15,7 +15,7 @@ import OurPrelude
 import Polysemy.Output (Output, output)
 import qualified Process as P
 import System.Environment.XDG.BaseDir (getUserCacheDir)
-import System.Exit (ExitCode (..))
+import System.Exit ()
 import qualified Utils
 import Prelude hiding (log)
 

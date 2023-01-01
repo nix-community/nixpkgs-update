@@ -27,7 +27,7 @@ import OurPrelude
 import qualified Polysemy.Error as Error
 import Polysemy.Output (Output, output)
 import qualified Process
-import System.Exit
+import System.Exit()
 import Utils (UpdateEnv (..))
 import qualified Utils
   ( runLog,

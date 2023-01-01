@@ -23,6 +23,7 @@ import Data.Aeson
     (.!=),
     (.:),
     (.:!),
+    Key,
   )
 import Data.Aeson.Types (Parser, prependFailure)
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -289,13 +290,13 @@ cpeMatches = concatMap rows
   where
     rows cve = fmap (CPEMatchRow cve) (cveCPEMatches cve)
 
-guardAttr :: (Eq a, FromJSON a, Show a) => Object -> Text -> a -> Parser ()
+guardAttr :: (Eq a, FromJSON a, Show a) => Object -> Key -> a -> Parser ()
 guardAttr object attribute expected = do
   actual <- object .: attribute
   unless (actual == expected) $
     fail $
       "unexpected "
-        <> T.unpack attribute
+        <> show attribute
         <> ", expected "
         <> show expected
         <> ", got "
