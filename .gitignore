@@ -1,6 +1,5 @@
 .ghc*
 /github_token.txt
-/nixpkgs-update.nix
 /packages-to-update.txt
 /result
 /result-doc

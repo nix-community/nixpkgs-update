@@ -31,13 +31,14 @@ let
     overrides = _: haskellPackages: {
       polysemy-plugin = pkgs.haskell.lib.dontCheck haskellPackages.polysemy-plugin;
       polysemy = pkgs.haskell.lib.dontCheck haskellPackages.polysemy;
+      http-api-data = pkgs.haskell.lib.doJailbreak haskellPackages.http-api-data;
       nixpkgs-update =
         pkgs.haskell.lib.justStaticExecutables (
           pkgs.haskell.lib.failOnAllWarnings (
             pkgs.haskell.lib.disableExecutableProfiling (
               pkgs.haskell.lib.disableLibraryProfiling (
                 pkgs.haskell.lib.generateOptparseApplicativeCompletion "nixpkgs-update" (
-                  (haskellPackages.developPackage developPackageAttrs).overrideAttrs drvAttrs
+                  (haskellPackages.callPackage ../nixpkgs-update.nix {}).overrideAttrs drvAttrs
                 )
               )
             )
@@ -50,6 +51,7 @@ let
     nativeBuildInputs = with pkgs; [
       cabal-install
       ghcid
+      haskellPackages.cabal2nix
     ];
     packages = ps: [ ps.nixpkgs-update ];
     shellHook = ''
