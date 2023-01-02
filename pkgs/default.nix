@@ -9,12 +9,6 @@ let
 
   pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
 
-  developPackageAttrs = {
-    name = "nixpkgs-update";
-    root = self;
-    returnShellEnv = false;
-  };
-
   drvAttrs = attrs: with pkgs; {
     NIX = nix;
     GIT = git;
@@ -38,7 +32,7 @@ let
             pkgs.haskell.lib.disableExecutableProfiling (
               pkgs.haskell.lib.disableLibraryProfiling (
                 pkgs.haskell.lib.generateOptparseApplicativeCompletion "nixpkgs-update" (
-                  (haskellPackages.callPackage ../nixpkgs-update.nix {}).overrideAttrs drvAttrs
+                  (haskellPackages.callPackage ../nixpkgs-update.nix { }).overrideAttrs drvAttrs
                 )
               )
             )
