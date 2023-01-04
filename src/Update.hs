@@ -312,8 +312,8 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     derivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
     oldHash <- Nix.getHash attrPath <|> pure ""
     oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
-    oldRev <- Nix.getAttr "rev" attrPath <|> pure ""
-    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+    oldRev <- Nix.getAttrString "rev" attrPath <|> pure ""
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttrString "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
@@ -340,8 +340,8 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     updatedDerivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     newHash <- Nix.getHash attrPath <|> pure ""
-    newRev <- Nix.getAttr "rev" attrPath <|> pure ""
-    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
+    newRev <- Nix.getAttrString "rev" attrPath <|> pure ""
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttrString "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"

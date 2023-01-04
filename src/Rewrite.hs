@@ -162,7 +162,7 @@ rustCrateVersion log args@Args {..} = do
         -- This starts the same way `version` does, minus the assert
         srcVersionFix args
         -- But then from there we need to do this a second time for the cargoSha256!
-        oldCargoSha256 <- Nix.getAttr "cargoSha256" attrPath
+        oldCargoSha256 <- Nix.getAttrString "cargoSha256" attrPath
         _ <- lift $ File.replaceIO oldCargoSha256 Nix.fakeHash derivationFile
         newCargoSha256 <- Nix.getHashFromBuild attrPath
         when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
@@ -191,7 +191,7 @@ golangModuleVersion log args@Args {..} = do
         srcVersionFix args
         -- But then from there we need to do this a second time for the vendorSha256!
         -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
-        oldVendorSha256 <- (Nix.getAttr "vendorSha256" attrPath <|> Nix.getAttr "vendorSha256" attrPath)
+        oldVendorSha256 <- (Nix.getAttrString "vendorSha256" attrPath <|> Nix.getAttrString "vendorSha256" attrPath)
         lift . log $ "Found old vendorSha256 = " <> oldVendorSha256
         original <- liftIO $ T.readFile derivationFile
         _ <- lift $ File.replaceIO ("\"" <> oldVendorSha256 <> "\"") "null" derivationFile

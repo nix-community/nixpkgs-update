@@ -8,7 +8,7 @@ module Nix
     binPath,
     build,
     cachix,
-    getAttr,
+    getAttrString,
     getChangelog,
     getDerivationFile,
     getDescription,
@@ -129,7 +129,7 @@ lookupAttrPath updateEnv =
     & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head))
   <|>
   -- if that fails, check by attrpath
-  (getAttr "name" (packageName updateEnv))
+  (getAttrString "name" (packageName updateEnv))
   & fmapRT (const (packageName updateEnv))
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
