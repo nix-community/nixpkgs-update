@@ -100,15 +100,12 @@ quotedUrls :: (Text -> IO ()) -> Args -> ExceptT Text IO (Maybe Text)
 quotedUrls log Args {..} = do
   lift $ log "[quotedUrls]"
   homepage <- Nix.getHomepage attrPath
-  stripped <- case Utils.stripQuotes homepage of
-    Nothing -> throwE "Could not strip url! This should never happen!"
-    Just x -> pure x
   let goodHomepage = "homepage = " <> homepage <> ";"
   let replacer = \target -> File.replaceIO target goodHomepage derivationFile
-  urlReplaced1 <- replacer ("homepage = " <> stripped <> ";")
-  urlReplaced2 <- replacer ("homepage = " <> stripped <> " ;")
-  urlReplaced3 <- replacer ("homepage =" <> stripped <> ";")
-  urlReplaced4 <- replacer ("homepage =" <> stripped <> "; ")
+  urlReplaced1 <- replacer ("homepage = " <> homepage <> ";")
+  urlReplaced2 <- replacer ("homepage = " <> homepage <> " ;")
+  urlReplaced3 <- replacer ("homepage =" <> homepage <> ";")
+  urlReplaced4 <- replacer ("homepage =" <> homepage <> "; ")
   if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
     then do
       lift $ log "[quotedUrls]: added quotes to meta.homepage"
@@ -121,10 +118,7 @@ quotedUrls log Args {..} = do
 -- Redirect homepage when moved.
 redirectedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 redirectedUrls log Args {..} = do
-  unstripped <- Nix.getHomepage attrPath
-  homepage <- case Utils.stripQuotes unstripped of
-    Nothing -> throwE "Could not strip homepage! This should never happen!"
-    Just x -> pure x
+  homepage <- Nix.getHomepage attrPath
   response <- liftIO $ do
     manager <- HTTP.newManager HTTP.defaultManagerSettings
     request <- HTTP.parseRequest (T.unpack homepage)
