@@ -22,7 +22,6 @@ module Utils
     prTitle,
     runLog,
     srcOrMain,
-    stripQuotes,
     titleVersion,
     whenBatch,
     regDirMode,
@@ -311,6 +310,3 @@ getGithubUser = do
   case hubUser of
     Just usr -> return $ GH.mkOwnerName usr
     Nothing -> return $ GH.mkOwnerName "r-ryantm"
-
-stripQuotes :: Text -> Maybe Text
-stripQuotes = T.stripPrefix "\"" >=> T.stripSuffix "\""

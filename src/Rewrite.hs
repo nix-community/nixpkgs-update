@@ -25,7 +25,6 @@ import qualified Nix
 import OurPrelude
 import System.Exit()
 import Utils (UpdateEnv (..))
-import qualified Utils (stripQuotes)
 import Prelude hiding (log)
 
 {-
