@@ -61,12 +61,22 @@ rawOpt NoRaw = []
 
 nixEvalApply ::
   MonadIO m =>
-  Text -> 
-  Text -> 
+  Text ->
+  Text ->
   ExceptT Text m Text
 nixEvalApply applyFunc attrPath =
   ourReadProcess_
     (proc (binPath <> "/nix") (["eval", ".#" <> T.unpack attrPath, "--apply", T.unpack applyFunc]))
+    & fmapRT (fst >>> T.strip)
+
+nixEvalApplyRaw ::
+  MonadIO m =>
+  Text ->
+  Text ->
+  ExceptT Text m Text
+nixEvalApplyRaw applyFunc attrPath =
+  ourReadProcess_
+    (proc (binPath <> "/nix") (["eval", ".#" <> T.unpack attrPath, "--raw", "--apply", T.unpack applyFunc]))
     & fmapRT (fst >>> T.strip)
 
 nixEvalExpr ::
@@ -134,12 +144,15 @@ getDerivationFile attrPath = do
 getAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getAttr attr = srcOrMain (nixEvalApply ("p: p."<> attr))
 
+getAttrString :: MonadIO m => Text -> Text -> ExceptT Text m Text
+getAttrString attr = srcOrMain (nixEvalApplyRaw ("p: p."<> attr))
+
 getHash :: MonadIO m => Text -> ExceptT Text m Text
-getHash = getAttr "drvAttrs.outputHash"
+getHash = getAttrString "drvAttrs.outputHash"
 
 getMaintainers :: MonadIO m => Text -> ExceptT Text m Text
 getMaintainers =
-  nixEvalApply "p: let gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh p.meta.maintainers or []))"
+  nixEvalApplyRaw "p: let gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh p.meta.maintainers or []))"
 
 readNixBool :: MonadIO m => ExceptT Text m Text -> ExceptT Text m Bool
 readNixBool t = do
@@ -155,17 +168,17 @@ getIsBroken attrPath =
     & readNixBool
 
 getChangelog :: MonadIO m => Text -> ExceptT Text m Text
-getChangelog = nixEvalApply "p: p.meta.changelog or \"\""
+getChangelog = nixEvalApplyRaw "p: p.meta.changelog or \"\""
 
 getDescription :: MonadIO m => Text -> ExceptT Text m Text
-getDescription = nixEvalApply "p: p.meta.description or \"\""
+getDescription = nixEvalApplyRaw "p: p.meta.description or \"\""
 
 getHomepage :: MonadIO m => Text -> ExceptT Text m Text
-getHomepage = nixEvalApply "p: p.meta.homepage or \"\""
+getHomepage = nixEvalApplyRaw "p: p.meta.homepage or \"\""
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrl = srcOrMain
-  (nixEvalApply "p: builtins.elemAt p.drvAttrs.urls 0")
+  (nixEvalApplyRaw "p: builtins.elemAt p.drvAttrs.urls 0")
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
