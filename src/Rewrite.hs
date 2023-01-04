@@ -8,7 +8,6 @@ module Rewrite
     runAll,
     golangModuleVersion,
     quotedUrls,
-    quotedUrlsET,
     rustCrateVersion,
     version,
     redirectedUrls,
@@ -24,15 +23,9 @@ import qualified Network.HTTP.Client as HTTP
 import Network.HTTP.Types.Status (statusCode)
 import qualified Nix
 import OurPrelude
-import qualified Polysemy.Error as Error
-import Polysemy.Output (Output, output)
-import qualified Process
 import System.Exit()
 import Utils (UpdateEnv (..))
-import qualified Utils
-  ( runLog,
-    stripQuotes,
-  )
+import qualified Utils (stripQuotes)
 import Prelude hiding (log)
 
 {-
@@ -69,7 +62,7 @@ plan =
     ("rustCrateVersion", rustCrateVersion),
     ("golangModuleVersion", golangModuleVersion),
     ("updateScript", updateScript),
-    ("", quotedUrlsET) -- Don't change the logger
+    ("", quotedUrls) -- Don't change the logger
     --("redirectedUrl", Rewrite.redirectedUrls)
   ]
 
@@ -103,47 +96,32 @@ version log args@Args {..} = do
 --------------------------------------------------------------------------------
 -- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
 -- already, as per https://github.com/NixOS/rfcs/pull/45
-quotedUrls ::
-  Members '[Process.Process, File.File, Error Text, Output Text] r =>
-  Args ->
-  Sem r (Maybe Text)
-quotedUrls Args {..} = do
-  output "[quotedUrls]"
+quotedUrls :: (Text -> IO ()) -> Args -> ExceptT Text IO (Maybe Text)
+quotedUrls log Args {..} = do
+  lift $ log "[quotedUrls]"
   homepage <- Nix.getHomepage attrPath
   stripped <- case Utils.stripQuotes homepage of
-    Nothing -> throw "Could not strip url! This should never happen!"
+    Nothing -> throwE "Could not strip url! This should never happen!"
     Just x -> pure x
   let goodHomepage = "homepage = " <> homepage <> ";"
-  let replacer = \target -> File.replace target goodHomepage derivationFile
+  let replacer = \target -> File.replaceIO target goodHomepage derivationFile
   urlReplaced1 <- replacer ("homepage = " <> stripped <> ";")
   urlReplaced2 <- replacer ("homepage = " <> stripped <> " ;")
   urlReplaced3 <- replacer ("homepage =" <> stripped <> ";")
   urlReplaced4 <- replacer ("homepage =" <> stripped <> "; ")
   if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
     then do
-      output "[quotedUrls]: added quotes to meta.homepage"
+      lift $ log "[quotedUrls]: added quotes to meta.homepage"
       return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
     else do
-      output "[quotedUrls] nothing found to replace"
+      lift $ log "[quotedUrls] nothing found to replace"
       return Nothing
-
-quotedUrlsET :: MonadIO m => (Text -> IO ()) -> Args -> ExceptT Text m (Maybe Text)
-quotedUrlsET log rwArgs =
-  ExceptT $
-    liftIO
-      . runFinal
-      . embedToFinal
-      . Error.runError
-      . Process.runIO
-      . File.runIO
-      . Utils.runLog log
-      $ quotedUrls rwArgs
 
 --------------------------------------------------------------------------------
 -- Redirect homepage when moved.
 redirectedUrls :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 redirectedUrls log Args {..} = do
-  unstripped <- Nix.getHomepageET attrPath
+  unstripped <- Nix.getHomepage attrPath
   homepage <- case Utils.stripQuotes unstripped of
     Nothing -> throwE "Could not strip homepage! This should never happen!"
     Just x -> pure x
@@ -191,7 +169,7 @@ rustCrateVersion log args@Args {..} = do
         -- This starts the same way `version` does, minus the assert
         srcVersionFix args
         -- But then from there we need to do this a second time for the cargoSha256!
-        oldCargoSha256 <- Nix.getAttr Nix.Raw "cargoSha256" attrPath
+        oldCargoSha256 <- Nix.getAttr "cargoSha256" attrPath
         _ <- lift $ File.replaceIO oldCargoSha256 Nix.fakeHash derivationFile
         newCargoSha256 <- Nix.getHashFromBuild attrPath
         when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
@@ -220,7 +198,7 @@ golangModuleVersion log args@Args {..} = do
         srcVersionFix args
         -- But then from there we need to do this a second time for the vendorSha256!
         -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
-        oldVendorSha256 <- (Nix.getAttr Nix.Raw "vendorSha256" attrPath <|> Nix.getAttr Nix.NoRaw "vendorSha256" attrPath)
+        oldVendorSha256 <- (Nix.getAttr "vendorSha256" attrPath <|> Nix.getAttr "vendorSha256" attrPath)
         lift . log $ "Found old vendorSha256 = " <> oldVendorSha256
         original <- liftIO $ T.readFile derivationFile
         _ <- lift $ File.replaceIO ("\"" <> oldVendorSha256 <> "\"") "null" derivationFile
@@ -265,7 +243,7 @@ updateScript log Args {..} = do
 srcVersionFix :: MonadIO m => Args -> ExceptT Text m ()
 srcVersionFix Args {..} = do
   let UpdateEnv {..} = updateEnv
-  oldHash <- Nix.getOldHash attrPath
+  oldHash <- Nix.getHash attrPath
   _ <- lift $ File.replaceIO oldVersion newVersion derivationFile
   _ <- lift $ File.replaceIO oldHash Nix.fakeHash derivationFile
   newHash <- Nix.getHashFromBuild attrPath

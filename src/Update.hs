@@ -310,10 +310,10 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
 
     -- Get the original values for diffing purposes
     derivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
-    oldHash <- Nix.getOldHash attrPath <|> pure ""
+    oldHash <- Nix.getHash attrPath <|> pure ""
     oldSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
-    oldRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
-    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
+    oldRev <- Nix.getAttr "rev" attrPath <|> pure ""
+    oldVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
@@ -340,8 +340,8 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     updatedDerivationContents <- liftIO $ T.readFile $ T.unpack derivationFile
     newSrcUrl <- Nix.getSrcUrl attrPath <|> pure ""
     newHash <- Nix.getHash attrPath <|> pure ""
-    newRev <- Nix.getAttr Nix.Raw "rev" attrPath <|> pure ""
-    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr Nix.Raw "version" attrPath)
+    newRev <- Nix.getAttr "rev" attrPath <|> pure ""
+    newVerMay <- rightMay `fmapRT` (lift $ runExceptT $ Nix.getAttr "version" attrPath)
 
     tryAssert
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
@@ -429,7 +429,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
       Right () -> lift $ Check.result updateEnv (T.unpack result)
       Left msg -> pure msg
   metaDescription <- Nix.getDescription attrPath <|> return T.empty
-  metaHomepage <- Nix.getHomepageET attrPath <|> return T.empty
+  metaHomepage <- Nix.getHomepage attrPath <|> return T.empty
   metaChangelog <- Nix.getChangelog attrPath <|> return T.empty
   cveRep <- liftIO $ cveReport updateEnv
   releaseUrl <- GH.releaseUrl updateEnv newSrcUrl <|> return ""

@@ -1,10 +1,10 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.34.7.
+-- This file has been generated from package.yaml by hpack version 0.35.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a211130dbcad57cde6ded74551b5390d00263e875e811750d2e3f168e96fcccf
+-- hash: 94f21d6da342bb311acc23da9681dae7e37fda3ecbf6b623de9880de38785605
 
 name:           nixpkgs-update
 version:        0.4.0
@@ -175,7 +175,6 @@ test-suite spec
   other-modules:
       CheckSpec
       DoctestSpec
-      RewriteSpec
       UpdateSpec
       UtilsSpec
   hs-source-dirs:
