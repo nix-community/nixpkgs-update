@@ -92,9 +92,9 @@ outPath = do
   cacheDir <- liftIO $ Utils.outpathCacheDir
   let outpathFile = (cacheDir </> "outpaths.nix")
   liftIO $ T.writeFile outpathFile outPathsExpr
-  liftIO $ putStrLn "Evaluating outpaths..."
+  liftIO $ putStrLn "[outpaths] eval start"
   currentDir <- liftIO $ System.Directory.getCurrentDirectory
-  ourReadProcessInterleaved_ $ proc "nix-env" [
+  result <- ourReadProcessInterleaved_ $ proc "nix-env" [
     "-f", outpathFile,
     "-qaP",
     "--no-name",
@@ -102,6 +102,8 @@ outPath = do
     "--arg", "path", currentDir,
     "--arg", "checkMeta", "true",
     "--show-trace"]
+  liftIO $ putStrLn "[outpaths] eval end"
+  pure result
 
 data Outpath = Outpath
   { mayName :: Maybe Text,
