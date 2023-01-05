@@ -299,12 +299,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       when (oldSrcUrl /= "" && oldSrcUrl == newSrcUrl) $ throwE "Source url did not change. "
       when (oldHash /= "" && oldHash == newHash) $ throwE "Hashes equal; no update necessary"
       when (oldRev /= "" && oldRev == newRev) $ throwE "rev equal; no update necessary"
-    editedOutpathSet <- if calcOutpaths then Outpaths.currentOutpathSetUncached else return $ Outpaths.dummyOutpathSetAfter attrPath
-    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
-    let numPRebuilds = Outpaths.numPackageRebuilds opDiff
-    whenBatch updateEnv do
-      Skiplist.python numPRebuilds derivationContents
-    when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
+
     --
     -- Update updateEnv if using updateScript
     updateEnv' <-
@@ -322,16 +317,28 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
               options
         else return updateEnv
 
+    whenBatch updateEnv do
+      when pr do
+        when hasUpdateScript do
+          checkExistingUpdate log updateEnv' existingCommitMsg attrPath
+
     when hasUpdateScript do
       changedFiles <- Git.diffFileNames mergeBase
       let rewrittenFile = case changedFiles of { [f] -> f; _ -> derivationFile }
       assertNotUpdatedOn updateEnv' rewrittenFile "master"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging-next"
+
+    --
+    -- Outpaths
+    -- this sections is very slow
+    editedOutpathSet <- if calcOutpaths then Outpaths.currentOutpathSetUncached else return $ Outpaths.dummyOutpathSetAfter attrPath
+    let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
+    let numPRebuilds = Outpaths.numPackageRebuilds opDiff
     whenBatch updateEnv do
-      when pr do
-        when hasUpdateScript do
-          checkExistingUpdate log updateEnv' existingCommitMsg attrPath
+      Skiplist.python numPRebuilds derivationContents
+    when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
+    -- end outpaths section
 
     Nix.build attrPath
 
