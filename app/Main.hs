@@ -17,7 +17,7 @@ import OurPrelude
 import qualified Repology
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
-import Update (cveAll, cveReport, sourceGithubAll, updateAll, updatePackage)
+import Update (cveAll, cveReport, sourceGithubAll, updatePackage)
 import Utils (Options (..), UpdateEnv (..), getGithubToken, getGithubUser)
 
 default (T.Text)
