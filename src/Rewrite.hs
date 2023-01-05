@@ -152,22 +152,23 @@ redirectedUrls log Args {..} = do
 rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 rustCrateVersion log args@Args {..} = do
   if
-      | not (T.isInfixOf "cargoSha256" derivationContents) -> do
-        lift $ log "No cargoSha256 found"
+      | and [(not (T.isInfixOf "cargoSha256" derivationContents)),(not (T.isInfixOf "cargoHash" derivationContents))] -> do
+        lift $ log "No cargoSha256 or cargoHash found"
         return Nothing
       | hasUpdateScript -> do
         lift $ log "skipping because derivation has updateScript"
         return Nothing
       | otherwise -> do
+        _ <- lift $ File.replaceIO "cargoSha256 =" "cargoHash =" derivationFile
         -- This starts the same way `version` does, minus the assert
         srcVersionFix args
-        -- But then from there we need to do this a second time for the cargoSha256!
-        oldCargoSha256 <- Nix.getAttrString "cargoSha256" attrPath
-        _ <- lift $ File.replaceIO oldCargoSha256 Nix.fakeHash derivationFile
-        newCargoSha256 <- Nix.getHashFromBuild attrPath
-        when (oldCargoSha256 == newCargoSha256) $ throwE "cargoSha256 hashes equal; no update necessary"
-        lift . log $ "Replacing cargoSha256 with " <> newCargoSha256
-        _ <- lift $ File.replaceIO Nix.fakeHash newCargoSha256 derivationFile
+        -- But then from there we need to do this a second time for the cargoHash!
+        oldCargoHash <- Nix.getAttrString "cargoHash" attrPath
+        _ <- lift $ File.replaceIO oldCargoHash Nix.fakeHash derivationFile
+        newCargoHash <- Nix.getHashFromBuild attrPath
+        when (oldCargoHash == newCargoHash) $ throwE ("cargo hashes equal; no update necessary: " <> oldCargoHash)
+        lift . log $ "Replacing cargoHash with " <> newCargoHash
+        _ <- lift $ File.replaceIO Nix.fakeHash newCargoHash derivationFile
         -- Ensure the package actually builds and passes its tests
         Nix.build attrPath
         lift $ log "Finished updating Crate version and replacing hashes"
@@ -180,36 +181,37 @@ rustCrateVersion log args@Args {..} = do
 golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 golangModuleVersion log args@Args {..} = do
   if
-      | not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorSha256" derivationContents) -> do
-        lift $ log "Not a buildGoModule package with vendorSha256"
+      | and [not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorSha256" derivationContents), not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorHash" derivationContents)] -> do
+        lift $ log "Not a buildGoModule package with vendorSha256 or vendorHash"
         return Nothing
       | hasUpdateScript -> do
         lift $ log "skipping because derivation has updateScript"
         return Nothing
       | otherwise -> do
+        _ <- lift $ File.replaceIO "vendorSha256 =" "vendorHash =" derivationFile
         -- This starts the same way `version` does, minus the assert
         srcVersionFix args
         -- But then from there we need to do this a second time for the vendorSha256!
         -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
-        oldVendorSha256 <- (Nix.getAttrString "vendorSha256" attrPath <|> Nix.getAttrString "vendorSha256" attrPath)
-        lift . log $ "Found old vendorSha256 = " <> oldVendorSha256
+        oldVendorHash <- Nix.getAttrString "vendorHash" attrPath
+        lift . log $ "Found old vendorHash = " <> oldVendorHash
         original <- liftIO $ T.readFile derivationFile
-        _ <- lift $ File.replaceIO ("\"" <> oldVendorSha256 <> "\"") "null" derivationFile
+        _ <- lift $ File.replaceIO ("\"" <> oldVendorHash <> "\"") "null" derivationFile
         ok <- runExceptT $ Nix.build attrPath
         _ <-
           if isLeft ok
             then do
               _ <- liftIO $ T.writeFile derivationFile original
-              _ <- lift $ File.replaceIO oldVendorSha256 Nix.fakeHash derivationFile
-              newVendorSha256 <- Nix.getHashFromBuild attrPath
-              _ <- lift $ File.replaceIO Nix.fakeHash newVendorSha256 derivationFile
+              _ <- lift $ File.replaceIO oldVendorHash Nix.fakeHash derivationFile
+              newVendorHash <- Nix.getHashFromBuild attrPath
+              _ <- lift $ File.replaceIO Nix.fakeHash newVendorHash derivationFile
               -- Note that on some small bumps, this may not actually change if go.sum did not
-              lift . log $ "Replaced vendorSha256 with " <> newVendorSha256
+              lift . log $ "Replaced vendorHash with " <> newVendorHash
             else do
-              lift . log $ "Set vendorSha256 to null"
+              lift . log $ "Set vendorHash to null"
         -- Ensure the package actually builds and passes its tests
         Nix.build attrPath
-        lift $ log "Finished updating vendorSha256"
+        lift $ log "Finished updating vendorHash"
         return $ Just "Golang update"
 
 --------------------------------------------------------------------------------
