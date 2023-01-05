@@ -117,18 +117,7 @@ notifyOptions log o = do
   let exactAttrPath = repr U.attrpath
   npDir <- tshow <$> Git.nixpkgsDir
   log $
-    [interpolate|
-    Configured Nixpkgs-Update Options:
-    ----------------------------------
-    GitHub User:                   $ghUser
-    Send pull request on success:  $pr
-    Batch update:                  $batch
-    Calculate Outpaths:            $outpaths
-    CVE Security Report:           $cve
-    Run nixpkgs-review:            $review
-    Nixpkgs Dir:                   $npDir
-    update info uses attrpath:     $exactAttrPath
-    ----------------------------------|]
+    [interpolate| [options] github_user: $ghUser, pull_request: $pr, batch_update: $batch, calculate_outpaths: $outpaths, cve_report: $cve, nixpkgs-review: $review, nixpkgs_dir: $npDir, use attrpath: $exactAttrPath|]
 
 updateAll :: Options -> Text -> IO ()
 updateAll o updates = do
