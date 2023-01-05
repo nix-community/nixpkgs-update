@@ -14,7 +14,6 @@ module Update
     cveReport,
     prMessage,
     sourceGithubAll,
-    updateAll,
     updatePackage,
   )
 where
@@ -22,7 +21,7 @@ where
 import CVE (CVE, cveID, cveLI)
 import qualified Check
 import Control.Concurrent
-import Control.Exception (IOException, catch, bracket)
+import Control.Exception (bracket)
 import Control.Monad.Writer (execWriterT, tell)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe (fromJust)
@@ -45,9 +44,7 @@ import qualified Skiplist
 import Utils
   ( Boundary (..),
     Options (..),
-    URL,
     UpdateEnv (..),
-    Version,
     VersionMatcher (..),
     branchName,
     logDir,
@@ -119,13 +116,6 @@ notifyOptions log o = do
   log $
     [interpolate| [options] github_user: $ghUser, pull_request: $pr, batch_update: $batch, calculate_outpaths: $outpaths, cve_report: $cve, nixpkgs-review: $review, nixpkgs_dir: $npDir, use attrpath: $exactAttrPath|]
 
-updateAll :: Options -> Text -> IO ()
-updateAll o updates = do
-  log <- getLog o
-  log "New run of nixpkgs-update"
-  notifyOptions log o
-  updateLoop o log (parseUpdates updates)
-
 cveAll :: Options -> Text -> IO ()
 cveAll o updates = do
   let u' = rights $ parseUpdates updates
@@ -160,39 +150,6 @@ sourceGithubAll o updates = do
             else return ()
     )
     u'
-
-updateLoop ::
-  Options ->
-  (Text -> IO ()) ->
-  [Either Text (Text, Version, Version, Maybe URL)] ->
-  IO ()
-updateLoop _ log [] = log "nixpkgs-update finished"
-updateLoop o log (Left e : moreUpdates) = do
-  log e
-  updateLoop o log moreUpdates
-updateLoop o log (Right (pName, oldVer, newVer, url) : moreUpdates) = do
-  let updateInfoLine = (pName <> " " <> oldVer <> " -> " <> newVer <> fromMaybe "" (fmap (" " <>) url))
-  log updateInfoLine
-  let updateEnv = UpdateEnv pName oldVer newVer url o
-  updated <-
-    Control.Exception.catch (updatePackageBatch log updateInfoLine updateEnv)
-    (\e -> do let errMsg = tshow (e :: IOException)
-              log $ "Caught exception: " <> errMsg
-              return UpdatePackageFailure)
-  case updated of
-    UpdatePackageFailure -> do
-      log $ "Failed to update: " <> updateInfoLine
-      if ".0" `T.isSuffixOf` newVer
-        then
-          let newNewVersion = fromJust (".0" `T.stripSuffix` newVer)
-          in updateLoop
-             o
-             log
-             (Right (pName, oldVer, newNewVersion, url) : moreUpdates)
-        else updateLoop o log moreUpdates
-    UpdatePackageSuccess -> do
-      log $ "Success updating: " <> updateInfoLine
-      updateLoop o log moreUpdates
 
 data UpdatePackageResult = UpdatePackageSuccess | UpdatePackageFailure
 
@@ -759,9 +716,9 @@ updatePackage o updateInfo = do
   updated <- updatePackageBatch log updateInfoLine updateEnv
   case updated of
     UpdatePackageFailure -> do
-      log $ "Failed to update"
+      log $ "[result] Failed to update " <> updateInfoLine
     UpdatePackageSuccess -> do
-      log $ "Success updating "
+      log $ "[result] Success updating " <> updateInfoLine
 
 
 withWorktree :: Text -> Text -> UpdateEnv -> IO a -> IO a

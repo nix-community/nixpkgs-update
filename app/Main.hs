@@ -31,8 +31,7 @@ data UpdateOptions = UpdateOptions
   }
 
 data Command
-  = UpdateList UpdateOptions
-  | Update UpdateOptions Text
+  = Update UpdateOptions Text
   | UpdateBatch UpdateOptions Text
   | DeleteDone Bool
   | Version
@@ -71,10 +70,7 @@ deleteDoneParser =
 commandParser :: O.Parser Command
 commandParser =
   O.hsubparser
-    ( O.command
-        "update-list"
-        (O.info (UpdateList <$> updateOptionsParser) (O.progDesc "Update a list of packages"))
-        <> O.command
+    (O.command
           "update"
           (O.info (updateParser) (O.progDesc "Update one package"))
         <> O.command
@@ -146,10 +142,6 @@ main = do
     DeleteDone delete -> do
       Git.setupNixpkgs token
       deleteDone delete token ghUser
-    UpdateList UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} -> do
-      updates <- T.readFile "packages-to-update.txt"
-      Git.setupNixpkgs token
-      updateAll (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) updates
     Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
       Git.setupNixpkgs token
       updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt) update
