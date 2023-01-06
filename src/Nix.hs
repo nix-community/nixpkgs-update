@@ -152,7 +152,7 @@ getHash = getAttrString "drvAttrs.outputHash"
 
 getMaintainers :: MonadIO m => Text -> ExceptT Text m Text
 getMaintainers =
-  nixEvalApplyRaw "p: let gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh p.meta.maintainers or []))"
+  nixEvalApplyRaw "p: let gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh p.meta.maintainers or [])))"
 
 readNixBool :: MonadIO m => ExceptT Text m Text -> ExceptT Text m Bool
 readNixBool t = do
