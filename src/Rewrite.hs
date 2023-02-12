@@ -60,6 +60,7 @@ plan =
   [ ("version", version),
     ("rustCrateVersion", rustCrateVersion),
     ("golangModuleVersion", golangModuleVersion),
+    ("npmDepsVersion", npmDepsVersion),
     ("updateScript", updateScript),
     ("", quotedUrls) -- Don't change the logger
     --("redirectedUrl", Rewrite.redirectedUrls)
@@ -215,6 +216,35 @@ golangModuleVersion log args@Args {..} = do
         return $ Just "Golang update"
 
 --------------------------------------------------------------------------------
+-- Rewrite NPM packages with buildNpmPackage
+-- This is basically `version` above, but with a second pass to also update the
+-- cargoSha256 vendor hash.
+npmDepsVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
+npmDepsVersion log args@Args {..} = do
+  if
+      | not (T.isInfixOf "npmDepsHash" derivationContents) -> do
+        lift $ log "No npmDepsHash"
+        return Nothing
+      | hasUpdateScript -> do
+        lift $ log "skipping because derivation has updateScript"
+        return Nothing
+      | otherwise -> do
+        -- This starts the same way `version` does, minus the assert
+        srcVersionFix args
+        -- But then from there we need to do this a second time for the cargoHash!
+        oldDepsHash <- Nix.getAttrString "npmDepsHash" attrPath
+        _ <- lift $ File.replaceIO oldDepsHash Nix.fakeHash derivationFile
+        newDepsHash <- Nix.getHashFromBuild attrPath
+        when (oldDepsHash == newDepsHash) $ throwE ("deps hashes equal; no update necessary: " <> oldDepsHash)
+        lift . log $ "Replacing npmDepsHash with " <> newDepsHash
+        _ <- lift $ File.replaceIO Nix.fakeHash newDepsHash derivationFile
+        -- Ensure the package actually builds and passes its tests
+        Nix.build attrPath
+        lift $ log "Finished updating NPM deps version and replacing hashes"
+        return $ Just "NPM version update"
+
+--------------------------------------------------------------------------------
+
 -- Calls passthru.updateScript
 updateScript :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 updateScript log Args {..} = do
