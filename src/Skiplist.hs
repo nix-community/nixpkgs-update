@@ -78,7 +78,8 @@ attrPathList =
       "spire-server and spire-agent are different outputs for spire package",
     eq "imagemagick_light" "same file and version as imagemagick",
     eq "imagemagickBig" "same file and version as imagemagick",
-    eq "libheimdal" "alias of heimdal"
+    eq "libheimdal" "alias of heimdal",
+    eq "minio_legacy_fs" "@bachp asked to skip"
   ]
 
 nameList :: Skiplist
