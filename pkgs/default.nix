@@ -12,7 +12,6 @@ let
   drvAttrs = attrs: with pkgs; {
     NIX = nix;
     GIT = git;
-    HUB = gitAndTools.hub;
     JQ = jq;
     TREE = tree;
     GIST = gist;

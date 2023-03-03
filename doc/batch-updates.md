@@ -7,7 +7,12 @@ subcommand.
 
 1. Setup [hub](https://github.com/github/hub) and give it your GitHub
    credentials, so it saves an oauth token. This allows nixpkgs-update
-   to query the GitHub API.
+   to query the GitHub API.  Alternatively, if you prefer not to install
+   and configure `hub`, you can manually create a GitHub token with
+   `repo` and `gist` scopes.  Provide it to `nixpkgs-update` by
+   exporting it as the `GITHUB_TOKEN` environment variable
+   (`nixpkgs-update` reads credentials from the files `hub` uses but
+   no longer uses `hub` itself).
 
 2. Clone this repository and build `nixpkgs-update`:
     ```bash

@@ -34,12 +34,10 @@ import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude hiding (throw)
 import System.Directory (doesDirectoryExist, doesFileExist, getModificationTime, getCurrentDirectory, setCurrentDirectory)
-import System.Environment (getEnv)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit()
 import System.IO.Error (tryIOError)
 import System.Posix.Env (setEnv)
-import qualified System.Process.Typed
 import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
 
 bin :: String
@@ -47,12 +45,6 @@ bin = fromJust ($$(envQ "GIT") :: Maybe String) <> "/bin/git"
 
 procGit :: [String] -> ProcessConfig () () ()
 procGit = proc bin
-
-hubBin :: String
-hubBin = fromJust ($$(envQ "HUB") :: Maybe String) <> "/bin/hub"
-
-procHub :: [String] -> ProcessConfig () () ()
-procHub = proc hubBin
 
 clean :: ProcessConfig () () ()
 clean = silently $ procGit ["clean", "-fdx"]
@@ -156,19 +148,15 @@ nixpkgsDir = do
 -- Since we are going to have to fetch, git reset, clean, and commit, we setup a
 -- cache dir to avoid destroying any uncommitted work the user may have in PWD.
 setupNixpkgs :: Text -> IO ()
-setupNixpkgs githubt = do
+setupNixpkgs ghUser = do
   fp <- nixpkgsDir
   exists <- doesDirectoryExist fp
   unless exists $ do
-    path <- getEnv "PATH"
-    procHub ["clone", "nixpkgs", fp]
-      & System.Process.Typed.setEnv -- requires that user has forked nixpkgs
-        [ ("PATH" :: String, path),
-          ("GITHUB_TOKEN" :: String, githubt & T.unpack)
-        ]
+    procGit ["clone", "--origin", "upstream", "https://github.com/NixOS/nixpkgs.git", fp]
       & runProcess_
     setCurrentDirectory fp
-    shell (bin <> " remote add upstream https://github.com/NixOS/nixpkgs")
+    procGit ["remote", "add", "origin", "https://github.com/" <> T.unpack ghUser <> "/nixpkgs.git"]
+      -- requires that user has forked nixpkgs
       & runProcess_
   inNixpkgs <- inNixpkgsRepo
   unless inNixpkgs do

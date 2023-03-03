@@ -297,12 +297,12 @@ hubConfigField field = do
               token = T.takeWhile (/= '\n') $ head (drop 1 splits)
           return $ Just token
 
-getGithubToken :: IO Text
+getGithubToken :: IO (Maybe Text)
 getGithubToken = do
   et <- envToken
   lt <- localToken
   ht <- hubConfigField "oauth_token: "
-  return $ fromJust (et <|> lt <|> ht)
+  return (et <|> lt <|> ht)
 
 getGithubUser :: IO (GH.Name GH.Owner)
 getGithubUser = do
