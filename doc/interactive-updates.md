@@ -10,9 +10,8 @@ nixpkgs-update supports interactive, single package updates via the
    and configure `hub`, you can manually create a GitHub token with
    `repo` and `gist` scopes.  Provide it to `nixpkgs-update` by
    exporting it as the `GITHUB_TOKEN` environment variable
-   (`nixpkgs-update` _only_ tries to use `hub` to check out the
-   `nixpkgs` repo into your XDG cache directory, if you run
-   `nixpkgs-update` outside of a `nixpkgs` checkout directory).
+   (`nixpkgs-update` reads credentials from the files `hub` uses but
+   no longer uses `hub` itself).
 2. Go to your local checkout of nixpkgs, and **make sure the working
    directory is clean**. Be on a branch you are okay committing to.
 3. Run it like: `nixpkgs-update update "postman 7.20.0 7.21.2"`

@@ -10,6 +10,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
 import Git
+import qualified GitHub as GH
 import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
@@ -134,19 +135,19 @@ main = do
   hSetBuffering stderr LineBuffering
   command <- O.execParser programInfo
   ghUser <- getGithubUser
-  token <- getGithubToken <|> undefined
+  token <- fromMaybe "" <$> getGithubToken
   P.setEnv "GITHUB_TOKEN" (T.unpack token) True
   P.setEnv "GITHUB_API_TOKEN" (T.unpack token) True
   P.setEnv "PAGER" "" True
   case command of
     DeleteDone delete -> do
-      Git.setupNixpkgs token
+      setupNixpkgs $ GH.untagName ghUser
       deleteDone delete token ghUser
     Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
-      Git.setupNixpkgs token
+      setupNixpkgs $ GH.untagName ghUser
       updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt) update
     UpdateBatch UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
-      Git.setupNixpkgs token
+      setupNixpkgs $ GH.untagName ghUser
       updatePackage (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) update
     Version -> do
       v <- runExceptT Nix.version
@@ -155,17 +156,17 @@ main = do
         Right t -> T.putStrLn t
     UpdateVulnDB -> withVulnDB $ \_conn -> pure ()
     CheckAllVulnerable -> do
-      setupNixpkgs undefined
+      setupNixpkgs $ GH.untagName ghUser
       updates <- T.readFile "packages-to-update.txt"
       cveAll undefined updates
     CheckVulnerable productID oldVersion newVersion -> do
-      setupNixpkgs undefined
+      setupNixpkgs $ GH.untagName ghUser
       report <-
         cveReport
           (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False False))
       T.putStrLn report
     SourceGithub -> do
       updates <- T.readFile "packages-to-update.txt"
-      setupNixpkgs token
+      setupNixpkgs $ GH.untagName ghUser
       sourceGithubAll (Options False False ghUser token False False False False) updates
     FetchRepology -> Repology.fetch
