@@ -25,3 +25,8 @@ spec = do
       Check.hasVersion (T.pack "2.345 is the version") (T.pack "2.34") `shouldBe` False
       Check.hasVersion (T.pack "12.34 is the version") (T.pack "2.34") `shouldBe` False
       Check.hasVersion seaweedVersion234 (T.pack "2.35") `shouldBe` False
+
+    it "negative lookahead construction" do
+      Check.versionWithoutPath "/nix/store/z9l2xakz7cgw6yfh83nh542pvc0g4rkq-geeqie-2.0.1" (T.pack "2.0.1") `shouldBe` "(?<!\\Qz9l2xakz7cgw6yfh83nh542pvc0g4rkq-geeqie-\\E)\\Q2.0.1\\E"
+      Check.versionWithoutPath "/nix/store/z9l2xakz7cgw6yfh83nh542pvc0g4rkq-abc" (T.pack "2.0.1") `shouldBe` "\\Q2.0.1\\E"
+      Check.versionWithoutPath "/nix/store/z9l2xakz7cgw6yfh83nh542pvc0g4rkq-2.0.1-dev" (T.pack "2.0.1") `shouldBe` "(?<!\\Qz9l2xakz7cgw6yfh83nh542pvc0g4rkq-\\E)\\Q2.0.1\\E"
