@@ -4,6 +4,7 @@
 
 module Repology where
 
+import Control.Applicative (liftA2)
 import Data.Aeson
 import Data.HashMap.Strict
 import Data.List
@@ -21,102 +22,79 @@ import System.IO
 baseUrl :: BaseUrl
 baseUrl = BaseUrl Https "repology.org" 443 "/api/v1"
 
-type Metapackage = Vector Package
+type Project = Vector Package
 
--- compareMetapackage :: Metapackage -> Metapackage -> Ordering
--- compareMetapackage ps1 ps2 = compareMetapackage' (ps1 V.!? 0) (ps2 V.!? 0)
+-- compareProject :: Project -> Project -> Ordering
+-- compareProject ps1 ps2 = compareProject' (ps1 V.!? 0) (ps2 V.!? 0)
 --   where
---     compareMetapackage' (Just p1) (Just p2) = compare (name p1) (name p2)
---     compareMetapackage' Nothing (Just _) = LT
---     compareMetapackage' (Just _) Nothing = GT
---     compareMetapackage' _ _ = EQ
+--     compareProject' (Just p1) (Just p2) = compare (name p1) (name p2)
+--     compareProject' Nothing (Just _) = LT
+--     compareProject' (Just _) Nothing = GT
+--     compareProject' _ _ = EQ
 
-type Metapackages = HashMap Text Metapackage
+type Projects = HashMap Text Project
 
 type API =
-  "metapackage" :> Capture "metapackage_name" Text :> Get '[JSON] Metapackage :<|> "metapackages" :> QueryParam "search" Text :> QueryParam "maintainers" Text :> QueryParam "category" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> QueryParam "notinrepo" Text :> QueryParam "minspread" Integer :> QueryParam "maxspread" Integer :> Get '[JSON] Metapackages :<|> "metapackages" :> Capture "name" Text :> QueryParam "search" Text :> QueryParam "maintainers" Text :> QueryParam "category" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> QueryParam "notinrepo" Text :> QueryParam "minspread" Integer :> QueryParam "maxspread" Integer :> Get '[JSON] Metapackages
+  "project" :> Capture "project_name" Text :> Get '[JSON] Project :<|>
+  "projects" :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> Get '[JSON] Projects :<|>
+  "projects" :> Capture "name" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> Get '[JSON] Projects
 
 data Package = Package
   { repo :: Text,
-    name :: Maybe Text,
+    srcname :: Maybe Text, -- corresponds to attribute path
+    visiblename :: Text, -- corresponds to pname
     version :: Text,
     origversion :: Maybe Text,
     status :: Maybe Text,
     summary :: Maybe Text,
     categories :: Maybe (Vector Text),
-    licenses :: Maybe (Vector Text),
-    www :: Maybe (Vector Text),
-    downloads :: Maybe (Vector Text)
+    licenses :: Maybe (Vector Text)
   }
   deriving (Eq, Show, Generic, FromJSON)
 
 api :: Proxy API
 api = Proxy
 
-metapackage :: Text -> ClientM (Vector Package)
+project :: Text -> ClientM (Vector Package)
 
-metapackages ::
-  Maybe Text ->
-  Maybe Text ->
-  Maybe Text ->
+projects ::
   Maybe Text ->
   Maybe Bool ->
-  Maybe Text ->
-  Maybe Integer ->
-  Maybe Integer ->
-  ClientM Metapackages
+  ClientM Projects
 
-metapackages' ::
+projects' ::
   Text ->
   Maybe Text ->
-  Maybe Text ->
-  Maybe Text ->
-  Maybe Text ->
   Maybe Bool ->
-  Maybe Text ->
-  Maybe Integer ->
-  Maybe Integer ->
-  ClientM Metapackages
-metapackage :<|> metapackages :<|> metapackages' = client api
+  ClientM Projects
+project :<|> projects :<|> projects' = client api
 
--- type PagingResult = PagingResult (Vector Metapackage, ClientM PagingResult)
--- metapackages :: Text -> ClientM PagingResult
--- metapackages n = do
+-- type PagingResult = PagingResult (Vector Project, ClientM PagingResult)
+-- projects :: Text -> ClientM PagingResult
+-- projects n = do
 --   m <- ms n
---   return (lastMetapackageName m, sortedMetapackages m)
-lastMetapackageName :: Metapackages -> Maybe Text
-lastMetapackageName = keys >>> sort >>> Prelude.reverse >>> headMay
+--   return (lastProjectName m, sortedProjects m)
+lastProjectName :: Projects -> Maybe Text
+lastProjectName = keys >>> sort >>> Prelude.reverse >>> headMay
 
--- sortedMetapackages :: Metapackages -> Vector Metapackage
--- sortedMetapackages = elems >>> sortBy compareMetapackage >>> V.fromList
+-- sortedProjects :: Projects -> Vector Project
+-- sortedProjects = elems >>> sortBy compareProject >>> V.fromList
 
 nixRepo :: Text
 nixRepo = "nix_unstable"
 
-nixOutdated :: ClientM Metapackages
+nixOutdated :: ClientM Projects
 nixOutdated =
-  metapackages
-    Nothing
-    Nothing
-    Nothing
+  projects
     (Just nixRepo)
     (Just True)
-    Nothing
-    Nothing
-    Nothing
 
-nextNixOutdated :: Text -> ClientM Metapackages
+nextNixOutdated :: Text -> ClientM Projects
 nextNixOutdated n =
-  metapackages'
+  projects'
     n
-    Nothing
-    Nothing
-    Nothing
     (Just nixRepo)
     (Just True)
-    Nothing
-    Nothing
-    Nothing
 
 outdatedForRepo :: Text -> Vector Package -> Maybe Package
 outdatedForRepo r =
@@ -125,46 +103,35 @@ outdatedForRepo r =
 newest :: Vector Package -> Maybe Package
 newest = V.find (\p -> (status p) == Just "newest")
 
-dropMaybes :: [(Maybe Package, Maybe Package)] -> [(Package, Package)]
-dropMaybes = Data.List.foldl' twoJusts []
-  where
-    twoJusts a (Just o, Just n) = (o, n) : a
-    twoJusts a _ = a
-
-getUpdateInfo :: ClientM (Maybe Text, Bool, Vector (Package, Package))
+getUpdateInfo :: ClientM (Maybe Text, Bool, Vector (Text, (Package, Package)))
 getUpdateInfo = do
   outdated <- nixOutdated
-  let ms = elems outdated
-  let nixPackages = fmap (outdatedForRepo nixRepo) ms
-  let newestPackages = fmap newest ms
-  let nixNew = dropMaybes (zip nixPackages newestPackages)
-  let mLastName = lastMetapackageName outdated
+  let nixNew = toList $ Data.HashMap.Strict.mapMaybe (liftA2 (liftA2 (,)) (outdatedForRepo nixRepo) newest) outdated
+  let mLastName = lastProjectName outdated
   liftIO $ hPutStrLn stderr $ show mLastName
-  liftIO $ hPutStrLn stderr $ show (length ms)
-  return (mLastName, length ms /= 1, V.fromList nixNew)
+  liftIO $ hPutStrLn stderr $ show (size outdated)
+  return (mLastName, size outdated /= 1, V.fromList nixNew)
 
 --  let sorted = sortBy (\(p1,_) (p2,_) -> compare (name p1) (name p2)) nixNew
 getNextUpdateInfo ::
-  Text -> ClientM (Maybe Text, Bool, Vector (Package, Package))
+  Text -> ClientM (Maybe Text, Bool, Vector (Text, (Package, Package)))
 getNextUpdateInfo n = do
   outdated <- nextNixOutdated n
-  let ms = elems outdated
-  let nixPackages = fmap (outdatedForRepo nixRepo) ms
-  let newestPackages = fmap newest ms
-  let nixNew = dropMaybes (zip nixPackages newestPackages)
-  let mLastName = lastMetapackageName outdated
+  let nixNew = toList $ Data.HashMap.Strict.mapMaybe (liftA2 (liftA2 (,)) (outdatedForRepo nixRepo) newest) outdated
+  let mLastName = lastProjectName outdated
   liftIO $ hPutStrLn stderr $ show mLastName
-  liftIO $ hPutStrLn stderr $ show (length ms)
-  return (mLastName, length ms /= 1, V.fromList nixNew)
+  liftIO $ hPutStrLn stderr $ show (size outdated)
+  return (mLastName, size outdated /= 1, V.fromList nixNew)
 
+-- Argument should be the Repology identifier of the project, not srcname/attrPath or visiblename/pname.
 repologyUrl :: Text -> Text
-repologyUrl pname = "https://repology.org/metapackage/" <> pname <> "/versions"
+repologyUrl projectName = "https://repology.org/project/" <> projectName <> "/versions"
 
 --  let sorted = sortBy (\(p1,_) (p2,_) -> compare (name p1) (name p2)) nixNew
-updateInfo :: (Package, Package) -> Maybe Text
-updateInfo (outdated, newestP) = do
-  pname <- name outdated
-  pure $ T.unwords [pname, version outdated, version newestP, repologyUrl pname]
+updateInfo :: (Text, (Package, Package)) -> Maybe Text
+updateInfo (projectName, (outdated, newestP)) = do
+  attrPath <- srcname outdated
+  pure $ T.unwords [attrPath, version outdated, version newestP, repologyUrl projectName]
 
 justs :: Vector (Maybe a) -> Vector a
 justs = V.concatMap (maybeToList >>> V.fromList)
@@ -180,17 +147,17 @@ moreNixUpdateInfo (Nothing, acc) = do
         justs $
           fmap updateInfo newNix
   if moreWork
-    then moreNixUpdateInfo (mLastName, newNix V.++ acc)
+    then moreNixUpdateInfo (mLastName, fmap snd newNix V.++ acc)
     else return acc
-moreNixUpdateInfo (Just pname, acc) = do
-  (mLastName, moreWork, newNix) <- getNextUpdateInfo pname
+moreNixUpdateInfo (Just n, acc) = do
+  (mLastName, moreWork, newNix) <- getNextUpdateInfo n
   liftIO $
     V.sequence_ $
       fmap Data.Text.IO.putStrLn $
         justs $
           fmap updateInfo newNix
   if moreWork
-    then moreNixUpdateInfo (mLastName, newNix V.++ acc)
+    then moreNixUpdateInfo (mLastName, fmap snd newNix V.++ acc)
     else return acc
 
 allNixUpdateInfo :: ClientM (Vector (Package, Package))
