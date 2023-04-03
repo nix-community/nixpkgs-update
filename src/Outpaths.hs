@@ -94,7 +94,7 @@ outPath = do
   liftIO $ T.writeFile outpathFile outPathsExpr
   liftIO $ putStrLn "[outpaths] eval start"
   currentDir <- liftIO $ System.Directory.getCurrentDirectory
-  result <- ourReadProcessInterleaved_ $ proc "nix-env" [
+  result <- ourReadProcessInterleaved_ $ Utils.procTrace "nix-env" [
     "-f", outpathFile,
     "-qaP",
     "--no-name",

@@ -38,10 +38,10 @@ run cache commit = let timeout = "45m" :: Text in do
   -- already exists
   void $
     ourReadProcessInterleavedSem $
-      proc "rm" ["-rf", revDir cache commit]
+      Utils.procTrace "rm" ["-rf", revDir cache commit]
   (exitCode, _nixpkgsReviewOutput) <-
     ourReadProcessInterleavedSem $
-      proc "timeout" [T.unpack timeout, (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
+      Utils.procTrace "timeout" [T.unpack timeout, (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
   case exitCode of
     ExitFailure 124 -> do
       output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"

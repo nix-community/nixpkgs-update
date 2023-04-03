@@ -27,7 +27,8 @@ module Utils
     regDirMode,
     outpathCacheDir,
     cacheDir,
-    worktreeDir
+    worktreeDir,
+    procTrace
   )
 where
 
@@ -64,6 +65,7 @@ import System.Posix.Temp (mkdtemp)
 import System.Posix.Types (FileMode)
 import Text.Read (readEither)
 import Type.Reflection (Typeable)
+import Debug.Trace
 
 default (T.Text)
 
@@ -88,6 +90,9 @@ data VersionMatcher
   = SingleMatcher Version
   | RangeMatcher (Boundary Version) (Boundary Version)
   deriving (Eq, Ord, Show, Read)
+
+procTrace :: String -> [String] -> ProcessConfig () () ()
+procTrace bin args = trace ("Running: " ++ show bin ++ " " ++ show args) (proc bin $ args)
 
 readField :: (Read a, Typeable a) => FieldParser a
 readField f@(Field (SQLText t) _) =

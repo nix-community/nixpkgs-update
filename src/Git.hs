@@ -38,13 +38,13 @@ import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit()
 import System.IO.Error (tryIOError)
 import System.Posix.Env (setEnv)
-import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
+import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix, procTrace)
 
 bin :: String
 bin = fromJust ($$(envQ "GIT") :: Maybe String) <> "/bin/git"
 
 procGit :: [String] -> ProcessConfig () () ()
-procGit = proc bin
+procGit = procTrace bin
 
 clean :: ProcessConfig () () ()
 clean = silently $ procGit ["clean", "-fdx"]

@@ -21,7 +21,7 @@ import OurPrelude
 import System.Exit()
 import Text.Regex.Applicative.Text (RE', (=~))
 import qualified Text.Regex.Applicative.Text as RE
-import Utils (UpdateEnv (..), nixBuildOptions)
+import Utils (UpdateEnv (..), nixBuildOptions, procTrace)
 
 default (T.Text)
 
@@ -29,7 +29,7 @@ treeBin :: String
 treeBin = fromJust ($$(envQ "TREE") :: Maybe String) <> "/bin/tree"
 
 procTree :: [String] -> ProcessConfig () () ()
-procTree = proc treeBin
+procTree = procTrace treeBin
 
 gistBin :: String
 gistBin = fromJust ($$(envQ "GIST") :: Maybe String) <> "/bin/gist"
@@ -71,7 +71,7 @@ checkTestsBuild attrPath = do
                  ++ (T.unpack attrPath)
                  ++ ".tests or {}"
              ]
-  r <- runExceptT $ ourReadProcessInterleaved $ proc "timeout" args
+  r <- runExceptT $ ourReadProcessInterleaved $ procTrace "timeout" args
   case r of
     Left errorMessage -> do
       T.putStrLn $ attrPath <> ".tests process failed with output: " <> errorMessage
@@ -96,7 +96,7 @@ foundVersionInOutputs expectedVersion resultPath =
     <$> runExceptT
       ( do
           (exitCode, _) <-
-            proc "grep" ["-r", T.unpack expectedVersion, resultPath]
+            procTrace "grep" ["-r", T.unpack expectedVersion, resultPath]
               & ourReadProcessInterleaved
           case exitCode of
             ExitSuccess ->
@@ -143,7 +143,7 @@ duGist resultPath =
   hush
     <$> runExceptT
       ( do
-          contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
+          contents <- procTrace "du" [resultPath] & ourReadProcessInterleavedBS_
           g <-
             shell gistBin & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
