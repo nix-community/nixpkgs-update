@@ -599,13 +599,13 @@ jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
 untilOfBorgFree :: MonadIO m => (Text -> IO ()) -> m ()
 untilOfBorgFree log = do
   stats <-
-    shell "curl -s https://events.nix.ci/stats.php" & readProcessInterleaved_
+    shell "curl -s https://events.ofborg.org/stats.php" & readProcessInterleaved_
   waiting <-
     shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
       & readProcessInterleaved_
       & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
   when (waiting > 2) $ do
-    liftIO $ log ("Waiting for OfBorg: https://events.nix.ci/stats.php's evaluator.messages.waiting = " <> tshow waiting)
+    liftIO $ log ("Waiting for OfBorg: https://events.ofborg.org/stats.php's evaluator.messages.waiting = " <> tshow waiting)
     liftIO $ threadDelay 60000000
     untilOfBorgFree log
 
