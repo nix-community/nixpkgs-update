@@ -8,6 +8,7 @@ module Nix
     binPath,
     build,
     cachix,
+    getAttr,
     getAttrString,
     getChangelog,
     getDerivationFile,

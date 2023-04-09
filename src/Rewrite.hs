@@ -177,7 +177,7 @@ rustCrateVersion log args@Args {..} = do
 --------------------------------------------------------------------------------
 -- Rewrite Golang packages with buildGoModule
 -- This is basically `version` above, but with a second pass to also update the
--- vendorSha256 go vendor hash.
+-- vendorHash go vendor hash.
 golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 golangModuleVersion log args@Args {..} = do
   if
@@ -191,18 +191,18 @@ golangModuleVersion log args@Args {..} = do
         _ <- lift $ File.replaceIO "vendorSha256 =" "vendorHash =" derivationFile
         -- This starts the same way `version` does, minus the assert
         srcVersionFix args
-        -- But then from there we need to do this a second time for the vendorSha256!
+        -- But then from there we need to do this a second time for the vendorHash!
         -- Note that explicit `null` cannot be coerced to a string by nix eval --raw
-        oldVendorHash <- Nix.getAttrString "vendorHash" attrPath
+        oldVendorHash <- Nix.getAttr "vendorHash" attrPath
         lift . log $ "Found old vendorHash = " <> oldVendorHash
         original <- liftIO $ T.readFile derivationFile
-        _ <- lift $ File.replaceIO ("\"" <> oldVendorHash <> "\"") "null" derivationFile
+        _ <- lift $ File.replaceIO oldVendorHash "null" derivationFile
         ok <- runExceptT $ Nix.build attrPath
         _ <-
           if isLeft ok
             then do
               _ <- liftIO $ T.writeFile derivationFile original
-              _ <- lift $ File.replaceIO oldVendorHash Nix.fakeHash derivationFile
+              _ <- lift $ File.replaceIO oldVendorHash ("\"" <> Nix.fakeHash <> "\"") derivationFile
               newVendorHash <- Nix.getHashFromBuild attrPath
               _ <- lift $ File.replaceIO Nix.fakeHash newVendorHash derivationFile
               -- Note that on some small bumps, this may not actually change if go.sum did not
