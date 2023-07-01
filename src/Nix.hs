@@ -67,7 +67,7 @@ nixEvalApply ::
   ExceptT Text m Text
 nixEvalApply applyFunc attrPath =
   ourReadProcess_
-    (proc (binPath <> "/nix") (["eval", ".#" <> T.unpack attrPath, "--apply", T.unpack applyFunc]))
+    (proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "--extra-experimental-features", "flakes", "eval", ".#" <> T.unpack attrPath, "--apply", T.unpack applyFunc]))
     & fmapRT (fst >>> T.strip)
 
 nixEvalApplyRaw ::
@@ -77,7 +77,7 @@ nixEvalApplyRaw ::
   ExceptT Text m Text
 nixEvalApplyRaw applyFunc attrPath =
   ourReadProcess_
-    (proc (binPath <> "/nix") (["eval", ".#" <> T.unpack attrPath, "--raw", "--apply", T.unpack applyFunc]))
+    (proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "--extra-experimental-features", "flakes", "eval", ".#" <> T.unpack attrPath, "--raw", "--apply", T.unpack applyFunc]))
     & fmapRT (fst >>> T.strip)
 
 nixEvalExpr ::
@@ -86,7 +86,7 @@ nixEvalExpr ::
   ExceptT Text m Text
 nixEvalExpr expr =
   ourReadProcess_
-    (proc (binPath <> "/nix") (["eval", "--expr", T.unpack expr]))
+    (proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "eval", "--expr", T.unpack expr]))
     & fmapRT (fst >>> T.strip)
 
 -- Error if the "new version" is actually newer according to nix
@@ -136,7 +136,7 @@ lookupAttrPath updateEnv =
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
 getDerivationFile attrPath = do
   npDir <- liftIO $ Git.nixpkgsDir
-  proc "env" ["EDITOR=echo", (binPath <> "/nix"), "edit", attrPath & T.unpack, "-f", "."]
+  proc "env" ["EDITOR=echo", (binPath <> "/nix"), "--extra-experimental-features", "nix-command", "edit", attrPath & T.unpack, "-f", "."]
     & ourReadProcess_
     & fmapRT (fst >>> T.strip >>> T.stripPrefix (T.pack npDir <> "/") >>> fromJust)
 
@@ -186,7 +186,7 @@ buildCmd attrPath =
   silently $ proc (binPath <> "/nix-build") (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
-log attrPath = proc (binPath <> "/nix") ["log", "-f", ".", attrPath & T.unpack]
+log attrPath = proc (binPath <> "/nix") ["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack]
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
