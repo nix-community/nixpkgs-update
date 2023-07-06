@@ -1,7 +1,6 @@
 { nixpkgs
 , mmdoc
 , system
-, self
 , ...
 }:
 
@@ -53,7 +52,7 @@ let
 
   doc = pkgs.stdenvNoCC.mkDerivation rec {
     name = "nixpkgs-update-doc";
-    src = self;
+    src = ./.;
     phases = [ "mmdocPhase" ];
     mmdocPhase = "${mmdoc.packages.${system}.mmdoc}/bin/mmdoc nixpkgs-update $src/doc $out";
   };
