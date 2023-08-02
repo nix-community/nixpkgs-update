@@ -253,7 +253,8 @@ nixBuildOptions :: [String]
 nixBuildOptions =
   [ "--option",
     "sandbox",
-    "true"
+    "true",
+    "--no-out-link" -- do not pollute current directory with `result` symlink
   ]
     <> nixCommonOptions
 

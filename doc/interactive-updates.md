@@ -14,10 +14,14 @@ nixpkgs-update supports interactive, single package updates via the
    no longer uses `hub` itself).
 2. Go to your local checkout of nixpkgs, and **make sure the working
    directory is clean**. Be on a branch you are okay committing to.
-3. Run it like: `nixpkgs-update update "postman 7.20.0 7.21.2"`
+3. Ensure that there is an Git origin called `upstream` which points to nixpkgs:
+   ```sh
+   git remote add upstream "https://github.com/NixOS/nixpkgs.git"
+   ```
+4. Run it like: `nixpkgs-update update "postman 7.20.0 7.21.2"`
    which mean update the package "postman" from version 7.20.0
    to version 7.21.2.
-4. It will run the updater, and, if the update builds, it will commit
+5. It will run the updater, and, if the update builds, it will commit
    the update and output a message you could use for a pull request.
 
 # Flags
