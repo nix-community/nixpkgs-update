@@ -1,8 +1,8 @@
-use std::process::Command;
+use chrono::offset::Utc;
 use diesel::prelude::*;
 use nixpkgs_update::models::*;
 use nixpkgs_update::*;
-use chrono::offset::Utc;
+use std::process::Command;
 
 fn fetch_repology(project_name: &String) -> Result<json::JsonValue, &'static str> {
     let body = ureq::get(&format!(
@@ -26,16 +26,29 @@ fn fetch_repology(project_name: &String) -> Result<json::JsonValue, &'static str
     Err("Couldn't find")
 }
 
+fn github_token() -> Option<String> {
+    if let Ok(token) = std::env::var("GH_TOKEN") {
+        return Some(token);
+    }
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        return Some(token);
+    }
+    None
+}
+
 fn fetch_github_latest_release(github: &Github) -> Result<json::JsonValue, &'static str> {
-    let body = ureq::get(&format!(
+    let mut request = ureq::get(&format!(
         "https://api.github.com/repos/{}/{}/releases/latest",
-        github.owner,
-        github.repo,
+        github.owner, github.repo,
     ))
-    .call()
-    .unwrap()
-    .into_string()
-    .unwrap();
+    .set("Accept", "application/vnd.github+json")
+    .set("X-GitHub-Api-Version", "2022-11-28");
+
+    if let Some(token) = github_token() {
+        request = request.set("Authorization", &format!("Bearer {}", token));
+    }
+
+    let body = request.call().unwrap().into_string().unwrap();
     if let json::JsonValue::Object(response) = json::parse(&body).unwrap() {
         return Ok(response["tag_name"].clone());
     }
@@ -83,7 +96,7 @@ fn maybe_github(attr_path: &String) -> Option<Github> {
         .output()
         .expect(&format!("Failed to execute nix eval for {}", attr_path));
     if !String::from_utf8_lossy(&output.stdout).contains("github") {
-      return None;
+        return None;
     }
 
     let output = Command::new("nix")
@@ -126,40 +139,41 @@ fn main() {
     for package in results {
         println!("{} {}", package.id, package.attr_path);
 
-        let result : String = fetch_repology(&package.attr_path).unwrap().to_string();
+        let result: String = fetch_repology(&package.attr_path).unwrap().to_string();
         println!("newest repology version {}", result);
 
-        let version_in_nixpkgs_master : String = version_in_nixpkgs_master(&package.attr_path);
+        let version_in_nixpkgs_master: String = version_in_nixpkgs_master(&package.attr_path);
         println!("nixpkgs master version {}", version_in_nixpkgs_master);
 
-        let version_in_nixpkgs_staging : String = version_in_nixpkgs_staging(&package.attr_path);
+        let version_in_nixpkgs_staging: String = version_in_nixpkgs_staging(&package.attr_path);
         println!("nixpkgs staging version {}", version_in_nixpkgs_staging);
 
-        let version_in_nixpkgs_staging_next : String = version_in_nixpkgs_staging_next(&package.attr_path);
-        println!("nixpkgs staging_next version {}", version_in_nixpkgs_staging_next);
+        let version_in_nixpkgs_staging_next: String =
+            version_in_nixpkgs_staging_next(&package.attr_path);
+        println!(
+            "nixpkgs staging_next version {}",
+            version_in_nixpkgs_staging_next
+        );
 
         let now = Some(Utc::now().naive_utc());
         diesel::update(packages.find(&package.id))
             .set((
                 version_nixpkgs_master.eq(Some(version_in_nixpkgs_master)),
                 last_checked_nixpkgs_master.eq(now),
-
                 version_nixpkgs_staging.eq(Some(version_in_nixpkgs_staging)),
                 last_checked_nixpkgs_staging.eq(now),
-
                 version_nixpkgs_staging_next.eq(Some(version_in_nixpkgs_staging_next)),
                 last_checked_nixpkgs_staging_next.eq(now),
-
                 version_repology.eq(Some(result)),
                 last_checked_repology.eq(now),
-             ))
+            ))
             .execute(connection)
             .unwrap();
 
         if let Some(github) = maybe_github(&package.attr_path) {
             println!("found github for {}", package.attr_path);
 
-            let vgithub : String = fetch_github_latest_release(&github).unwrap().to_string();
+            let vgithub: String = fetch_github_latest_release(&github).unwrap().to_string();
             println!("version github {}", vgithub);
             let now = Some(Utc::now().naive_utc());
             diesel::update(packages.find(&package.id))
