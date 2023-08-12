@@ -10,6 +10,9 @@
         pkgs.clippy
         pkgs.sqlite
         pkgs.diesel-cli
+        pkgs.openssl
+        pkgs.pkg-config
+        pkgs.rustfmt
       ];
     };
   };
