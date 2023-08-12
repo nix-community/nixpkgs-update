@@ -6,3 +6,4 @@
 dist-newstyle/
 dist/
 test_data/actual*
+.direnv
