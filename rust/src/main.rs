@@ -13,20 +13,14 @@ fn fetch_repology(project_name: String) -> Result<json::JsonValue, &'static str>
     .into_string()
     .unwrap();
     let json = json::parse(&body).unwrap();
-    match json {
-        json::JsonValue::Array(projects) => {
-            for project in projects {
-                match project {
-                    json::JsonValue::Object(project_repo) => {
-                        if project_repo["status"] == "newest" {
-                            return Ok(project_repo.get("version").unwrap().clone());
-                        }
-                    }
-                    _ => continue,
+    if let json::JsonValue::Array(projects) = json {
+        for project in projects {
+            if let json::JsonValue::Object(project_repo) = project {
+                if project_repo["status"] == "newest" {
+                    return Ok(project_repo.get("version").unwrap().clone());
                 }
             }
         }
-        _ => (),
     }
     Err("Couldn't find")
 }
