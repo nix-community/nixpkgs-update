@@ -55,6 +55,10 @@ meta.changelog for foobar is: "https://foobar-homepage.com/changelog/v1.2.3"
 ```
 nix-build -A foobar https://github.com/r-ryantm/nixpkgs/archive/af39cf77a0d42a4f6771043ec54221ed.tar.gz
 ```
+Or:
+```
+nix build github:r-ryantm/nixpkgs/af39cf77a0d42a4f6771043ec54221ed#foobar
+```
 
 After you've downloaded or built it, look at the files and if there are any, run the binaries:
 ```

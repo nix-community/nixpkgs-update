@@ -568,6 +568,10 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
        ```
        nix-build -A $attrPath https://github.com/$ghUser/nixpkgs/archive/$commitRev.tar.gz
        ```
+       Or:
+       ```
+       nix build github:$ghUser/nixpkgs/$commitRev#$attrPath
+       ```
 
        After you've downloaded or built it, look at the files and if there are any, run the binaries:
        ```
