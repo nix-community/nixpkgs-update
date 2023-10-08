@@ -184,7 +184,7 @@ skipOutpathCalcList =
 
 binariesStickAround :: Text -> (Text -> Bool, Text)
 binariesStickAround name =
-  infixOf name ("- " <> name <> "result is not automatically checekd because some binaries stick around")
+  infixOf name ("- " <> name <> " result is not automatically checked because some binaries stick around")
 
 skiplister :: Skiplist -> TextSkiplister m
 skiplister skiplist input = forM_ result throwError
