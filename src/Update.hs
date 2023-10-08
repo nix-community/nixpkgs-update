@@ -30,7 +30,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
-import Data.Time.Clock (getCurrentTime, utctDay)
+import Data.Time.Clock (getCurrentTime, utctDay, addUTCTime, UTCTime)
 import qualified GH
 import qualified Git
 import Language.Haskell.TH.Env (envQ)
@@ -401,9 +401,10 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
     (doPR . options $ updateEnv)
     (Git.push updateEnv <|> Git.push updateEnv <|> Git.push updateEnv)
   isBroken <- Nix.getIsBroken attrPath
+  ofBorgWaitUntil <- lift $ addUTCTime (fromInteger $ 15 * 60) <$> getCurrentTime
   when
     (batchUpdate . options $ updateEnv)
-    (lift (untilOfBorgFree log))
+    (lift (untilOfBorgFree log ofBorgWaitUntil))
   let prMsg =
         prMessage
           updateEnv
@@ -600,18 +601,20 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 jqBin :: String
 jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
 
-untilOfBorgFree :: MonadIO m => (Text -> IO ()) -> m ()
-untilOfBorgFree log = do
-  stats <-
-    shell "curl -s https://events.ofborg.org/stats.php" & readProcessInterleaved_
-  waiting <-
-    shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
-      & readProcessInterleaved_
-      & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
-  when (waiting > 2) $ do
-    liftIO $ log ("Waiting for OfBorg: https://events.ofborg.org/stats.php's evaluator.messages.waiting = " <> tshow waiting)
-    liftIO $ threadDelay 60000000
-    untilOfBorgFree log
+untilOfBorgFree :: (Text -> IO ()) -> UTCTime -> IO ()
+untilOfBorgFree log waitUntil = do
+  now <- getCurrentTime
+  when (now < waitUntil) do
+    stats <-
+      shell "curl -s https://events.ofborg.org/stats.php" & readProcessInterleaved_
+    waiting <-
+      shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
+        & readProcessInterleaved_
+        & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
+    when (waiting > 2) $ do
+      liftIO $ log ("Waiting for OfBorg: https://events.ofborg.org/stats.php's evaluator.messages.waiting = " <> tshow waiting)
+      liftIO $ threadDelay 60000000
+      untilOfBorgFree log waitUntil
 
 assertNotUpdatedOn ::
   MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
