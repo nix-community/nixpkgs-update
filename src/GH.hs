@@ -23,8 +23,11 @@ import Data.Aeson (FromJSON)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
+import qualified Git
 import qualified GitHub as GH
 import GitHub.Data.Name (Name (..))
+import Network.HTTP.Client (HttpException (..), HttpExceptionContent (..), responseStatus)
+import Network.HTTP.Types.Status (statusCode)
 import OurPrelude
 import Text.Regex.Applicative.Text ((=~))
 import qualified Text.Regex.Applicative.Text as RE
@@ -46,8 +49,16 @@ releaseUrl env url = do
 
 pr :: MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
 pr env title body prHead base = do
-  ExceptT $
-    bimap (T.pack . show) ((False, ) . GH.getUrl . GH.pullRequestUrl)
+  tryPR `catchE` \case
+    -- If creating the PR returns a 422, most likely cause is that the
+    -- branch was deleted, so push it again and retry once.
+    GH.HTTPError (HttpExceptionRequest _ (StatusCodeException r _)) | statusCode (responseStatus r) == 422 ->
+      Git.push env >> withExceptT (T.pack . show) tryPR
+    e ->
+      throwE . T.pack . show $ e
+  where
+  tryPR = ExceptT $
+    fmap ((False, ) . GH.getUrl . GH.pullRequestUrl)
       <$> ( liftIO $
               ( GH.github
                   (authFrom env)
