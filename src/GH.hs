@@ -18,10 +18,12 @@ module GH
   )
 where
 
-import Control.Applicative (some)
+import Control.Applicative (liftA2, some)
 import Data.Aeson (FromJSON)
+import Data.Bitraversable (bitraverse)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Data.Time.Clock (getCurrentTime, addUTCTime)
 import qualified Data.Vector as V
 import qualified Git
 import qualified GitHub as GH
@@ -156,11 +158,11 @@ compareUrl urlOld urlNew = do
       <> "..."
       <> tag newParts
 
-autoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector Text))
+autoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector (Text, GH.Name GH.GitCommit)))
 autoUpdateRefs auth ghUser =
   GH.github auth (GH.referencesR ghUser "nixpkgs" GH.FetchAll)
     & ((fmap . fmapL) tshow)
-    & ((fmap . fmapR) (fmap (GH.gitReferenceRef >>> GH.untagName) >>> V.mapMaybe (T.stripPrefix prefix)))
+    & ((fmap . fmapR) (fmap (liftA2 (,) (GH.gitReferenceRef >>> GH.untagName) (GH.gitReferenceObject >>> GH.gitObjectSha >>> N)) >>> V.mapMaybe (bitraverse (T.stripPrefix prefix) pure)))
   where
     prefix = "refs/heads/auto-update/"
 
@@ -174,18 +176,26 @@ openPRWithAutoUpdateRefFrom auth ghUser ref =
         (GH.optionsHead (GH.untagName ghUser <> ":" <> U.branchPrefix <> ref) <> GH.stateOpen)
         GH.FetchAll
     )
-    & fmap (first (T.pack . show) >>> second (not . V.null))
+    <&> bimap (T.pack . show) (not . V.null)
 
-refShouldBeDeleted :: GH.Auth -> GH.Name GH.Owner -> Text -> IO Bool
-refShouldBeDeleted auth ghUser ref =
-  not . either (const True) id
-    <$> openPRWithAutoUpdateRefFrom auth ghUser ref
+commitIsOldEnoughToDelete :: GH.Auth -> GH.Name GH.Owner -> GH.Name GH.GitCommit -> IO Bool
+commitIsOldEnoughToDelete auth ghUser sha = do
+  now <- getCurrentTime
+  let cutoff = addUTCTime (-30 * 60) now
+  GH.executeRequest auth (GH.gitCommitR ghUser "nixpkgs" sha)
+    <&> either (const False) ((< cutoff) . GH.gitUserDate . GH.gitCommitCommitter)
+
+refShouldBeDeleted :: GH.Auth -> GH.Name GH.Owner -> (Text, GH.Name GH.GitCommit) -> IO Bool
+refShouldBeDeleted auth ghUser (ref, sha) =
+  liftA2 (&&)
+    (either (const False) not <$> openPRWithAutoUpdateRefFrom auth ghUser ref)
+    (commitIsOldEnoughToDelete auth ghUser sha)
 
 closedAutoUpdateRefs :: GH.Auth -> GH.Name GH.Owner -> IO (Either Text (Vector Text))
 closedAutoUpdateRefs auth ghUser =
   runExceptT $ do
-    aur :: Vector Text <- ExceptT $ GH.autoUpdateRefs auth ghUser
-    ExceptT (Right <$> V.filterM (refShouldBeDeleted auth ghUser) aur)
+    aur :: Vector (Text, GH.Name GH.GitCommit) <- ExceptT $ GH.autoUpdateRefs auth ghUser
+    ExceptT (Right . V.map fst <$> V.filterM (refShouldBeDeleted auth ghUser) aur)
 
 authFromToken :: Text -> GH.Auth
 authFromToken = GH.OAuth . T.encodeUtf8

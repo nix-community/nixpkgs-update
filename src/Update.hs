@@ -389,19 +389,19 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
   compareUrl <- GH.compareUrl oldSrcUrl newSrcUrl <|> return ""
   maintainers <- Nix.getMaintainers attrPath
   let commitMsg = commitMessage updateEnv attrPath
+  -- Wait for OfBorg before committing, so that delete-done can use the date of
+  -- the commit to avoid deleting new commits
+  ofBorgWaitUntil <- lift $ addUTCTime (fromInteger $ 15 * 60) <$> getCurrentTime
+  when
+    (batchUpdate . options $ updateEnv)
+    (lift (untilOfBorgFree log ofBorgWaitUntil))
   Git.commit commitMsg
   commitRev <- Git.headRev
   nixpkgsReviewMsg <-
     if prBase /= "staging" && (runNixpkgsReview . options $ updateEnv)
       then liftIO $ NixpkgsReview.runReport log commitRev
       else return ""
-  -- Wait for OfBorg before pushing, so that the branch is less likely to be
-  -- deleted by delete-done
   isBroken <- Nix.getIsBroken attrPath
-  ofBorgWaitUntil <- lift $ addUTCTime (fromInteger $ 15 * 60) <$> getCurrentTime
-  when
-    (batchUpdate . options $ updateEnv)
-    (lift (untilOfBorgFree log ofBorgWaitUntil))
   -- Try to push it three times
   -- (these pushes use --force, so it doesn't matter if branchExists is True)
   when
