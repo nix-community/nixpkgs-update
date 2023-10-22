@@ -27,7 +27,7 @@ module Nix
     numberOfHashes,
     resultLink,
     runUpdateScript,
-    fakeHash,
+    fakeHashMatching,
     version,
     Raw (..),
   )
@@ -243,8 +243,12 @@ resultLink =
         )
     <|> throwE "Could not find result link. "
 
-fakeHash :: Text
-fakeHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+fakeHashMatching :: Text -> Text
+fakeHashMatching oldHash =
+  if "sha512-" `T.isPrefixOf` oldHash then
+    "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+  else
+    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
 getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
