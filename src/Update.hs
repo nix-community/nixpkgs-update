@@ -391,7 +391,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
   let commitMsg = commitMessage updateEnv attrPath
   -- Wait for OfBorg before committing, so that delete-done can use the date of
   -- the commit to avoid deleting new commits
-  ofBorgWaitUntil <- lift $ addUTCTime (fromInteger $ 15 * 60) <$> getCurrentTime
+  ofBorgWaitUntil <- lift $ addUTCTime (fromInteger $ 60 * 60) <$> getCurrentTime
   when
     (batchUpdate . options $ updateEnv)
     (lift (untilOfBorgFree log ofBorgWaitUntil))
