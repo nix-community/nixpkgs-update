@@ -165,11 +165,12 @@ rustCrateVersion log args@Args {..} = do
         srcVersionFix args
         -- But then from there we need to do this a second time for the cargoHash!
         oldCargoHash <- Nix.getAttrString "cargoHash" attrPath
-        _ <- lift $ File.replaceIO oldCargoHash Nix.fakeHash derivationFile
+        let fakeHash = Nix.fakeHashMatching oldCargoHash
+        _ <- lift $ File.replaceIO oldCargoHash fakeHash derivationFile
         newCargoHash <- Nix.getHashFromBuild attrPath
         when (oldCargoHash == newCargoHash) $ throwE ("cargo hashes equal; no update necessary: " <> oldCargoHash)
         lift . log $ "Replacing cargoHash with " <> newCargoHash
-        _ <- lift $ File.replaceIO Nix.fakeHash newCargoHash derivationFile
+        _ <- lift $ File.replaceIO fakeHash newCargoHash derivationFile
         -- Ensure the package actually builds and passes its tests
         Nix.build attrPath
         lift $ log "Finished updating Crate version and replacing hashes"
@@ -203,9 +204,10 @@ golangModuleVersion log args@Args {..} = do
           if isLeft ok
             then do
               _ <- liftIO $ T.writeFile derivationFile original
-              _ <- lift $ File.replaceIO oldVendorHash ("\"" <> Nix.fakeHash <> "\"") derivationFile
+              let fakeHash = Nix.fakeHashMatching oldVendorHash
+              _ <- lift $ File.replaceIO oldVendorHash ("\"" <> fakeHash <> "\"") derivationFile
               newVendorHash <- Nix.getHashFromBuild attrPath
-              _ <- lift $ File.replaceIO Nix.fakeHash newVendorHash derivationFile
+              _ <- lift $ File.replaceIO fakeHash newVendorHash derivationFile
               -- Note that on some small bumps, this may not actually change if go.sum did not
               lift . log $ "Replaced vendorHash with " <> newVendorHash
             else do
@@ -233,11 +235,12 @@ npmDepsVersion log args@Args {..} = do
         srcVersionFix args
         -- But then from there we need to do this a second time for the cargoHash!
         oldDepsHash <- Nix.getAttrString "npmDepsHash" attrPath
-        _ <- lift $ File.replaceIO oldDepsHash Nix.fakeHash derivationFile
+        let fakeHash = Nix.fakeHashMatching oldDepsHash
+        _ <- lift $ File.replaceIO oldDepsHash fakeHash derivationFile
         newDepsHash <- Nix.getHashFromBuild attrPath
         when (oldDepsHash == newDepsHash) $ throwE ("deps hashes equal; no update necessary: " <> oldDepsHash)
         lift . log $ "Replacing npmDepsHash with " <> newDepsHash
-        _ <- lift $ File.replaceIO Nix.fakeHash newDepsHash derivationFile
+        _ <- lift $ File.replaceIO fakeHash newDepsHash derivationFile
         -- Ensure the package actually builds and passes its tests
         Nix.build attrPath
         lift $ log "Finished updating NPM deps version and replacing hashes"
@@ -270,8 +273,9 @@ srcVersionFix Args {..} = do
   let UpdateEnv {..} = updateEnv
   oldHash <- Nix.getHash attrPath
   _ <- lift $ File.replaceIO oldVersion newVersion derivationFile
-  _ <- lift $ File.replaceIO oldHash Nix.fakeHash derivationFile
+  let fakeHash = Nix.fakeHashMatching oldHash
+  _ <- lift $ File.replaceIO oldHash fakeHash derivationFile
   newHash <- Nix.getHashFromBuild attrPath
   when (oldHash == newHash) $ throwE "Hashes equal; no update necessary"
-  _ <- lift $ File.replaceIO Nix.fakeHash newHash derivationFile
+  _ <- lift $ File.replaceIO fakeHash newHash derivationFile
   return ()
