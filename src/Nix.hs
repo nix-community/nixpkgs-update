@@ -221,7 +221,7 @@ numberOfFetchers derivationContents =
 -- Sum the number of things that look like fixed-output derivation hashes
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents =
-  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "cargoHash =", "vendorSha256 =", "vendorHash =", "hash ="]
+  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "cargoHash =", "vendorSha256 =", "vendorHash =", "hash =", "npmDepsHash ="]
   where
     countUp x = T.count x derivationContents
 
