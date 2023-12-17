@@ -7,7 +7,6 @@ module Rewrite
   ( Args (..),
     runAll,
     golangModuleVersion,
-    quotedUrls,
     rustCrateVersion,
     version,
     redirectedUrls,
@@ -61,8 +60,7 @@ plan =
     ("rustCrateVersion", rustCrateVersion),
     ("golangModuleVersion", golangModuleVersion),
     ("npmDepsVersion", npmDepsVersion),
-    ("updateScript", updateScript),
-    ("", quotedUrls) -- Don't change the logger
+    ("updateScript", updateScript)
     --("redirectedUrl", Rewrite.redirectedUrls)
   ]
 
@@ -92,27 +90,6 @@ version log args@Args {..} = do
         srcVersionFix args
         lift $ log "updated version and sha256"
         return $ Just "Version update"
-
---------------------------------------------------------------------------------
--- Rewrite meta.homepage (and eventually other URLs) to be quoted if not
--- already, as per https://github.com/NixOS/rfcs/pull/45
-quotedUrls :: (Text -> IO ()) -> Args -> ExceptT Text IO (Maybe Text)
-quotedUrls log Args {..} = do
-  lift $ log "[quotedUrls]"
-  homepage <- Nix.getHomepage attrPath
-  let goodHomepage = "homepage = " <> homepage <> ";"
-  let replacer = \target -> File.replaceIO target goodHomepage derivationFile
-  urlReplaced1 <- replacer ("homepage = " <> homepage <> ";")
-  urlReplaced2 <- replacer ("homepage = " <> homepage <> " ;")
-  urlReplaced3 <- replacer ("homepage =" <> homepage <> ";")
-  urlReplaced4 <- replacer ("homepage =" <> homepage <> "; ")
-  if urlReplaced1 || urlReplaced2 || urlReplaced3 || urlReplaced4
-    then do
-      lift $ log "[quotedUrls]: added quotes to meta.homepage"
-      return $ Just "Quoted meta.homepage for [RFC 45](https://github.com/NixOS/rfcs/pull/45)"
-    else do
-      lift $ log "[quotedUrls] nothing found to replace"
-      return Nothing
 
 --------------------------------------------------------------------------------
 -- Redirect homepage when moved.
