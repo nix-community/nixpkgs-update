@@ -536,10 +536,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 
        ###### Impact
 
-       <details>
-       <summary>
-       <b>Checks done</b> (click to expand)
-       </summary>
+       <b>Checks done</b>
 
        ---
 
@@ -548,7 +545,6 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 
        ---
 
-       </details>
        <details>
        <summary>
        <b>Rebuild report</b> (if merged into master) (click to expand)

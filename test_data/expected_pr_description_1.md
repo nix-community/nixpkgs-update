@@ -20,10 +20,7 @@ meta.changelog for foobar is: "https://foobar-homepage.com/changelog/v1.2.3"
 
 ###### Impact
 
-<details>
-<summary>
-<b>Checks done</b> (click to expand)
-</summary>
+<b>Checks done</b>
 
 ---
 
@@ -32,7 +29,6 @@ meta.changelog for foobar is: "https://foobar-homepage.com/changelog/v1.2.3"
 
 ---
 
-</details>
 <details>
 <summary>
 <b>Rebuild report</b> (if merged into master) (click to expand)
