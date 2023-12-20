@@ -12,9 +12,11 @@ module Skiplist
   )
 where
 
+import Data.Char (isDigit)
 import Data.Foldable (find)
 import qualified Data.Text as T
 import OurPrelude
+import Text.Regex.Applicative.Text (RE', few, psym, string, (=~))
 
 type Skiplist = [(Text -> Bool, Text)]
 
@@ -79,7 +81,10 @@ attrPathList =
     eq "imagemagick_light" "same file and version as imagemagick",
     eq "imagemagickBig" "same file and version as imagemagick",
     eq "libheimdal" "alias of heimdal",
-    eq "minio_legacy_fs" "@bachp asked to skip"
+    eq "minio_legacy_fs" "@bachp asked to skip",
+    regex
+      (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
+      "takes way too long to build"
   ]
 
 nameList :: Skiplist
@@ -198,6 +203,9 @@ infixOf part reason = ((part `T.isInfixOf`), reason)
 
 eq :: Text -> Text -> (Text -> Bool, Text)
 eq part reason = ((part ==), reason)
+
+regex :: RE' a -> Text -> (Text -> Bool, Text)
+regex pat reason = (isJust . (=~ pat), reason)
 
 python :: Monad m => Int -> Text -> ExceptT Text m ()
 python numPackageRebuilds derivationContents =
