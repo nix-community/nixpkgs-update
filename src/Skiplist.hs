@@ -69,6 +69,9 @@ attrPathList =
     prefix
       "keybinder"
       "it has weird tags. see nixpkgs-update#232",
+    prefix
+      "ocaml"
+      "@vbgl asked to skip",
     infixOf
       "pysc2"
       "crashes nixpkgs-update",
