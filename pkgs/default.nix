@@ -1,5 +1,6 @@
 { nixpkgs
 , mmdoc
+, runtimeDeps
 , system
 , self
 , ...
@@ -7,9 +8,11 @@
 
 let
 
+  runtimePkgs = import runtimeDeps { inherit system; };
+
   pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
 
-  drvAttrs = attrs: with pkgs; {
+  drvAttrs = attrs: with runtimePkgs; {
     NIX = nix;
     GIT = git;
     JQ = jq;
