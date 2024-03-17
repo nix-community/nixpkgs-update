@@ -82,6 +82,9 @@ attrPathList =
     eq "imagemagickBig" "same file and version as imagemagick",
     eq "libheimdal" "alias of heimdal",
     eq "minio_legacy_fs" "@bachp asked to skip",
+    eq "flint" "update repeatedly exceeded the 6h timeout",
+    eq "keepmenu" "update repeatedly exceeded the 6h timeout",
+    eq "klee" "update repeatedly exceeded the 6h timeout",
     regex
       (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
       "takes way too long to build"
