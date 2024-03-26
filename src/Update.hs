@@ -308,6 +308,11 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
           -- Already checked that these are Just above.
           let oldVer = fromJust oldVerMay
           let newVer = fromJust newVerMay
+
+          -- Some update scripts make file changes but don't update the package
+          -- version; ignore these updates (#388)
+          when (newVer == oldVer) $ throwE "Package version did not change."
+
           return $
             UpdateEnv
               packageName
