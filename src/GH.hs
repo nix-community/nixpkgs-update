@@ -23,7 +23,7 @@ import Data.Aeson (FromJSON)
 import Data.Bitraversable (bitraverse)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Time.Clock (getCurrentTime, addUTCTime)
+import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import qualified Git
 import qualified GitHub as GH
@@ -54,23 +54,25 @@ pr env title body prHead base = do
   tryPR `catchE` \case
     -- If creating the PR returns a 422, most likely cause is that the
     -- branch was deleted, so push it again and retry once.
-    GH.HTTPError (HttpExceptionRequest _ (StatusCodeException r _)) | statusCode (responseStatus r) == 422 ->
-      Git.push env >> withExceptT (T.pack . show) tryPR
+    GH.HTTPError (HttpExceptionRequest _ (StatusCodeException r _))
+      | statusCode (responseStatus r) == 422 ->
+          Git.push env >> withExceptT (T.pack . show) tryPR
     e ->
       throwE . T.pack . show $ e
   where
-  tryPR = ExceptT $
-    fmap ((False, ) . GH.getUrl . GH.pullRequestUrl)
-      <$> ( liftIO $
-              ( GH.github
-                  (authFrom env)
-                  ( GH.createPullRequestR
-                      (N "nixos")
-                      (N "nixpkgs")
-                      (GH.CreatePullRequest title body prHead base)
+    tryPR =
+      ExceptT $
+        fmap ((False,) . GH.getUrl . GH.pullRequestUrl)
+          <$> ( liftIO $
+                  ( GH.github
+                      (authFrom env)
+                      ( GH.createPullRequestR
+                          (N "nixos")
+                          (N "nixpkgs")
+                          (GH.CreatePullRequest title body prHead base)
+                      )
                   )
               )
-          )
 
 prUpdate :: forall m. MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
 prUpdate env title body prHead base = do
@@ -78,24 +80,25 @@ prUpdate env title body prHead base = do
       runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
   let inNixpkgs f = f (N "nixos") (N "nixpkgs")
 
-  prs <- runRequest $
-    inNixpkgs GH.pullRequestsForR (GH.optionsHead prHead) GH.FetchAll
+  prs <-
+    runRequest $
+      inNixpkgs GH.pullRequestsForR (GH.optionsHead prHead) GH.FetchAll
 
   case V.toList prs of
     [] -> pr env title body prHead base
-
-    (_:_:_) -> throwE $ "Too many open PRs from " <> prHead
-
+    (_ : _ : _) -> throwE $ "Too many open PRs from " <> prHead
     [thePR] -> do
       let withExistingPR :: (GH.Name GH.Owner -> GH.Name GH.Repo -> GH.IssueNumber -> a) -> a
           withExistingPR f = inNixpkgs f (GH.simplePullRequestNumber thePR)
 
-      _ <- runRequest $
-        withExistingPR GH.updatePullRequestR $
-          GH.EditPullRequest (Just title) Nothing Nothing Nothing Nothing
+      _ <-
+        runRequest $
+          withExistingPR GH.updatePullRequestR $
+            GH.EditPullRequest (Just title) Nothing Nothing Nothing Nothing
 
-      _ <- runRequest $
-        withExistingPR GH.createCommentR body
+      _ <-
+        runRequest $
+          withExistingPR GH.createCommentR body
 
       return (True, GH.getUrl $ GH.simplePullRequestUrl thePR)
 
@@ -129,12 +132,18 @@ parseURLMaybe url =
       extension = RE.string ".zip" <|> RE.string ".tar.gz"
       toParts n o = URLParts (N n) (N o)
       regex =
-        ( toParts <$> (domain *> pathSegment) <* slash <*> pathSegment
+        ( toParts
+            <$> (domain *> pathSegment)
+            <* slash
+            <*> pathSegment
             <*> (RE.string "/releases/download/" *> pathSegment)
             <* slash
             <* pathSegment
         )
-          <|> ( toParts <$> (domain *> pathSegment) <* slash <*> pathSegment
+          <|> ( toParts
+                  <$> (domain *> pathSegment)
+                  <* slash
+                  <*> pathSegment
                   <*> (RE.string "/archive/" *> pathSegment)
                   <* extension
               )
@@ -187,7 +196,8 @@ commitIsOldEnoughToDelete auth ghUser sha = do
 
 refShouldBeDeleted :: GH.Auth -> GH.Name GH.Owner -> (Text, GH.Name GH.GitCommit) -> IO Bool
 refShouldBeDeleted auth ghUser (ref, sha) =
-  liftA2 (&&)
+  liftA2
+    (&&)
     (either (const False) not <$> openPRWithAutoUpdateRefFrom auth ghUser ref)
     (commitIsOldEnoughToDelete auth ghUser sha)
 

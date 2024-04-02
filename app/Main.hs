@@ -71,9 +71,9 @@ deleteDoneParser =
 commandParser :: O.Parser Command
 commandParser =
   O.hsubparser
-    (O.command
-          "update"
-          (O.info (updateParser) (O.progDesc "Update one package"))
+    ( O.command
+        "update"
+        (O.info (updateParser) (O.progDesc "Update one package"))
         <> O.command
           "update-batch"
           (O.info (updateBatchParser) (O.progDesc "Update one package in batch mode."))
@@ -116,7 +116,8 @@ commandParser =
 
 checkVulnerable :: O.Parser Command
 checkVulnerable =
-  CheckVulnerable <$> O.strArgument (O.metavar "PRODUCT_ID")
+  CheckVulnerable
+    <$> O.strArgument (O.metavar "PRODUCT_ID")
     <*> O.strArgument (O.metavar "OLD_VERSION")
     <*> O.strArgument (O.metavar "NEW_VERSION")
 

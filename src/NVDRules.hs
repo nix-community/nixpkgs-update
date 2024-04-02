@@ -15,15 +15,19 @@ filter _ cpeMatch "socat" v
   | cpeUpdatePresentAndNotPartOfVersion cpeMatch v = False -- TODO consider if this rule should be applied to all packages
 filter _ cpeMatch "uzbl" v
   | isNothing (v =~ yearRegex)
-      && "2009.12.22" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
-    False
+      && "2009.12.22"
+      `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+      False
   | isNothing (v =~ yearRegex)
-      && "2010.04.03" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
-    False
+      && "2010.04.03"
+      `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+      False
 filter _ cpeMatch "go" v
-  | "." `T.isInfixOf` v
-      && "-" `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
-    False
+  | "."
+      `T.isInfixOf` v
+      && "-"
+      `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+      False
 filter _ cpeMatch "terraform" _
   | cpeTargetSoftware (cpeMatchCPE cpeMatch) == Just "aws" = False
 filter cve _ "tor" _
@@ -31,7 +35,7 @@ filter cve _ "tor" _
 filter _ cpeMatch "arena" _
   | cpeVendor (cpeMatchCPE cpeMatch) == Just "rockwellautomation"
       || cpeVendor (cpeMatchCPE cpeMatch) == Just "openforis" =
-    False
+      False
 filter _ cpeMatch "thrift" _
   | cpeVendor (cpeMatchCPE cpeMatch) == Just "facebook" = False
 filter _ cpeMatch "kanboard" _

@@ -34,7 +34,6 @@ module OurPrelude
   )
 where
 
-import System.FilePath ((</>))
 import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Error
@@ -57,6 +56,7 @@ import Polysemy
 import Polysemy.Error hiding (note, try, tryJust)
 import qualified Process as P
 import System.Exit
+import System.FilePath ((</>))
 import System.Process.Typed
 
 interpolate :: QuasiQuoter
@@ -82,16 +82,16 @@ ourReadProcessInterleavedBS_ = readProcessInterleaved_ >>> tryIOTextET
 
 ourReadProcess_ ::
   MonadIO m =>
-    ProcessConfig stdin stdout stderr ->
+  ProcessConfig stdin stdout stderr ->
   ExceptT Text m (Text, Text)
-ourReadProcess_ =  readProcess_ >>> tryIOTextET >>> fmapRT (\(stdout,stderr) -> (bytestringToText stdout, bytestringToText stderr))
+ourReadProcess_ = readProcess_ >>> tryIOTextET >>> fmapRT (\(stdout, stderr) -> (bytestringToText stdout, bytestringToText stderr))
 
 ourReadProcess_Sem ::
   Members '[P.Process] r =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   Sem r (Text, Text)
 ourReadProcess_Sem =
-  P.read_ >>> fmap (\(stdout,stderr) -> (bytestringToText stdout, bytestringToText stderr))
+  P.read_ >>> fmap (\(stdout, stderr) -> (bytestringToText stdout, bytestringToText stderr))
 
 ourReadProcessInterleaved_ ::
   MonadIO m =>

@@ -16,6 +16,7 @@ where
 
 import Data.Aeson
   ( FromJSON,
+    Key,
     Object,
     eitherDecode,
     parseJSON,
@@ -23,7 +24,6 @@ import Data.Aeson
     (.!=),
     (.:),
     (.:!),
-    Key,
   )
 import Data.Aeson.Types (Parser, prependFailure)
 import qualified Data.ByteString.Lazy.Char8 as BSL

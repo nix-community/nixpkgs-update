@@ -16,7 +16,7 @@ import GHC.Generics
 import Network.HTTP.Client.TLS (newTlsManager)
 import OurPrelude
 import Servant.API
-import Servant.Client (BaseUrl (..), mkClientEnv, ClientM, Scheme (..), client, runClientM)
+import Servant.Client (BaseUrl (..), ClientM, Scheme (..), client, mkClientEnv, runClientM)
 import System.IO
 
 baseUrl :: BaseUrl
@@ -35,9 +35,9 @@ type Project = Vector Package
 type Projects = HashMap Text Project
 
 type API =
-  "project" :> Capture "project_name" Text :> Get '[JSON] Project :<|>
-  "projects" :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> Get '[JSON] Projects :<|>
-  "projects" :> Capture "name" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> Get '[JSON] Projects
+  "project" :> Capture "project_name" Text :> Get '[JSON] Project
+    :<|> "projects" :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> Get '[JSON] Projects
+    :<|> "projects" :> Capture "name" Text :> QueryParam "inrepo" Text :> QueryParam "outdated" Bool :> Get '[JSON] Projects
 
 data Package = Package
   { repo :: Text,
@@ -56,12 +56,10 @@ api :: Proxy API
 api = Proxy
 
 project :: Text -> ClientM (Vector Package)
-
 projects ::
   Maybe Text ->
   Maybe Bool ->
   ClientM Projects
-
 projects' ::
   Text ->
   Maybe Text ->

@@ -40,8 +40,8 @@ import qualified Data.Text.Lazy.Encoding as TL
 import qualified Git
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
+import System.Exit ()
 import qualified System.Process.Typed as TP
-import System.Exit()
 import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
 import Prelude hiding (log)
 
@@ -82,7 +82,7 @@ nixEvalApplyRaw applyFunc attrPath =
 
 nixEvalExpr ::
   MonadIO m =>
-  Text -> 
+  Text ->
   ExceptT Text m Text
 nixEvalExpr expr =
   ourReadProcess_
@@ -116,22 +116,23 @@ assertNewerVersion updateEnv = do
 lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
   -- lookup attrpath by nix-env
-  (proc
-    (binPath <> "/nix-env")
-    ( [ "-qa",
-        (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
-        "-f",
-        ".",
-        "--attr-path"
-      ]
-        <> nixCommonOptions
-    )
-    & ourReadProcess_
-    & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head))
-  <|>
-  -- if that fails, check by attrpath
-  (getAttrString "name" (packageName updateEnv))
-  & fmapRT (const (packageName updateEnv))
+  ( proc
+      (binPath <> "/nix-env")
+      ( [ "-qa",
+          (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
+          "-f",
+          ".",
+          "--attr-path"
+        ]
+          <> nixCommonOptions
+      )
+      & ourReadProcess_
+      & fmapRT (fst >>> T.lines >>> head >>> T.words >>> head)
+  )
+    <|>
+    -- if that fails, check by attrpath
+    (getAttrString "name" (packageName updateEnv))
+    & fmapRT (const (packageName updateEnv))
 
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
 getDerivationFile attrPath = do
@@ -143,10 +144,10 @@ getDerivationFile attrPath = do
 -- Get an attribute that can be evaluated off a derivation, as in:
 -- getAttr "cargoSha256" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
 getAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getAttr attr = srcOrMain (nixEvalApply ("p: p."<> attr))
+getAttr attr = srcOrMain (nixEvalApply ("p: p." <> attr))
 
 getAttrString :: MonadIO m => Text -> Text -> ExceptT Text m Text
-getAttrString attr = srcOrMain (nixEvalApplyRaw ("p: p."<> attr))
+getAttrString attr = srcOrMain (nixEvalApplyRaw ("p: p." <> attr))
 
 getHash :: MonadIO m => Text -> ExceptT Text m Text
 getHash = getAttrString "drvAttrs.outputHash"
@@ -178,8 +179,9 @@ getHomepage :: MonadIO m => Text -> ExceptT Text m Text
 getHomepage = nixEvalApplyRaw "p: p.meta.homepage or \"\""
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
-getSrcUrl = srcOrMain
-  (nixEvalApplyRaw "p: builtins.elemAt p.drvAttrs.urls 0")
+getSrcUrl =
+  srcOrMain
+    (nixEvalApplyRaw "p: builtins.elemAt p.drvAttrs.urls 0")
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
@@ -245,10 +247,9 @@ resultLink =
 
 fakeHashMatching :: Text -> Text
 fakeHashMatching oldHash =
-  if "sha512-" `T.isPrefixOf` oldHash then
-    "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
-  else
-    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  if "sha512-" `T.isPrefixOf` oldHash
+    then "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    else "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
 getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
@@ -287,17 +288,19 @@ hasPatchNamed attrPath name = do
   return $ name `T.isInfixOf` ps
 
 hasUpdateScript :: MonadIO m => Text -> ExceptT Text m Bool
-hasUpdateScript attrPath= do
+hasUpdateScript attrPath = do
   nixEvalApply
-    "p: builtins.hasAttr \"updateScript\" p" attrPath
+    "p: builtins.hasAttr \"updateScript\" p"
+    attrPath
     & readNixBool
 
 runUpdateScript :: MonadIO m => Text -> ExceptT Text m (ExitCode, Text)
 runUpdateScript attrPath = do
   let timeout = "10m" :: Text
-  (exitCode, output) <- ourReadProcessInterleaved $
-    TP.setStdin (TP.byteStringInput "\n") $
-    proc "timeout" [T.unpack timeout, "nix-shell", "maintainers/scripts/update.nix", "--argstr", "package", T.unpack attrPath ]
+  (exitCode, output) <-
+    ourReadProcessInterleaved $
+      TP.setStdin (TP.byteStringInput "\n") $
+        proc "timeout" [T.unpack timeout, "nix-shell", "maintainers/scripts/update.nix", "--argstr", "package", T.unpack attrPath]
   case exitCode of
     ExitFailure 124 -> do
       return (exitCode, "updateScript for " <> attrPath <> " took longer than " <> timeout <> " and timed out. Other output: " <> output)

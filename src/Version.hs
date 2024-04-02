@@ -8,8 +8,8 @@ module Version
   )
 where
 
-import Data.Foldable (toList)
 import Data.Char (isAlpha, isDigit)
+import Data.Foldable (toList)
 import Data.Function (on)
 import qualified Data.PartialOrd as PO
 import qualified Data.Text as T
@@ -62,30 +62,30 @@ clearBreakOn boundary string =
 versionCompatibleWithPathPin :: Text -> Version -> Bool
 versionCompatibleWithPathPin attrPath newVer
   | "-unwrapped" `T.isSuffixOf` attrPath =
-    versionCompatibleWithPathPin (T.dropEnd 10 attrPath) newVer
+      versionCompatibleWithPathPin (T.dropEnd 10 attrPath) newVer
   | "_x" `T.isSuffixOf` T.toLower attrPath =
-    versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVer
+      versionCompatibleWithPathPin (T.dropEnd 2 attrPath) newVer
   | "_" `T.isInfixOf` attrPath =
-    let attrVersionPart =
-          let (_, version) = clearBreakOn "_" attrPath
-           in if T.any (notElemOf ('_' : ['0' .. '9'])) version
-                then Nothing
-                else Just version
-        -- Check assuming version part has underscore separators
-        attrVersionPeriods = T.replace "_" "." <$> attrVersionPart
-     in -- If we don't find version numbers in the attr path, exit success.
-        maybe True (`T.isPrefixOf` newVer) attrVersionPeriods
+      let attrVersionPart =
+            let (_, version) = clearBreakOn "_" attrPath
+             in if T.any (notElemOf ('_' : ['0' .. '9'])) version
+                  then Nothing
+                  else Just version
+          -- Check assuming version part has underscore separators
+          attrVersionPeriods = T.replace "_" "." <$> attrVersionPart
+       in -- If we don't find version numbers in the attr path, exit success.
+          maybe True (`T.isPrefixOf` newVer) attrVersionPeriods
   | otherwise =
-    let attrVersionPart =
-          let version = T.dropWhile (notElemOf ['0' .. '9']) attrPath
-           in if T.any (notElemOf ['0' .. '9']) version
-                then Nothing
-                else Just version
-        -- Check assuming version part is the prefix of the version with dots
-        -- removed. For example, 91 => "9.1"
-        noPeriodNewVersion = T.replace "." "" newVer
-     in -- If we don't find version numbers in the attr path, exit success.
-        maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
+      let attrVersionPart =
+            let version = T.dropWhile (notElemOf ['0' .. '9']) attrPath
+             in if T.any (notElemOf ['0' .. '9']) version
+                  then Nothing
+                  else Just version
+          -- Check assuming version part is the prefix of the version with dots
+          -- removed. For example, 91 => "9.1"
+          noPeriodNewVersion = T.replace "." "" newVer
+       in -- If we don't find version numbers in the attr path, exit success.
+          maybe True (`T.isPrefixOf` noPeriodNewVersion) attrVersionPart
 
 versionIncompatibleWithPathPin :: Text -> Version -> Bool
 versionIncompatibleWithPathPin path version =

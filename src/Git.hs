@@ -18,7 +18,7 @@ module Git
     setupNixpkgs,
     Git.show,
     worktreeAdd,
-    worktreeRemove
+    worktreeRemove,
   )
 where
 
@@ -33,9 +33,9 @@ import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude hiding (throw)
-import System.Directory (doesDirectoryExist, doesFileExist, getModificationTime, getCurrentDirectory, setCurrentDirectory)
+import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getModificationTime, setCurrentDirectory)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
-import System.Exit()
+import System.Exit ()
 import System.IO.Error (tryIOError)
 import System.Posix.Env (setEnv)
 import Utils (Options (..), UpdateEnv (..), branchName, branchPrefix)
@@ -57,8 +57,8 @@ worktreeRemove :: FilePath -> IO ()
 worktreeRemove path = do
   exist <- doesDirectoryExist path
   if exist
-  then runProcessNoIndexIssue_IO $ silently $ procGit ["worktree", "remove", "--force", path]
-  else return ()
+    then runProcessNoIndexIssue_IO $ silently $ procGit ["worktree", "remove", "--force", path]
+    else return ()
 
 checkout :: Text -> Text -> ProcessConfig () () ()
 checkout branch target =
@@ -98,8 +98,9 @@ diff :: MonadIO m => Text -> ExceptT Text m Text
 diff branch = readProcessInterleavedNoIndexIssue_ $ procGit ["diff", T.unpack branch]
 
 diffFileNames :: MonadIO m => Text -> ExceptT Text m [Text]
-diffFileNames branch = readProcessInterleavedNoIndexIssue_ (procGit ["diff", T.unpack branch, "--name-only"])
-  & fmapRT T.lines
+diffFileNames branch =
+  readProcessInterleavedNoIndexIssue_ (procGit ["diff", T.unpack branch, "--name-only"])
+    & fmapRT T.lines
 
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
@@ -121,7 +122,8 @@ fetchIfStale = whenM staleFetchHead fetch
 fetch :: MonadIO m => ExceptT Text m ()
 fetch =
   runProcessNoIndexIssue_ $
-    silently $ procGit ["fetch", "-q", "--prune", "--multiple", "upstream", "origin"]
+    silently $
+      procGit ["fetch", "-q", "--prune", "--multiple", "upstream", "origin"]
 
 push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
@@ -210,7 +212,6 @@ deleteBranchesEverywhere branches = do
         Left error2 -> T.putStrLn $ tshow error2
         Right success2 -> T.putStrLn $ tshow success2
 
-
 runProcessNoIndexIssue_IO ::
   ProcessConfig () () () -> IO ()
 runProcessNoIndexIssue_IO config = go
@@ -220,8 +221,8 @@ runProcessNoIndexIssue_IO config = go
       case code of
         ExitFailure 128
           | "index.lock" `BS.isInfixOf` BSL.toStrict e -> do
-            threadDelay 100000
-            go
+              threadDelay 100000
+              go
         ExitSuccess -> return ()
         ExitFailure _ -> throw $ ExitCodeException code config out e
 
@@ -234,8 +235,8 @@ runProcessNoIndexIssue_ config = tryIOTextET go
       case code of
         ExitFailure 128
           | "index.lock" `BS.isInfixOf` BSL.toStrict e -> do
-            threadDelay 100000
-            go
+              threadDelay 100000
+              go
         ExitSuccess -> return ()
         ExitFailure _ -> throw $ ExitCodeException code config out e
 
@@ -248,11 +249,10 @@ readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
       case code of
         ExitFailure 128
           | "index.lock" `BS.isInfixOf` BSL.toStrict out -> do
-            threadDelay 100000
-            go
+              threadDelay 100000
+              go
         ExitSuccess -> return $ bytestringToText out
         ExitFailure _ -> throw $ ExitCodeException code config out out
-
 
 readProcessInterleavedNoIndexIssue_IO ::
   ProcessConfig () () () -> IO Text
@@ -263,7 +263,7 @@ readProcessInterleavedNoIndexIssue_IO config = go
       case code of
         ExitFailure 128
           | "index.lock" `BS.isInfixOf` BSL.toStrict out -> do
-            threadDelay 100000
-            go
+              threadDelay 100000
+              go
         ExitSuccess -> return $ bytestringToText out
         ExitFailure _ -> throw $ ExitCodeException code config out out
