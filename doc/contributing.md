@@ -38,4 +38,4 @@ nix run nixpkgs#haskellPackages.hpack
 
 Source files are formatted with [Ormolu](https://github.com/tweag/ormolu).
 
-There is also a [Cachix cache](https://nixpkgs-update.cachix.org/) available for the dependencies of this program.
+There is also a [Cachix cache](https://nix-community.cachix.org/) available for the dependencies of this program.
