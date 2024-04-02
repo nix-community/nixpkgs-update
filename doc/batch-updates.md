@@ -46,8 +46,8 @@ subcommand.
 
   There also exist alternative sources of updates, these include:
 
-   - PyPI, the Python Package Index:
-     [nixpkgs-update-pypi-releases](https://github.com/jonringer/nixpkgs-update-pypi-releases)
+   - package updateScript:
+      [passthru.updateScript](https://nixos.org/manual/nixpkgs/unstable/#var-passthru-updateScript)
    - GitHub releases:
      [nixpkgs-update-github-releases](https://github.com/synthetica9/nixpkgs-update-github-releases)
 

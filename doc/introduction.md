@@ -17,5 +17,5 @@ It is the code used by the GitHub bot
 [@r-ryantm](https://github.com/r-ryantm) to automatically update
 nixpkgs. It uses package repository information from
 [Repology.org](https://repology.org/repository/nix_unstable), the
-GitHub releases API, and PyPI to generate a lists of outdated
+GitHub releases API, and the package passthru.updateScript to generate a lists of outdated
 packages.
