@@ -61,6 +61,9 @@ attrPathList =
       "deepin"
       "deepin packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/52327#issuecomment-447684194",
     prefix
+      "monero-"
+      "monero-cli and monero-gui packages are upgraded in lockstep",
+    prefix
       "element-desktop"
       "@Ma27 asked to skip",
     prefix
