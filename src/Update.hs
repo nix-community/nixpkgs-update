@@ -492,7 +492,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
       rewriteMsgsLine = foldl (\ms m -> ms <> T.pack "\n- " <> m) "\n###### Updates performed" rewriteMsgs
       maintainersCc =
         if not (T.null maintainers)
-          then "cc " <> maintainers <> " for [testing](https://github.com/ryantm/nixpkgs-update/blob/master/doc/nixpkgs-maintainer-faq.md#r-ryantm-opened-a-pr-for-my-package-what-do-i-do)."
+          then "cc " <> maintainers <> " for [testing](https://github.com/ryantm/nixpkgs-update/blob/main/doc/nixpkgs-maintainer-faq.md#r-ryantm-opened-a-pr-for-my-package-what-do-i-do)."
           else ""
       releaseUrlMessage =
         if releaseUrl == T.empty
