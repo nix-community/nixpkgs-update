@@ -90,7 +90,17 @@ attrPathList =
     eq "klee" "update repeatedly exceeded the 6h timeout",
     regex
       (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
-      "takes way too long to build"
+      "takes way too long to build",
+    prefix
+      "linuxKernel"
+      "creates too many duplicate PRs",
+    prefix
+      "postgresql"
+      "creates too many duplicate PRs",
+    prefix
+      -- bump this when the default version is changed
+      "python312Packages"
+      "isn't the default python version"
   ]
 
 nameList :: Skiplist
