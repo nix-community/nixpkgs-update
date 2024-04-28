@@ -12,7 +12,7 @@ Thanks for being a maintainer. Hopefully, @r-ryantm will be able to save you som
 
 ## Why is @r-ryantm not updating my package? {#no-update}
 
-There are lots of reasons a package might not be updated. You can usually figure out which one is the issue by looking at the [logs](https://r.ryantm.com/log/) or by asking @ryantm on Matrix or GitHub.
+There are lots of reasons a package might not be updated. You can usually figure out which one is the issue by looking at the [logs](https://r.ryantm.com/log/) or by asking the [maintainers](#contact).
 
 ### No new version information
 

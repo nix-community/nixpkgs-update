@@ -9,3 +9,4 @@
 * [Contributing](#contributing)
 * [Donate](#donate)
 * [Nixpkgs Maintainer FAQ](#nixpkgs-maintainer-faq)
+* [Contact](#contact)
