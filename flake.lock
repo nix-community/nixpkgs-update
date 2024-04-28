@@ -55,24 +55,7 @@
       "inputs": {
         "mmdoc": "mmdoc",
         "nixpkgs": "nixpkgs",
-        "runtimeDeps": "runtimeDeps",
         "treefmt-nix": "treefmt-nix"
-      }
-    },
-    "runtimeDeps": {
-      "locked": {
-        "lastModified": 1714247354,
-        "narHash": "sha256-6dFKqP/aCKIdpOgqgIQUrRT0NOfVc14ftNcdELa4Pu4=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "c8d7c8a78fb516c0842cc65346506a565c88014d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable-small",
-        "repo": "nixpkgs",
-        "type": "github"
       }
     },
     "treefmt-nix": {
