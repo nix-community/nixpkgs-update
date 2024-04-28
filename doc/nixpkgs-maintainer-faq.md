@@ -20,7 +20,7 @@ r-ryantm gets its new version information from three sources:
 
 * Repology - information from Repology is delayed because it only updates when there is an unstable channel release
 * GitHub releases
-* PyPi releases
+* package passthru.updateScript
 
 If none of these sources says the package is out of date, it will not attempt to update it.
 
