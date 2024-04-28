@@ -30,7 +30,7 @@ let
           pkgs.haskell.lib.failOnAllWarnings (
             pkgs.haskell.lib.disableExecutableProfiling (
               pkgs.haskell.lib.disableLibraryProfiling (
-                pkgs.haskell.lib.generateOptparseApplicativeCompletion "nixpkgs-update" (
+                pkgs.haskellPackages.generateOptparseApplicativeCompletions [ "nixpkgs-update" ] (
                   (haskellPackages.callPackage ../nixpkgs-update.nix { }).overrideAttrs drvAttrs
                 )
               )
