@@ -27,7 +27,7 @@ module Utils
     regDirMode,
     outpathCacheDir,
     cacheDir,
-    worktreeDir
+    worktreeDir,
   )
 where
 
@@ -48,10 +48,10 @@ import Database.SQLite.Simple.ToField (ToField, toField)
 import qualified GitHub as GH
 import OurPrelude
 import Polysemy.Output
-import System.Directory (doesDirectoryExist, createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
+import System.Environment (lookupEnv)
 import System.Posix.Directory (createDirectory)
 import System.Posix.Env (getEnv)
-import System.Environment (lookupEnv)
 import System.Posix.Files
   ( directoryMode,
     fileExist,
@@ -141,7 +141,10 @@ titleVersion title = if T.null prefix then Nothing else Just suffix
 
 regDirMode :: FileMode
 regDirMode =
-  directoryMode .|. ownerModes .|. groupModes .|. otherReadMode
+  directoryMode
+    .|. ownerModes
+    .|. groupModes
+    .|. otherReadMode
     .|. otherExecuteMode
 
 logsDirectory :: MonadIO m => ExceptT Text m FilePath
@@ -149,7 +152,7 @@ logsDirectory = do
   dir <-
     noteT "Could not get environment variable LOGS_DIRECTORY" $
       MaybeT $
-       liftIO $
+        liftIO $
           getEnv "LOGS_DIRECTORY"
   dirExists <- liftIO $ doesDirectoryExist dir
   tryAssert ("LOGS_DIRECTORY " <> T.pack dir <> " does not exist.") dirExists
@@ -163,8 +166,8 @@ logsDirectory = do
 cacheDir :: MonadIO m => m FilePath
 cacheDir = do
   cacheDirectory <- liftIO $ lookupEnv "CACHE_DIRECTORY"
-  xdgCacheHome <- liftIO $ fmap (fmap (\ dir -> dir </> "nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"
-  cacheHome <- liftIO $ fmap (fmap (\ dir -> dir </> ".cache/nixpkgs-update")) $ lookupEnv "HOME"
+  xdgCacheHome <- liftIO $ fmap (fmap (\dir -> dir </> "nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"
+  cacheHome <- liftIO $ fmap (fmap (\dir -> dir </> ".cache/nixpkgs-update")) $ lookupEnv "HOME"
   let dir = fromJust (cacheDirectory <|> xdgCacheHome <|> cacheHome)
   liftIO $ createDirectoryIfMissing True dir
   return dir
@@ -214,7 +217,9 @@ logDir :: IO FilePath
 logDir = do
   r <-
     runExceptT
-      ( logsDirectory <|> xdgRuntimeDir <|> tmpRuntimeDir
+      ( logsDirectory
+          <|> xdgRuntimeDir
+          <|> tmpRuntimeDir
           <|> throwE
             "Failed to create log directory."
       )

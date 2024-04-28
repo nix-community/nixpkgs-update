@@ -1,8 +1,8 @@
 module CheckSpec where
 
+import qualified Check
 import qualified Data.Text as T
 import Test.Hspec
-import qualified Check
 
 main :: IO ()
 main = hspec spec

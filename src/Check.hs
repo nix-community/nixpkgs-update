@@ -8,7 +8,7 @@ module Check
   ( result,
     -- exposed for testing:
     hasVersion,
-    versionWithoutPath
+    versionWithoutPath,
   )
 where
 
@@ -19,7 +19,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
-import System.Exit()
+import System.Exit ()
 import Text.Regex.Applicative.Text (RE', (=~))
 import qualified Text.Regex.Applicative.Text as RE
 import Utils (UpdateEnv (..), nixBuildOptions)
@@ -50,11 +50,11 @@ isNonWordCharacter c = not (isWordCharacter c)
 -- | Construct regex: /.*\b${version}\b.*/s
 versionRegex :: Text -> RE' ()
 versionRegex version =
-  (\_ -> ()) <$> (
-    (((many RE.anySym) <* (RE.psym isNonWordCharacter)) <|> (RE.pure ""))
-    *> (RE.string version) <*
-    ((RE.pure "") <|> ((RE.psym isNonWordCharacter) *> (many RE.anySym)))
-  )
+  (\_ -> ())
+    <$> ( (((many RE.anySym) <* (RE.psym isNonWordCharacter)) <|> (RE.pure ""))
+            *> (RE.string version)
+            <* ((RE.pure "") <|> ((RE.psym isNonWordCharacter) *> (many RE.anySym)))
+        )
 
 hasVersion :: Text -> Text -> Bool
 hasVersion contents expectedVersion =
@@ -63,10 +63,9 @@ hasVersion contents expectedVersion =
 checkTestsBuild :: Text -> IO Bool
 checkTestsBuild attrPath = do
   let timeout = "10m"
-  let
-    args =
-        [ T.unpack timeout, "nix-build" ] ++
-        nixBuildOptions
+  let args =
+        [T.unpack timeout, "nix-build"]
+          ++ nixBuildOptions
           ++ [ "-E",
                "{ config }: (import ./. { inherit config; })."
                  ++ (T.unpack attrPath)
@@ -99,19 +98,19 @@ versionWithoutPath resultPath expectedVersion =
   -- This can be done with negative lookbehind e.g
   -- /^(?<!${storePathWithoutVersion})${version}/
   -- Note we also escape the version with \Q/\E for grep -P
-  let storePath = fromMaybe (T.pack resultPath) $ T.stripPrefix "/nix/store/" (T.pack resultPath) in
-  case T.breakOn expectedVersion storePath of
-    (_, "") ->
-      -- no version in prefix, just match version
-      "\\Q"
-        <> T.unpack expectedVersion
-        <> "\\E"
-    (storePrefix, _) ->
-      "(?<!\\Q"
-        <> T.unpack storePrefix
-        <> "\\E)\\Q"
-        <> T.unpack expectedVersion
-        <> "\\E"
+  let storePath = fromMaybe (T.pack resultPath) $ T.stripPrefix "/nix/store/" (T.pack resultPath)
+   in case T.breakOn expectedVersion storePath of
+        (_, "") ->
+          -- no version in prefix, just match version
+          "\\Q"
+            <> T.unpack expectedVersion
+            <> "\\E"
+        (storePrefix, _) ->
+          "(?<!\\Q"
+            <> T.unpack storePrefix
+            <> "\\E)\\Q"
+            <> T.unpack expectedVersion
+            <> "\\E"
 
 foundVersionInOutputs :: Text -> String -> IO (Maybe Text)
 foundVersionInOutputs expectedVersion resultPath =
@@ -140,7 +139,8 @@ foundVersionInFileNames expectedVersion resultPath =
       ( do
           (_, contents) <-
             shell ("find " <> resultPath) & ourReadProcessInterleaved
-          (contents =~ versionRegex expectedVersion) & hoistMaybe
+          (contents =~ versionRegex expectedVersion)
+            & hoistMaybe
             & noteT (T.pack "Expected version not found")
           return $
             "- found "
@@ -157,7 +157,8 @@ treeGist resultPath =
       ( do
           contents <- procTree [resultPath] & ourReadProcessInterleavedBS_
           g <-
-            shell gistBin & setStdin (byteStringInput contents)
+            shell gistBin
+              & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
           return $ "- directory tree listing: " <> g <> "\n"
       )
@@ -169,7 +170,8 @@ duGist resultPath =
       ( do
           contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
           g <-
-            shell gistBin & setStdin (byteStringInput contents)
+            shell gistBin
+              & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
           return $ "- du listing: " <> g <> "\n"
       )
@@ -182,9 +184,9 @@ result updateEnv resultPath =
     someReports <-
       fromMaybe ""
         <$> foundVersionInOutputs expectedVersion resultPath
-        <> foundVersionInFileNames expectedVersion resultPath
-        <> treeGist resultPath
-        <> duGist resultPath
+          <> foundVersionInFileNames expectedVersion resultPath
+          <> treeGist resultPath
+          <> duGist resultPath
     return $
       let testsBuildSummary = checkTestsBuildReport testsBuild
        in [interpolate|

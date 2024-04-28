@@ -17,14 +17,14 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Vector as V
-import qualified System.Posix.Files as F
 import qualified Git
-import qualified Utils
-import qualified System.Directory
 import OurPrelude
+import qualified System.Directory
+import qualified System.Posix.Files as F
 import Text.Parsec (parse)
 import Text.Parser.Char
 import Text.Parser.Combinators
+import qualified Utils
 
 outPathsExpr :: Text
 outPathsExpr =
@@ -94,14 +94,23 @@ outPath = do
   liftIO $ T.writeFile outpathFile outPathsExpr
   liftIO $ putStrLn "[outpaths] eval start"
   currentDir <- liftIO $ System.Directory.getCurrentDirectory
-  result <- ourReadProcessInterleaved_ $ proc "nix-env" [
-    "-f", outpathFile,
-    "-qaP",
-    "--no-name",
-    "--out-path",
-    "--arg", "path", currentDir,
-    "--arg", "checkMeta", "true",
-    "--show-trace"]
+  result <-
+    ourReadProcessInterleaved_ $
+      proc
+        "nix-env"
+        [ "-f",
+          outpathFile,
+          "-qaP",
+          "--no-name",
+          "--out-path",
+          "--arg",
+          "path",
+          currentDir,
+          "--arg",
+          "checkMeta",
+          "true",
+          "--show-trace"
+        ]
   liftIO $ putStrLn "[outpaths] eval end"
   pure result
 
@@ -163,7 +172,8 @@ parseResults = S.fromList <$> parseResultLine `sepEndBy` newline
 
 parseResultLine :: CharParsing m => m ResultLine
 parseResultLine =
-  ResultLine <$> (T.dropWhileEnd (== '.') <$> parseAttrpath)
+  ResultLine
+    <$> (T.dropWhileEnd (== '.') <$> parseAttrpath)
     <*> parseArchitecture
     <* spaces
     <*> parseOutpaths
@@ -182,7 +192,8 @@ parseOutpaths = V.fromList <$> (parseOutpath `sepBy1` char ';')
 
 parseOutpath :: CharParsing m => m Outpath
 parseOutpath =
-  Outpath <$> optional (try (T.pack <$> (many (noneOf "=\n") <* char '=')))
+  Outpath
+    <$> optional (try (T.pack <$> (many (noneOf "=\n") <* char '=')))
     <*> (T.pack <$> many (noneOf ";\n"))
 
 packageRebuilds :: Set ResultLine -> Vector Text

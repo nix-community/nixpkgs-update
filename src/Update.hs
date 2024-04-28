@@ -25,12 +25,12 @@ import Control.Exception (bracket)
 import Control.Monad.Writer (execWriterT, tell)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe (fromJust)
-import Data.Monoid (Alt(..))
+import Data.Monoid (Alt (..))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
-import Data.Time.Clock (getCurrentTime, utctDay, addUTCTime, UTCTime)
+import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime, utctDay)
 import qualified GH
 import qualified Git
 import Language.Haskell.TH.Env (envQ)
@@ -41,6 +41,8 @@ import OurPrelude
 import qualified Outpaths
 import qualified Rewrite
 import qualified Skiplist
+import System.Directory (doesDirectoryExist, withCurrentDirectory)
+import System.Posix.Directory (createDirectory)
 import Utils
   ( Boundary (..),
     Options (..),
@@ -55,12 +57,10 @@ import Utils
 import qualified Utils as U
 import qualified Version
 import Prelude hiding (log)
-import System.Directory (doesDirectoryExist, withCurrentDirectory)
-import System.Posix.Directory (createDirectory)
 
 default (T.Text)
 
-alsoLogToAttrPath :: Text -> (Text -> IO()) -> IO (Text -> IO())
+alsoLogToAttrPath :: Text -> (Text -> IO ()) -> IO (Text -> IO ())
 alsoLogToAttrPath attrPath topLevelLog = do
   logFile <- attrPathLogFilePath attrPath
   let attrPathLog = log' logFile
@@ -181,9 +181,10 @@ updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
     Right foundAttrPath -> do
       log <- alsoLogToAttrPath foundAttrPath simpleLog
       log updateInfoLine
-      mergeBase <- if batchUpdate options
-        then Git.mergeBase
-        else pure "HEAD"
+      mergeBase <-
+        if batchUpdate options
+          then Git.mergeBase
+          else pure "HEAD"
       withWorktree mergeBase foundAttrPath updateEnv $
         updateAttrPath log mergeBase updateEnv foundAttrPath
 
@@ -198,12 +199,14 @@ checkExistingUpdate log updateEnv existingCommitMsg attrPath = do
     Nothing -> lift $ log "No auto update branch exists"
     Just msg -> do
       let nV = newVersion updateEnv
-      lift $ log
-        [interpolate|An auto update branch exists with message `$msg`. New version is $nV.|]
+      lift $
+        log
+          [interpolate|An auto update branch exists with message `$msg`. New version is $nV.|]
 
       case U.titleVersion msg of
-        Just branchV | Version.matchVersion (RangeMatcher (Including nV) Unbounded) branchV ->
-          throwError "An auto update branch exists with an equal or greater version"
+        Just branchV
+          | Version.matchVersion (RangeMatcher (Including nV) Unbounded) branchV ->
+              throwError "An auto update branch exists with an equal or greater version"
         _ ->
           lift $ log "The auto update branch does not match or exceed the new version."
 
@@ -329,7 +332,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
 
     when hasUpdateScript do
       changedFiles <- Git.diffFileNames mergeBase
-      let rewrittenFile = case changedFiles of { [f] -> f; _ -> derivationFile }
+      let rewrittenFile = case changedFiles of [f] -> f; _ -> derivationFile
       assertNotUpdatedOn updateEnv' rewrittenFile "master"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging-next"
@@ -350,16 +353,18 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     --
     -- Publish the result
     lift . log $ "Successfully finished processing"
-    result <- Nix.resultLink  
+    result <- Nix.resultLink
     let opReport =
           if isJust skipOutpathBase
-          then "Outpath calculations were skipped for this package; total number of rebuilds unknown."
-          else Outpaths.outpathReport opDiff
+            then "Outpath calculations were skipped for this package; total number of rebuilds unknown."
+            else Outpaths.outpathReport opDiff
     let prBase =
-          flip fromMaybe skipOutpathBase
+          flip
+            fromMaybe
+            skipOutpathBase
             if Outpaths.numPackageRebuilds opDiff <= 500
-            then "master"
-            else "staging"
+              then "master"
+              else "staging"
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs (isJust existingCommitMsg)
 
   case successOrFailure of
@@ -437,10 +442,12 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
       let ghUser = GH.untagName . githubUser . options $ updateEnv
       let mkPR = if branchExists then GH.prUpdate else GH.pr
       (reusedPR, pullRequestUrl) <- mkPR updateEnv (prTitle updateEnv attrPath) prMsg (ghUser <> ":" <> (branchName updateEnv)) prBase
-      when branchExists $ liftIO $ log
-        if reusedPR
-        then "Updated existing PR"
-        else "Reused existing auto update branch, but no corresponding open PR was found, so created a new PR"
+      when branchExists $
+        liftIO $
+          log
+            if reusedPR
+              then "Updated existing PR"
+              else "Reused existing auto update branch, but no corresponding open PR was found, so created a new PR"
       liftIO $ log pullRequestUrl
     else liftIO $ T.putStrLn prMsg
 
@@ -611,7 +618,8 @@ untilOfBorgFree log waitUntil = do
     stats <-
       shell "curl -s https://events.ofborg.org/stats.php" & readProcessInterleaved_
     waiting <-
-      shell (jqBin <> " .evaluator.messages.waiting") & setStdin (byteStringInput stats)
+      shell (jqBin <> " .evaluator.messages.waiting")
+        & setStdin (byteStringInput stats)
         & readProcessInterleaved_
         & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
     when (waiting > 2) $ do
@@ -695,13 +703,12 @@ cveReport updateEnv =
 doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
 doCachix log updateEnv resultPath =
   let o = options updateEnv
-  in
-    if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
-    then do
-      lift $ log ("cachix " <> (T.pack . show) resultPath)
-      Nix.cachix resultPath
-      return
-        [interpolate|
+   in if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
+        then do
+          lift $ log ("cachix " <> (T.pack . show) resultPath)
+          Nix.cachix resultPath
+          return
+            [interpolate|
        Either **download from Cachix**:
        ```
        nix-store -r $resultPath \
@@ -716,9 +723,9 @@ doCachix log updateEnv resultPath =
 
        Or, **build yourself**:
        |]
-    else do
-      lift $ log "skipping cachix"
-      return "Build yourself:"
+        else do
+          lift $ log "skipping cachix"
+          return "Build yourself:"
 
 updatePackage ::
   Options ->
@@ -737,18 +744,19 @@ updatePackage o updateInfo = do
     UpdatePackageSuccess -> do
       log $ "[result] Success updating " <> updateInfoLine
 
-
 withWorktree :: Text -> Text -> UpdateEnv -> IO a -> IO a
 withWorktree branch attrpath updateEnv action = do
   bracket
-    (do
+    ( do
         dir <- U.worktreeDir
         let path = dir <> "/" <> T.unpack (T.replace ".lock" "_lock" attrpath)
         Git.worktreeRemove path
         Git.delete1 (branchName updateEnv)
         Git.worktreeAdd path branch updateEnv
-        pure path)
-    (\ path -> do
+        pure path
+    )
+    ( \path -> do
         Git.worktreeRemove path
-        Git.delete1 (branchName updateEnv))
-    (\ path -> withCurrentDirectory path action)
+        Git.delete1 (branchName updateEnv)
+    )
+    (\path -> withCurrentDirectory path action)

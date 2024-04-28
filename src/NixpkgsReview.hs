@@ -33,20 +33,22 @@ run ::
   FilePath ->
   Text ->
   Sem r Text
-run cache commit = let timeout = "45m" :: Text in do
-  -- TODO: probably just skip running nixpkgs-review if the directory
-  -- already exists
-  void $
-    ourReadProcessInterleavedSem $
-      proc "rm" ["-rf", revDir cache commit]
-  (exitCode, _nixpkgsReviewOutput) <-
-    ourReadProcessInterleavedSem $
-      proc "timeout" [T.unpack timeout, (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
-  case exitCode of
-    ExitFailure 124 -> do
-      output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"
-      return $ "nixpkgs-review took longer than " <> timeout <> " and timed out"
-    _ -> F.read $ (revDir cache commit) <> "/report.md"
+run cache commit =
+  let timeout = "45m" :: Text
+   in do
+        -- TODO: probably just skip running nixpkgs-review if the directory
+        -- already exists
+        void $
+          ourReadProcessInterleavedSem $
+            proc "rm" ["-rf", revDir cache commit]
+        (exitCode, _nixpkgsReviewOutput) <-
+          ourReadProcessInterleavedSem $
+            proc "timeout" [T.unpack timeout, (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
+        case exitCode of
+          ExitFailure 124 -> do
+            output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"
+            return $ "nixpkgs-review took longer than " <> timeout <> " and timed out"
+          _ -> F.read $ (revDir cache commit) <> "/report.md"
 
 -- Assumes we are already in nixpkgs dir
 runReport :: (Text -> IO ()) -> Text -> IO Text
