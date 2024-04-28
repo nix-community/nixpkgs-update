@@ -24,6 +24,14 @@ r-ryantm gets its new version information from three sources:
 
 If none of these sources says the package is out of date, it will not attempt to update it.
 
+### Disabling package updates
+
+Updates can be disabled by adding a comment to the package:
+```
+# nixpkgs-update: no auto update
+```
+[Example in nixpkgs](https://github.com/NixOS/nixpkgs/blob/f2294037ad2b1345c5d9c2df0e81bdb00eab21f3/pkgs/applications/version-management/gitlab/gitlab-pages/default.nix#L7)
+
 ### Skiplist
 
 We maintain a [Skiplist](https://github.com/ryantm/nixpkgs-update/blob/main/src/Skiplist.hs) of different things not to update. It is possible your package is triggering one of the skip criteria.
