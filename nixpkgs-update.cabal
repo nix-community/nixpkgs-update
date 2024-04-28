@@ -1,18 +1,18 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.38.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 94f21d6da342bb311acc23da9681dae7e37fda3ecbf6b623de9880de38785605
+-- hash: 216d241b554fc46ae5c7bcb1605ea89df7993f629b942a8f243338d52cb49301
 
 name:           nixpkgs-update
 version:        0.4.0
 synopsis:       Tool for semi-automatic updating of nixpkgs repository
 description:    nixpkgs-update provides tools for updating of nixpkgs packages in a semi-automatic way. Mainly, it is used to run the GitHub bot @r-ryantm, but the underlying update mechanisms should be generally useful and in a later version should be exposed as a command-line tool.
 category:       Web
-homepage:       https://github.com/ryantm/nixpkgs-update#readme
-bug-reports:    https://github.com/ryantm/nixpkgs-update/issues
+homepage:       https://github.com/nix-community/nixpkgs-update#readme
+bug-reports:    https://github.com/nix-community/nixpkgs-update/issues
 author:         Ryan Mulligan et al.
 maintainer:     ryan@ryantm.com
 copyright:      2018-2022 Ryan Mulligan et al.
@@ -24,7 +24,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/ryantm/nixpkgs-update
+  location: https://github.com/nix-community/nixpkgs-update
 
 library
   exposed-modules:

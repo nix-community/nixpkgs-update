@@ -2,7 +2,7 @@
 
 > The future is here; let's evenly distribute it!
 
-The [nixpkgs-update](https://github.com/ryantm/nixpkgs-update) mission
+The [nixpkgs-update](https://github.com/nix-community/nixpkgs-update) mission
 is to make [nixpkgs](https://github.com/nixos/nixpkgs) the most
 up-to-date repository of software in the world by the most ridiculous
 margin possible. [Here's how we are doing so far](https://repology.org/repositories/graphs).

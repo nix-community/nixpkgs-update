@@ -34,7 +34,7 @@ update, and CVEs present in both version.
 
 If you would like to report a problem with the security report, please
 use the [nixpkgs-update GitHub
-issues](https://github.com/ryantm/nixpkgs-update/issues).
+issues](https://github.com/nix-community/nixpkgs-update/issues).
 
 The initial development of the security report was made possible by a
 partnership with [Serokell](https://serokell.io/) and the [NLNet

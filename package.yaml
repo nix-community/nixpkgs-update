@@ -14,7 +14,7 @@ category: Web
 extra-source-files:
 - README.md
 
-github: ryantm/nixpkgs-update
+github: nix-community/nixpkgs-update
 
 ghc-options: -Wall -O2 -flate-specialise -fspecialise-aggressively -fplugin=Polysemy.Plugin
 
