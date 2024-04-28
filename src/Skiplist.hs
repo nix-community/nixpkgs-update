@@ -234,4 +234,4 @@ python numPackageRebuilds derivationContents =
     (not isPython || numPackageRebuilds <= maxPackageRebuild)
   where
     isPython = "buildPythonPackage" `T.isInfixOf` derivationContents
-    maxPackageRebuild = 25
+    maxPackageRebuild = 100
