@@ -96,7 +96,7 @@ readField f@(Field (SQLText t) _) =
     Left e -> returnError ConversionFailed f $ "read error: " <> e
 readField f = returnError ConversionFailed f "expecting SQLText column type"
 
-showField :: Show a => a -> SQLData
+showField :: (Show a) => a -> SQLData
 showField = toField . show
 
 instance FromField VersionMatcher where
@@ -125,7 +125,7 @@ data UpdateEnv = UpdateEnv
     options :: Options
   }
 
-whenBatch :: Applicative f => UpdateEnv -> f () -> f ()
+whenBatch :: (Applicative f) => UpdateEnv -> f () -> f ()
 whenBatch updateEnv = when (batchUpdate . options $ updateEnv)
 
 prTitle :: UpdateEnv -> Text -> Text
@@ -147,7 +147,7 @@ regDirMode =
     .|. otherReadMode
     .|. otherExecuteMode
 
-logsDirectory :: MonadIO m => ExceptT Text m FilePath
+logsDirectory :: (MonadIO m) => ExceptT Text m FilePath
 logsDirectory = do
   dir <-
     noteT "Could not get environment variable LOGS_DIRECTORY" $
@@ -163,7 +163,7 @@ logsDirectory = do
     )
   return dir
 
-cacheDir :: MonadIO m => m FilePath
+cacheDir :: (MonadIO m) => m FilePath
 cacheDir = do
   cacheDirectory <- liftIO $ lookupEnv "CACHE_DIRECTORY"
   xdgCacheHome <- liftIO $ fmap (fmap (\dir -> dir </> "nixpkgs-update")) $ lookupEnv "XDG_CACHE_HOME"
@@ -172,7 +172,7 @@ cacheDir = do
   liftIO $ createDirectoryIfMissing True dir
   return dir
 
-outpathCacheDir :: MonadIO m => m FilePath
+outpathCacheDir :: (MonadIO m) => m FilePath
 outpathCacheDir = do
   cache <- cacheDir
   let dir = cache </> "outpath"
@@ -186,7 +186,7 @@ worktreeDir = do
   createDirectoryIfMissing False dir
   return dir
 
-xdgRuntimeDir :: MonadIO m => ExceptT Text m FilePath
+xdgRuntimeDir :: (MonadIO m) => ExceptT Text m FilePath
 xdgRuntimeDir = do
   xDir <-
     noteT "Could not get environment variable XDG_RUNTIME_DIR" $
@@ -204,7 +204,7 @@ xdgRuntimeDir = do
     )
   return dir
 
-tmpRuntimeDir :: MonadIO m => ExceptT Text m FilePath
+tmpRuntimeDir :: (MonadIO m) => ExceptT Text m FilePath
 tmpRuntimeDir = do
   dir <- liftIO $ mkdtemp "nixpkgs-update"
   dirExists <- liftIO $ doesDirectoryExist dir
@@ -241,7 +241,7 @@ parseUpdates = map (toTriple . T.words) . T.lines
     toTriple [package, oldVer, newVer, url] = Right (package, oldVer, newVer, Just url)
     toTriple line = Left $ "Unable to parse update: " <> T.unwords line
 
-srcOrMain :: MonadIO m => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
+srcOrMain :: (MonadIO m) => (Text -> ExceptT Text m a) -> Text -> ExceptT Text m a
 srcOrMain et attrPath = et (attrPath <> ".src") <|> et (attrPath <> ".originalSrc") <|> et attrPath
 
 nixCommonOptions :: [String]
@@ -263,7 +263,7 @@ nixBuildOptions =
     <> nixCommonOptions
 
 runLog ::
-  Member (Embed IO) r =>
+  (Member (Embed IO) r) =>
   (Text -> IO ()) ->
   Sem ((Output Text) ': r) a ->
   Sem r a

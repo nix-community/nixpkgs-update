@@ -68,7 +68,7 @@ alsoLogToAttrPath attrPath topLevelLog = do
     topLevelLog text
     attrPathLog text
 
-log' :: MonadIO m => FilePath -> Text -> m ()
+log' :: (MonadIO m) => FilePath -> Text -> m ()
 log' logFile msg = liftIO $ T.appendFile logFile (msg <> "\n")
 
 attrPathLogFilePath :: Text -> IO String
@@ -628,7 +628,7 @@ untilOfBorgFree log waitUntil = do
       untilOfBorgFree log waitUntil
 
 assertNotUpdatedOn ::
-  MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
+  (MonadIO m) => UpdateEnv -> Text -> Text -> ExceptT Text m ()
 assertNotUpdatedOn updateEnv derivationFile branch = do
   derivationContents <- Git.show branch derivationFile
   Nix.assertOldVersionOn updateEnv branch derivationContents
@@ -700,7 +700,7 @@ cveReport updateEnv =
        <br/>
       |]
 
-doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
+doCachix :: (MonadIO m) => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
 doCachix log updateEnv resultPath =
   let o = options updateEnv
    in if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)

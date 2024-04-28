@@ -16,17 +16,17 @@ filter _ cpeMatch "socat" v
 filter _ cpeMatch "uzbl" v
   | isNothing (v =~ yearRegex)
       && "2009.12.22"
-      `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+        `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
       False
   | isNothing (v =~ yearRegex)
       && "2010.04.03"
-      `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+        `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
       False
 filter _ cpeMatch "go" v
   | "."
       `T.isInfixOf` v
       && "-"
-      `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
+        `anyVersionInfixOf` cpeMatchVersionMatcher cpeMatch =
       False
 filter _ cpeMatch "terraform" _
   | cpeTargetSoftware (cpeMatchCPE cpeMatch) == Just "aws" = False

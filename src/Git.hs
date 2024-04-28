@@ -80,7 +80,7 @@ deleteOrigin :: [Text] -> ProcessConfig () () ()
 deleteOrigin branches =
   silently $ procGit (["push", "origin", "--delete"] ++ fmap T.unpack branches)
 
-cleanAndResetTo :: MonadIO m => Text -> ExceptT Text m ()
+cleanAndResetTo :: (MonadIO m) => Text -> ExceptT Text m ()
 cleanAndResetTo branch =
   let target = "upstream/" <> branch
    in do
@@ -90,19 +90,19 @@ cleanAndResetTo branch =
         runProcessNoIndexIssue_ $ reset target
         runProcessNoIndexIssue_ clean
 
-show :: MonadIO m => Text -> Text -> ExceptT Text m Text
+show :: (MonadIO m) => Text -> Text -> ExceptT Text m Text
 show branch file =
   readProcessInterleavedNoIndexIssue_ $ silently $ procGit ["show", T.unpack ("remotes/upstream/" <> branch <> ":" <> file)]
 
-diff :: MonadIO m => Text -> ExceptT Text m Text
+diff :: (MonadIO m) => Text -> ExceptT Text m Text
 diff branch = readProcessInterleavedNoIndexIssue_ $ procGit ["diff", T.unpack branch]
 
-diffFileNames :: MonadIO m => Text -> ExceptT Text m [Text]
+diffFileNames :: (MonadIO m) => Text -> ExceptT Text m [Text]
 diffFileNames branch =
   readProcessInterleavedNoIndexIssue_ (procGit ["diff", T.unpack branch, "--name-only"])
     & fmapRT T.lines
 
-staleFetchHead :: MonadIO m => m Bool
+staleFetchHead :: (MonadIO m) => m Bool
 staleFetchHead =
   liftIO $ do
     nixpkgsGit <- getUserCacheDir "nixpkgs"
@@ -116,16 +116,16 @@ staleFetchHead =
         fetchedLast <- getModificationTime fetchHead
         return (fetchedLast < oneHourAgo)
 
-fetchIfStale :: MonadIO m => ExceptT Text m ()
+fetchIfStale :: (MonadIO m) => ExceptT Text m ()
 fetchIfStale = whenM staleFetchHead fetch
 
-fetch :: MonadIO m => ExceptT Text m ()
+fetch :: (MonadIO m) => ExceptT Text m ()
 fetch =
   runProcessNoIndexIssue_ $
     silently $
       procGit ["fetch", "-q", "--prune", "--multiple", "upstream", "origin"]
 
-push :: MonadIO m => UpdateEnv -> ExceptT Text m ()
+push :: (MonadIO m) => UpdateEnv -> ExceptT Text m ()
 push updateEnv =
   runProcessNoIndexIssue_
     ( procGit
@@ -176,7 +176,7 @@ mergeBase = do
 
 -- Return Nothing if a remote branch for this package doesn't exist. If a
 -- branch does exist, return a Just of its last commit message.
-findAutoUpdateBranchMessage :: MonadIO m => Text -> ExceptT Text m (Maybe Text)
+findAutoUpdateBranchMessage :: (MonadIO m) => Text -> ExceptT Text m (Maybe Text)
 findAutoUpdateBranchMessage pName = do
   remoteBranches <-
     readProcessInterleavedNoIndexIssue_ (procGit ["branch", "--remote", "--format=%(refname:short) %(subject)"])
@@ -190,11 +190,11 @@ inNixpkgsRepo = do
   currentDir <- getCurrentDirectory
   doesFileExist (currentDir <> "/nixos/release.nix")
 
-commit :: MonadIO m => Text -> ExceptT Text m ()
+commit :: (MonadIO m) => Text -> ExceptT Text m ()
 commit ref =
   runProcessNoIndexIssue_ (procGit ["commit", "-am", T.unpack ref])
 
-headRev :: MonadIO m => ExceptT Text m Text
+headRev :: (MonadIO m) => ExceptT Text m Text
 headRev = T.strip <$> readProcessInterleavedNoIndexIssue_ (procGit ["rev-parse", "HEAD"])
 
 deleteBranchesEverywhere :: Vector Text -> IO ()
@@ -227,7 +227,7 @@ runProcessNoIndexIssue_IO config = go
         ExitFailure _ -> throw $ ExitCodeException code config out e
 
 runProcessNoIndexIssue_ ::
-  MonadIO m => ProcessConfig () () () -> ExceptT Text m ()
+  (MonadIO m) => ProcessConfig () () () -> ExceptT Text m ()
 runProcessNoIndexIssue_ config = tryIOTextET go
   where
     go = do
@@ -241,7 +241,7 @@ runProcessNoIndexIssue_ config = tryIOTextET go
         ExitFailure _ -> throw $ ExitCodeException code config out e
 
 readProcessInterleavedNoIndexIssue_ ::
-  MonadIO m => ProcessConfig () () () -> ExceptT Text m Text
+  (MonadIO m) => ProcessConfig () () () -> ExceptT Text m Text
 readProcessInterleavedNoIndexIssue_ config = tryIOTextET go
   where
     go = do

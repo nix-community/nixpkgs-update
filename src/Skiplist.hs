@@ -223,7 +223,7 @@ eq part reason = ((part ==), reason)
 regex :: RE' a -> Text -> (Text -> Bool, Text)
 regex pat reason = (isJust . (=~ pat), reason)
 
-python :: Monad m => Int -> Text -> ExceptT Text m ()
+python :: (Monad m) => Int -> Text -> ExceptT Text m ()
 python numPackageRebuilds derivationContents =
   tryAssert
     ( "Python package with too many package rebuilds "
