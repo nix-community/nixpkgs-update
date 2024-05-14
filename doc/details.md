@@ -61,7 +61,7 @@ is made against staging.
 
 ## Logs
 
-[Logs from r-ryantm's runs](https://r.ryantm.com/log/) are
+[Logs from r-ryantm's runs](https://nixpkgs-update-logs.nix-community.org/) are
 available online. There are a lot of packages `nixpkgs-update`
 currently has no hope of updating. Please dredge the logs to find out
 why your pet package is not receiving updates.
