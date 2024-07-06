@@ -99,7 +99,7 @@ attrPathList =
       "creates too many duplicate PRs",
     prefix
       -- bump this when the default version is changed
-      "python312Packages"
+      "python311Packages"
       "isn't the default python version"
   ]
 
