@@ -87,7 +87,7 @@ in
   tweak (builtins.removeAttrs hydraJobs blacklist)
 |]
 
-outPath :: MonadIO m => ExceptT Text m Text
+outPath :: (MonadIO m) => ExceptT Text m Text
 outPath = do
   cacheDir <- liftIO $ Utils.outpathCacheDir
   let outpathFile = (cacheDir </> "outpaths.nix")
@@ -131,7 +131,7 @@ data ResultLine = ResultLine
 -- testInput :: Text
 -- testInput =
 --   "haskellPackages.amazonka-dynamodb-streams.x86_64-linux                        doc=/nix/store/m4rpsc9nx0qcflh9ni6qdlg6hbkwpicc-amazonka-dynamodb-streams-1.6.0-doc;/nix/store/rvd4zydr22a7j5kgnmg5x6695c7bgqbk-amazonka-dynamodb-streams-1.6.0\nhaskellPackages.agum.x86_64-darwin                                            doc=/nix/store/n526rc0pa5h0krdzsdni5agcpvcd3cb9-agum-2.7-doc;/nix/store/s59r75svbjm724q5iaprq4mln5k6wcr9-agum-2.7"
-currentOutpathSet :: MonadIO m => ExceptT Text m (Set ResultLine)
+currentOutpathSet :: (MonadIO m) => ExceptT Text m (Set ResultLine)
 currentOutpathSet = do
   rev <- Git.headRev
   mayOp <- lift $ lookupOutPathByRev rev
@@ -145,12 +145,12 @@ currentOutpathSet = do
       pure paths
   parse parseResults "outpath" op & fmapL tshow & hoistEither
 
-currentOutpathSetUncached :: MonadIO m => ExceptT Text m (Set ResultLine)
+currentOutpathSetUncached :: (MonadIO m) => ExceptT Text m (Set ResultLine)
 currentOutpathSetUncached = do
   op <- outPath
   parse parseResults "outpath" op & fmapL tshow & hoistEither
 
-lookupOutPathByRev :: MonadIO m => Text -> m (Maybe Text)
+lookupOutPathByRev :: (MonadIO m) => Text -> m (Maybe Text)
 lookupOutPathByRev rev = do
   dir <- Utils.outpathCacheDir
   let file = dir <> "/" <> T.unpack rev
@@ -167,10 +167,10 @@ dummyOutpathSetBefore attrPath = S.singleton (ResultLine attrPath "x86-64" (V.si
 dummyOutpathSetAfter :: Text -> Set ResultLine
 dummyOutpathSetAfter attrPath = S.singleton (ResultLine attrPath "x86-64" (V.singleton (Outpath (Just "attrPath") "fakepath-edited")))
 
-parseResults :: CharParsing m => m (Set ResultLine)
+parseResults :: (CharParsing m) => m (Set ResultLine)
 parseResults = S.fromList <$> parseResultLine `sepEndBy` newline
 
-parseResultLine :: CharParsing m => m ResultLine
+parseResultLine :: (CharParsing m) => m ResultLine
 parseResultLine =
   ResultLine
     <$> (T.dropWhileEnd (== '.') <$> parseAttrpath)
@@ -178,19 +178,19 @@ parseResultLine =
     <* spaces
     <*> parseOutpaths
 
-parseAttrpath :: CharParsing m => m Text
+parseAttrpath :: (CharParsing m) => m Text
 parseAttrpath = T.concat <$> many (try parseAttrpathPart)
 
-parseAttrpathPart :: CharParsing m => m Text
+parseAttrpathPart :: (CharParsing m) => m Text
 parseAttrpathPart = T.snoc <$> (T.pack <$> many (noneOf ". ")) <*> char '.'
 
-parseArchitecture :: CharParsing m => m Text
+parseArchitecture :: (CharParsing m) => m Text
 parseArchitecture = T.pack <$> many (noneOf " ")
 
-parseOutpaths :: CharParsing m => m (Vector Outpath)
+parseOutpaths :: (CharParsing m) => m (Vector Outpath)
 parseOutpaths = V.fromList <$> (parseOutpath `sepBy1` char ';')
 
-parseOutpath :: CharParsing m => m Outpath
+parseOutpath :: (CharParsing m) => m Outpath
 parseOutpath =
   Outpath
     <$> optional (try (T.pack <$> (many (noneOf "=\n") <* char '=')))

@@ -176,7 +176,7 @@ duGist resultPath =
           return $ "- du listing: " <> g <> "\n"
       )
 
-result :: MonadIO m => UpdateEnv -> String -> m Text
+result :: (MonadIO m) => UpdateEnv -> String -> m Text
 result updateEnv resultPath =
   liftIO $ do
     let expectedVersion = newVersion updateEnv

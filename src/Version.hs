@@ -91,7 +91,7 @@ versionIncompatibleWithPathPin :: Text -> Version -> Bool
 versionIncompatibleWithPathPin path version =
   not (versionCompatibleWithPathPin path version)
 
-assertCompatibleWithPathPin :: Monad m => UpdateEnv -> Text -> ExceptT Text m ()
+assertCompatibleWithPathPin :: (Monad m) => UpdateEnv -> Text -> ExceptT Text m ()
 assertCompatibleWithPathPin ue attrPath =
   tryAssert
     ( "Version in attr path "

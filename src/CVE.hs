@@ -123,7 +123,7 @@ instance Show CPE where
           ]
         <> "}"
       where
-        cpeField :: Show a => String -> Maybe a -> [String]
+        cpeField :: (Show a) => String -> Maybe a -> [String]
         cpeField _ Nothing = []
         cpeField name (Just value) = [name <> " = " <> show value]
 

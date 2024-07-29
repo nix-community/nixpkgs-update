@@ -17,7 +17,7 @@ data Process m a where
 makeSem ''Process
 
 runIO ::
-  Member (Embed IO) r =>
+  (Member (Embed IO) r) =>
   Sem (Process ': r) a ->
   Sem r a
 runIO =
