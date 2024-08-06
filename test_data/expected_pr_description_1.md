@@ -85,3 +85,10 @@ nixpkgs-review comment body
 ###### Maintainer pings
 
 cc @maintainer1 for [testing](https://github.com/ryantm/nixpkgs-update/blob/main/doc/nixpkgs-maintainer-faq.md#r-ryantm-opened-a-pr-for-my-package-what-do-i-do).
+
+---
+
+Add a :+1: [reaction] to [pull requests you find important].
+
+[reaction]: https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/
+[pull requests you find important]: https://github.com/NixOS/nixpkgs/pulls?q=is%3Aopen+sort%3Areactions-%2B1-desc
