@@ -88,6 +88,7 @@ attrPathList =
     eq "flint" "update repeatedly exceeded the 6h timeout",
     eq "keepmenu" "update repeatedly exceeded the 6h timeout",
     eq "klee" "update repeatedly exceeded the 6h timeout",
+    eq "vmagent" "updates via victoriametrics package",
     regex
       (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
       "takes way too long to build",
