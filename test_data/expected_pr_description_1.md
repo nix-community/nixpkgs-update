@@ -86,6 +86,9 @@ nixpkgs-review comment body
 
 cc @maintainer1 for [testing](https://github.com/ryantm/nixpkgs-update/blob/main/doc/nixpkgs-maintainer-faq.md#r-ryantm-opened-a-pr-for-my-package-what-do-i-do).
 
+> [!TIP]
+> As a maintainer, if your package is located under `pkgs/by-name/*`, you can comment **`@NixOS/nixpkgs-merge-bot merge`** to automatically merge this update using the [`nixpkgs-merge-bot`](https://github.com/NixOS/nixpkgs-merge-bot).
+
 ---
 
 Add a :+1: [reaction] to [pull requests you find important].
