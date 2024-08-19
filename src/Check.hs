@@ -86,7 +86,7 @@ checkTestsBuild attrPath = do
 
 checkTestsBuildReport :: Bool -> Text
 checkTestsBuildReport False =
-  "- Warning: a test defined in `passthru.tests` did not pass"
+  "- <b>Warning</b>: a test defined in `passthru.tests` did not pass"
 checkTestsBuildReport True =
   "- The tests defined in `passthru.tests`, if any, passed"
 
