@@ -25,7 +25,6 @@ jobs:
           extra_nix_config: |
             accept-flake-config = true
             experimental-features = nix-command flakes
-            max-jobs = 0
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
