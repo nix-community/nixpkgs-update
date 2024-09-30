@@ -89,6 +89,8 @@ attrPathList =
     eq "keepmenu" "update repeatedly exceeded the 6h timeout",
     eq "klee" "update repeatedly exceeded the 6h timeout",
     eq "vmagent" "updates via victoriametrics package",
+    eq "ollama-rocm" "only `ollama` is explicitly updated (defined in the same file)",
+    eq "ollama-cuda" "only `ollama` is explicitly updated (defined in the same file)",
     regex
       (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
       "takes way too long to build",
