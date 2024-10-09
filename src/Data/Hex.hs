@@ -26,7 +26,7 @@ class Hex t where
   hex :: t -> t
 
   -- | Convert from hexadecimal and fail on invalid input.
-  unhex :: MonadFail m => t -> m t
+  unhex :: (MonadFail m) => t -> m t
 
 instance Hex String where
   hex = Prelude.concatMap w
@@ -42,7 +42,7 @@ instance Hex String where
     liftM (toEnum ((x * 16) + y) :) $ unhex r
   unhex [_] = fail "Non-even length"
 
-c :: MonadFail m => Char -> m Int
+c :: (MonadFail m) => Char -> m Int
 c '0' = return 0
 c '1' = return 1
 c '2' = return 2

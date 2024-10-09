@@ -18,7 +18,7 @@ data File m a where
 makeSem ''File
 
 runIO ::
-  Member (Embed IO) r =>
+  (Member (Embed IO) r) =>
   Sem (File ': r) a ->
   Sem r a
 runIO =
@@ -38,7 +38,7 @@ runPure contentList =
       Write _file contents -> output contents
 
 replace ::
-  Member File r =>
+  (Member File r) =>
   Text ->
   Text ->
   FilePath ->
@@ -50,7 +50,7 @@ replace find replacement file = do
     File.write file newContents
   return $ contents /= newContents
 
-replaceIO :: MonadIO m => Text -> Text -> FilePath -> m Bool
+replaceIO :: (MonadIO m) => Text -> Text -> FilePath -> m Bool
 replaceIO find replacement file =
   liftIO $
     runFinal $

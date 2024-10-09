@@ -29,7 +29,7 @@ revDir :: FilePath -> Text -> FilePath
 revDir cache commit = cache <> "/rev-" <> T.unpack commit
 
 run ::
-  Members '[F.File, P.Process, Output Text] r =>
+  (Members '[F.File, P.Process, Output Text] r) =>
   FilePath ->
   Text ->
   Sem r Text

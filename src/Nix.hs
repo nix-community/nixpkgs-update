@@ -61,7 +61,7 @@ rawOpt Raw = ["--raw"]
 rawOpt NoRaw = []
 
 nixEvalApply ::
-  MonadIO m =>
+  (MonadIO m) =>
   Text ->
   Text ->
   ExceptT Text m Text
@@ -71,7 +71,7 @@ nixEvalApply applyFunc attrPath =
     & fmapRT (fst >>> T.strip)
 
 nixEvalApplyRaw ::
-  MonadIO m =>
+  (MonadIO m) =>
   Text ->
   Text ->
   ExceptT Text m Text
@@ -81,7 +81,7 @@ nixEvalApplyRaw applyFunc attrPath =
     & fmapRT (fst >>> T.strip)
 
 nixEvalExpr ::
-  MonadIO m =>
+  (MonadIO m) =>
   Text ->
   ExceptT Text m Text
 nixEvalExpr expr =
@@ -90,7 +90,7 @@ nixEvalExpr expr =
     & fmapRT (fst >>> T.strip)
 
 -- Error if the "new version" is actually newer according to nix
-assertNewerVersion :: MonadIO m => UpdateEnv -> ExceptT Text m ()
+assertNewerVersion :: (MonadIO m) => UpdateEnv -> ExceptT Text m ()
 assertNewerVersion updateEnv = do
   versionComparison <-
     nixEvalExpr
@@ -113,7 +113,7 @@ assertNewerVersion updateEnv = do
         )
 
 -- This is extremely slow but gives us the best results we know of
-lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
+lookupAttrPath :: (MonadIO m) => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
   -- lookup attrpath by nix-env
   ( proc
@@ -134,7 +134,7 @@ lookupAttrPath updateEnv =
     (getAttrString "name" (packageName updateEnv))
     & fmapRT (const (packageName updateEnv))
 
-getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
+getDerivationFile :: (MonadIO m) => Text -> ExceptT Text m Text
 getDerivationFile attrPath = do
   npDir <- liftIO $ Git.nixpkgsDir
   proc "env" ["EDITOR=echo", (binPath <> "/nix"), "--extra-experimental-features", "nix-command", "edit", attrPath & T.unpack, "-f", "."]
@@ -143,20 +143,20 @@ getDerivationFile attrPath = do
 
 -- Get an attribute that can be evaluated off a derivation, as in:
 -- getAttr "cargoSha256" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
-getAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
+getAttr :: (MonadIO m) => Text -> Text -> ExceptT Text m Text
 getAttr attr = srcOrMain (nixEvalApply ("p: p." <> attr))
 
-getAttrString :: MonadIO m => Text -> Text -> ExceptT Text m Text
+getAttrString :: (MonadIO m) => Text -> Text -> ExceptT Text m Text
 getAttrString attr = srcOrMain (nixEvalApplyRaw ("p: p." <> attr))
 
-getHash :: MonadIO m => Text -> ExceptT Text m Text
+getHash :: (MonadIO m) => Text -> ExceptT Text m Text
 getHash = getAttrString "drvAttrs.outputHash"
 
-getMaintainers :: MonadIO m => Text -> ExceptT Text m Text
+getMaintainers :: (MonadIO m) => Text -> ExceptT Text m Text
 getMaintainers =
   nixEvalApplyRaw "p: let gh = m : m.github or \"\"; nonempty = s: s != \"\"; addAt = s: \"@\"+s; in builtins.concatStringsSep \" \" (map addAt (builtins.filter nonempty (map gh p.meta.maintainers or [])))"
 
-readNixBool :: MonadIO m => ExceptT Text m Text -> ExceptT Text m Bool
+readNixBool :: (MonadIO m) => ExceptT Text m Text -> ExceptT Text m Bool
 readNixBool t = do
   text <- t
   case text of
@@ -164,21 +164,21 @@ readNixBool t = do
     "false" -> return False
     a -> throwE ("Failed to read expected nix boolean " <> a <> " ")
 
-getIsBroken :: MonadIO m => Text -> ExceptT Text m Bool
+getIsBroken :: (MonadIO m) => Text -> ExceptT Text m Bool
 getIsBroken attrPath =
   getAttr "meta.broken" attrPath
     & readNixBool
 
-getChangelog :: MonadIO m => Text -> ExceptT Text m Text
+getChangelog :: (MonadIO m) => Text -> ExceptT Text m Text
 getChangelog = nixEvalApplyRaw "p: p.meta.changelog or \"\""
 
-getDescription :: MonadIO m => Text -> ExceptT Text m Text
+getDescription :: (MonadIO m) => Text -> ExceptT Text m Text
 getDescription = nixEvalApplyRaw "p: p.meta.description or \"\""
 
-getHomepage :: MonadIO m => Text -> ExceptT Text m Text
+getHomepage :: (MonadIO m) => Text -> ExceptT Text m Text
 getHomepage = nixEvalApplyRaw "p: p.meta.homepage or \"\""
 
-getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
+getSrcUrl :: (MonadIO m) => Text -> ExceptT Text m Text
 getSrcUrl =
   srcOrMain
     (nixEvalApplyRaw "p: builtins.elemAt p.drvAttrs.urls 0")
@@ -190,7 +190,7 @@ buildCmd attrPath =
 log :: Text -> ProcessConfig () () ()
 log attrPath = proc (binPath <> "/nix") ["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack]
 
-build :: MonadIO m => Text -> ExceptT Text m ()
+build :: (MonadIO m) => Text -> ExceptT Text m ()
 build attrPath =
   (buildCmd attrPath & runProcess_ & tryIOTextET)
     <|> ( do
@@ -204,7 +204,7 @@ build attrPath =
           & fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
       throwE ("nix build failed.\n" <> buildLog <> " ")
 
-cachix :: MonadIO m => Text -> ExceptT Text m ()
+cachix :: (MonadIO m) => Text -> ExceptT Text m ()
 cachix resultPath =
   ( setStdin
       (byteStringInput (TL.encodeUtf8 (TL.fromStrict resultPath)))
@@ -228,7 +228,7 @@ numberOfHashes derivationContents =
     countUp x = T.count x derivationContents
 
 assertOldVersionOn ::
-  MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
+  (MonadIO m) => UpdateEnv -> Text -> Text -> ExceptT Text m ()
 assertOldVersionOn updateEnv branchName contents =
   tryAssert
     ("Old version " <> oldVersionPattern <> " not present in " <> branchName <> " derivation file with contents: " <> contents)
@@ -236,7 +236,7 @@ assertOldVersionOn updateEnv branchName contents =
   where
     oldVersionPattern = oldVersion updateEnv <> "\""
 
-resultLink :: MonadIO m => ExceptT Text m Text
+resultLink :: (MonadIO m) => ExceptT Text m Text
 resultLink =
   T.strip
     <$> ( ourReadProcessInterleaved_ "readlink ./result"
@@ -252,7 +252,7 @@ fakeHashMatching oldHash =
     else "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 -- fixed-output derivation produced path '/nix/store/fg2hz90z5bc773gpsx4gfxn3l6fl66nw-source' with sha256 hash '0q1lsgc1621czrg49nmabq6am9sgxa9syxrwzlksqqr4dyzw4nmf' instead of the expected hash '0bp22mzkjy48gncj5vm9b7whzrggcbs5pd4cnb6k8jpl9j02dhdv'
-getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
+getHashFromBuild :: (MonadIO m) => Text -> ExceptT Text m Text
 getHashFromBuild =
   srcOrMain
     ( \attrPath -> do
@@ -275,26 +275,26 @@ getHashFromBuild =
           secondSplit
     )
 
-version :: MonadIO m => ExceptT Text m Text
+version :: (MonadIO m) => ExceptT Text m Text
 version = ourReadProcessInterleaved_ (proc (binPath <> "/nix") ["--version"])
 
-getPatches :: MonadIO m => Text -> ExceptT Text m Text
+getPatches :: (MonadIO m) => Text -> ExceptT Text m Text
 getPatches =
   nixEvalApply "p: map (patch: patch.name) p.patches"
 
-hasPatchNamed :: MonadIO m => Text -> Text -> ExceptT Text m Bool
+hasPatchNamed :: (MonadIO m) => Text -> Text -> ExceptT Text m Bool
 hasPatchNamed attrPath name = do
   ps <- getPatches attrPath
   return $ name `T.isInfixOf` ps
 
-hasUpdateScript :: MonadIO m => Text -> ExceptT Text m Bool
+hasUpdateScript :: (MonadIO m) => Text -> ExceptT Text m Bool
 hasUpdateScript attrPath = do
   nixEvalApply
     "p: builtins.hasAttr \"updateScript\" p"
     attrPath
     & readNixBool
 
-runUpdateScript :: MonadIO m => Text -> ExceptT Text m (ExitCode, Text)
+runUpdateScript :: (MonadIO m) => Text -> ExceptT Text m (ExitCode, Text)
 runUpdateScript attrPath = do
   let timeout = "10m" :: Text
   (exitCode, output) <-
