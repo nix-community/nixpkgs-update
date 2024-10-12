@@ -5,6 +5,7 @@
 module Repology where
 
 import Control.Applicative (liftA2)
+import Control.Concurrent (threadDelay)
 import Data.Aeson
 import Data.HashMap.Strict
 import Data.List
@@ -21,6 +22,9 @@ import System.IO
 
 baseUrl :: BaseUrl
 baseUrl = BaseUrl Https "repology.org" 443 "/api/v1"
+
+rateLimit :: IO ()
+rateLimit = threadDelay 2000000
 
 type Project = Vector Package
 
@@ -103,6 +107,7 @@ newest = V.find (\p -> (status p) == Just "newest")
 
 getUpdateInfo :: ClientM (Maybe Text, Bool, Vector (Text, (Package, Package)))
 getUpdateInfo = do
+  liftIO rateLimit
   outdated <- nixOutdated
   let nixNew = toList $ Data.HashMap.Strict.mapMaybe (liftA2 (liftA2 (,)) (outdatedForRepo nixRepo) newest) outdated
   let mLastName = lastProjectName outdated
@@ -114,6 +119,7 @@ getUpdateInfo = do
 getNextUpdateInfo ::
   Text -> ClientM (Maybe Text, Bool, Vector (Text, (Package, Package)))
 getNextUpdateInfo n = do
+  liftIO rateLimit
   outdated <- nextNixOutdated n
   let nixNew = toList $ Data.HashMap.Strict.mapMaybe (liftA2 (liftA2 (,)) (outdatedForRepo nixRepo) newest) outdated
   let mLastName = lastProjectName outdated
