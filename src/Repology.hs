@@ -14,7 +14,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO
 import qualified Data.Vector as V
 import GHC.Generics
-import Network.HTTP.Client.TLS (newTlsManager)
+import Network.HTTP.Client (managerModifyRequest, newManager, requestHeaders)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 import OurPrelude
 import Servant.API
 import Servant.Client (BaseUrl (..), ClientM, Scheme (..), client, mkClientEnv, runClientM)
@@ -172,7 +173,8 @@ fetch = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
   liftIO $ hPutStrLn stderr "starting"
-  manager' <- newTlsManager
+  let addUserAgent req = pure $ req {requestHeaders = ("User-Agent", "https://github.com/nix-community/nixpkgs-update") : requestHeaders req}
+  manager' <- newManager tlsManagerSettings {managerModifyRequest = addUserAgent}
   e <- runClientM allNixUpdateInfo (mkClientEnv manager' baseUrl)
   case e of
     Left ce -> liftIO $ hPutStrLn stderr $ show ce
