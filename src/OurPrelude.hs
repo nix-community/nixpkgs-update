@@ -62,46 +62,46 @@ import System.Process.Typed
 interpolate :: QuasiQuoter
 interpolate = NeatInterpolation.text
 
-tshow :: Show a => a -> Text
+tshow :: (Show a) => a -> Text
 tshow = show >>> pack
 
-tryIOTextET :: MonadIO m => IO a -> ExceptT Text m a
+tryIOTextET :: (MonadIO m) => IO a -> ExceptT Text m a
 tryIOTextET = syncIO >>> fmapLT tshow
 
-whenM :: Monad m => m Bool -> m () -> m ()
+whenM :: (Monad m) => m Bool -> m () -> m ()
 whenM c a = c >>= \res -> when res a
 
 bytestringToText :: BSL.ByteString -> Text
 bytestringToText = BSL.toStrict >>> (T.decodeUtf8With T.lenientDecode)
 
 ourReadProcessInterleavedBS_ ::
-  MonadIO m =>
+  (MonadIO m) =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   ExceptT Text m BSL.ByteString
 ourReadProcessInterleavedBS_ = readProcessInterleaved_ >>> tryIOTextET
 
 ourReadProcess_ ::
-  MonadIO m =>
+  (MonadIO m) =>
   ProcessConfig stdin stdout stderr ->
   ExceptT Text m (Text, Text)
 ourReadProcess_ = readProcess_ >>> tryIOTextET >>> fmapRT (\(stdout, stderr) -> (bytestringToText stdout, bytestringToText stderr))
 
 ourReadProcess_Sem ::
-  Members '[P.Process] r =>
+  (Members '[P.Process] r) =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   Sem r (Text, Text)
 ourReadProcess_Sem =
   P.read_ >>> fmap (\(stdout, stderr) -> (bytestringToText stdout, bytestringToText stderr))
 
 ourReadProcessInterleaved_ ::
-  MonadIO m =>
+  (MonadIO m) =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   ExceptT Text m Text
 ourReadProcessInterleaved_ =
   readProcessInterleaved_ >>> tryIOTextET >>> fmapRT bytestringToText
 
 ourReadProcessInterleaved ::
-  MonadIO m =>
+  (MonadIO m) =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   ExceptT Text m (ExitCode, Text)
 ourReadProcessInterleaved =
@@ -110,7 +110,7 @@ ourReadProcessInterleaved =
     >>> fmapRT (\(a, b) -> (a, bytestringToText b))
 
 ourReadProcessInterleavedSem ::
-  Members '[P.Process] r =>
+  (Members '[P.Process] r) =>
   ProcessConfig stdin stdoutIgnored stderrIgnored ->
   Sem r (ExitCode, Text)
 ourReadProcessInterleavedSem =

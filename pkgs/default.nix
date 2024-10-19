@@ -1,6 +1,5 @@
 { nixpkgs
 , mmdoc
-, runtimeDeps
 , system
 , self
 , ...
@@ -8,11 +7,9 @@
 
 let
 
-  runtimePkgs = import runtimeDeps { inherit system; };
-
   pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
 
-  drvAttrs = attrs: with runtimePkgs; {
+  drvAttrs = attrs: with pkgs; {
     NIX = nix;
     GIT = git;
     JQ = jq;
@@ -33,7 +30,7 @@ let
           pkgs.haskell.lib.failOnAllWarnings (
             pkgs.haskell.lib.disableExecutableProfiling (
               pkgs.haskell.lib.disableLibraryProfiling (
-                pkgs.haskell.lib.generateOptparseApplicativeCompletion "nixpkgs-update" (
+                pkgs.haskellPackages.generateOptparseApplicativeCompletions [ "nixpkgs-update" ] (
                   (haskellPackages.callPackage ../nixpkgs-update.nix { }).overrideAttrs drvAttrs
                 )
               )

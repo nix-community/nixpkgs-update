@@ -38,18 +38,18 @@ import qualified Utils as U
 
 default (T.Text)
 
-gReleaseUrl :: MonadIO m => GH.Auth -> URLParts -> ExceptT Text m Text
+gReleaseUrl :: (MonadIO m) => GH.Auth -> URLParts -> ExceptT Text m Text
 gReleaseUrl auth (URLParts o r t) =
   ExceptT $
     bimap (T.pack . show) (GH.getUrl . GH.releaseHtmlUrl)
       <$> liftIO (GH.github auth (GH.releaseByTagNameR o r t))
 
-releaseUrl :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Text
+releaseUrl :: (MonadIO m) => UpdateEnv -> Text -> ExceptT Text m Text
 releaseUrl env url = do
   urlParts <- parseURL url
   gReleaseUrl (authFrom env) urlParts
 
-pr :: MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
+pr :: (MonadIO m) => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
 pr env title body prHead base = do
   tryPR `catchE` \case
     -- If creating the PR returns a 422, most likely cause is that the
@@ -74,9 +74,9 @@ pr env title body prHead base = do
                   )
               )
 
-prUpdate :: forall m. MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
+prUpdate :: forall m. (MonadIO m) => UpdateEnv -> Text -> Text -> Text -> Text -> ExceptT Text m (Bool, Text)
 prUpdate env title body prHead base = do
-  let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
+  let runRequest :: (FromJSON a) => GH.Request k a -> ExceptT Text m a
       runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
   let inNixpkgs f = f (N "nixos") (N "nixpkgs")
 
@@ -149,11 +149,11 @@ parseURLMaybe url =
               )
    in url =~ regex
 
-parseURL :: MonadIO m => Text -> ExceptT Text m URLParts
+parseURL :: (MonadIO m) => Text -> ExceptT Text m URLParts
 parseURL url =
   tryJust ("GitHub: " <> url <> " is not a GitHub URL.") (parseURLMaybe url)
 
-compareUrl :: MonadIO m => Text -> Text -> ExceptT Text m Text
+compareUrl :: (MonadIO m) => Text -> Text -> ExceptT Text m Text
 compareUrl urlOld urlNew = do
   oldParts <- parseURL urlOld
   newParts <- parseURL urlNew
@@ -213,7 +213,7 @@ authFromToken = GH.OAuth . T.encodeUtf8
 authFrom :: UpdateEnv -> GH.Auth
 authFrom = authFromToken . U.githubToken . options
 
-checkExistingUpdatePR :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m ()
+checkExistingUpdatePR :: (MonadIO m) => UpdateEnv -> Text -> ExceptT Text m ()
 checkExistingUpdatePR env attrPath = do
   searchResult <-
     ExceptT $
@@ -239,7 +239,7 @@ checkExistingUpdatePR env attrPath = do
         & T.unlines
     report i = "- " <> GH.issueTitle i <> "\n  " <> tshow (GH.issueUrl i)
 
-latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
+latestVersion :: (MonadIO m) => UpdateEnv -> Text -> ExceptT Text m Version
 latestVersion env url = do
   urlParts <- parseURL url
   r <-
