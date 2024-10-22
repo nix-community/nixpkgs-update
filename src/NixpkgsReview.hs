@@ -14,6 +14,7 @@ import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import Polysemy.Output (Output, output)
 import qualified Process as P
+import System.Directory (doesFileExist)
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit ()
 import qualified Utils
@@ -29,7 +30,7 @@ revDir :: FilePath -> Text -> FilePath
 revDir cache commit = cache <> "/rev-" <> T.unpack commit
 
 run ::
-  Members '[F.File, P.Process, Output Text] r =>
+  Members '[F.File, P.Process, Output Text, Embed IO] r =>
   FilePath ->
   Text ->
   Sem r Text
@@ -48,7 +49,13 @@ run cache commit =
           ExitFailure 124 -> do
             output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"
             return $ "nixpkgs-review took longer than " <> timeout <> " and timed out"
-          _ -> F.read $ (revDir cache commit) <> "/report.md"
+          _ -> do
+            reportExists <- embed $ doesFileExist (revDir cache commit <> "/report.md")
+            if reportExists
+              then F.read $ (revDir cache commit) <> "/report.md"
+              else do
+                output $ "[check][nixpkgs-review] report.md does not exist"
+                return $ "nixpkgs-review failed"
 
 -- Assumes we are already in nixpkgs dir
 runReport :: (Text -> IO ()) -> Text -> IO Text
