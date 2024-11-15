@@ -15,7 +15,6 @@ let
   drvAttrs = attrs: with runtimePkgs; {
     NIX = nix;
     GIT = git;
-    JQ = jq;
     TREE = tree;
     GIST = gist;
     # TODO: are there more coreutils paths that need locking down?
