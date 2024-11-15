@@ -20,20 +20,17 @@ where
 
 import CVE (CVE, cveID, cveLI)
 import qualified Check
-import Control.Concurrent
 import Control.Exception (bracket)
 import Control.Monad.Writer (execWriterT, tell)
-import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe (fromJust)
 import Data.Monoid (Alt (..))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
-import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime, utctDay)
+import Data.Time.Clock (getCurrentTime, utctDay)
 import qualified GH
 import qualified Git
-import Language.Haskell.TH.Env (envQ)
 import NVD (getCVEs, withVulnDB)
 import qualified Nix
 import qualified NixpkgsReview
@@ -83,24 +80,6 @@ attrPathLogFilePath attrPath = do
   let logFile = dir <> "/" <> showGregorian (utctDay now) <> ".log"
   putStrLn ("For attrpath " <> T.unpack attrPath <> ", using log file: " <> logFile)
   return logFile
-
-logFileName :: IO String
-logFileName = do
-  lDir <- logDir
-  now <- getCurrentTime
-  let logFile = lDir <> "/" <> showGregorian (utctDay now) <> ".log"
-  putStrLn ("Using log file: " <> logFile)
-  return logFile
-
-getLog :: Options -> IO (Text -> IO ())
-getLog o = do
-  if batchUpdate o
-    then do
-      logFile <- logFileName
-      let log = log' logFile
-      T.appendFile logFile "\n\n"
-      return log
-    else return T.putStrLn
 
 notifyOptions :: (Text -> IO ()) -> Options -> IO ()
 notifyOptions log o = do
@@ -399,12 +378,6 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
   compareUrl <- GH.compareUrl oldSrcUrl newSrcUrl <|> return ""
   maintainers <- Nix.getMaintainers attrPath
   let commitMsg = commitMessage updateEnv attrPath
-  -- Wait for OfBorg before committing, so that delete-done can use the date of
-  -- the commit to avoid deleting new commits
-  ofBorgWaitUntil <- lift $ addUTCTime (fromInteger $ 60 * 60) <$> getCurrentTime
-  when
-    (batchUpdate . options $ updateEnv)
-    (lift (untilOfBorgFree log ofBorgWaitUntil))
   Git.commit commitMsg
   commitRev <- Git.headRev
   nixpkgsReviewMsg <-
@@ -617,25 +590,6 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
        [reaction]: https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/
        [pull requests you find important]: https://github.com/NixOS/nixpkgs/pulls?q=is%3Aopen+sort%3Areactions-%2B1-desc
     |]
-
-jqBin :: String
-jqBin = fromJust ($$(envQ "JQ") :: Maybe String) <> "/bin/jq"
-
-untilOfBorgFree :: (Text -> IO ()) -> UTCTime -> IO ()
-untilOfBorgFree log waitUntil = do
-  now <- getCurrentTime
-  when (now < waitUntil) do
-    stats <-
-      shell "curl -s https://events.ofborg.org/stats.php" & readProcessInterleaved_
-    waiting <-
-      shell (jqBin <> " .evaluator.messages.waiting")
-        & setStdin (byteStringInput stats)
-        & readProcessInterleaved_
-        & fmap (BSL.readInt >>> fmap fst >>> fromMaybe 0)
-    when (waiting > 2) $ do
-      liftIO $ log ("Waiting for OfBorg: https://events.ofborg.org/stats.php's evaluator.messages.waiting = " <> tshow waiting)
-      liftIO $ threadDelay 60000000
-      untilOfBorgFree log waitUntil
 
 assertNotUpdatedOn ::
   MonadIO m => UpdateEnv -> Text -> Text -> ExceptT Text m ()
