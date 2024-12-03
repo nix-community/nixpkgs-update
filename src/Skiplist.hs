@@ -93,17 +93,7 @@ attrPathList =
     eq "ollama-cuda" "only `ollama` is explicitly updated (defined in the same file)",
     regex
       (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
-      "takes way too long to build",
-    prefix
-      "linuxKernel"
-      "creates too many duplicate PRs",
-    prefix
-      "postgresql"
-      "creates too many duplicate PRs",
-    prefix
-      -- bump this when the default version is changed
-      "python311Packages"
-      "isn't the default python version"
+      "takes way too long to build"
   ]
 
 nameList :: Skiplist
