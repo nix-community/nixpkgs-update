@@ -15,29 +15,34 @@
   outputs = { self, nixpkgs, mmdoc, treefmt-nix, runtimeDeps } @ args:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+
       eachSystem = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+
       treefmtEval = eachSystem (pkgs: treefmt-nix.lib.evalModule pkgs {
         projectRootFile = ".git/config";
         programs.ormolu.enable = true;
       });
+
+      buildAttrs = eachSystem (pkgs: {
+        packages = import ./pkgs/default.nix (args // { inherit (pkgs) system; });
+        devShell = pkgs.mkShell {
+          buildInputs = [
+            pkgs.git
+            pkgs.curl
+            pkgs.treefmt
+          ];
+        };
+        treefmt = treefmtEval.${pkgs.system}.config.build.check self;
+      });
     in
     {
-      checks.x86_64-linux =
-        let
-          packages = nixpkgs.lib.mapAttrs' (n: nixpkgs.lib.nameValuePair "package-${n}") self.packages.x86_64-linux;
-          devShells = nixpkgs.lib.mapAttrs' (n: nixpkgs.lib.nameValuePair "devShell-${n}") self.devShells.x86_64-linux;
-        in
-        packages // devShells // {
-          treefmt = treefmtEval.x86_64-linux.config.build.check self;
-        };
+      checks = eachSystem (pkgs: {
+        treefmt = buildAttrs.${pkgs.system}.treefmt;
+      });
+
+      packages = eachSystem (pkgs: buildAttrs.${pkgs.system}.packages);
+      devShells = eachSystem (pkgs: { default = buildAttrs.${pkgs.system}.devShell; });
 
       formatter = eachSystem (pkgs: treefmtEval.${pkgs.system}.config.build.wrapper);
-
-      packages.x86_64-linux = import ./pkgs/default.nix (args // { system = "x86_64-linux"; });
-      devShells.x86_64-linux.default = self.packages."x86_64-linux".devShell;
-
-      # nix flake check is broken for these when run on x86_64-linux
-      # packages.x86_64-darwin = import ./pkgs/default.nix (args // { system = "x86_64-darwin"; });
-      # devShells.x86_64-darwin.default = self.packages."x86_64-darwin".devShell;
     };
 }
