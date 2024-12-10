@@ -62,7 +62,7 @@ hasVersion contents expectedVersion =
 
 checkTestsBuild :: Text -> IO Bool
 checkTestsBuild attrPath = do
-  let timeout = "10m"
+  let timeout = "30m"
   let args =
         [T.unpack timeout, "nix-build"]
           ++ nixBuildOptions

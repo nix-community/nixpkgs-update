@@ -296,7 +296,7 @@ hasUpdateScript attrPath = do
 
 runUpdateScript :: MonadIO m => Text -> ExceptT Text m (ExitCode, Text)
 runUpdateScript attrPath = do
-  let timeout = "10m" :: Text
+  let timeout = "30m" :: Text
   (exitCode, output) <-
     ourReadProcessInterleaved $
       TP.setStdin (TP.byteStringInput "\n") $
