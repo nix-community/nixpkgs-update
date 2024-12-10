@@ -35,7 +35,7 @@ run ::
   Text ->
   Sem r Text
 run cache commit =
-  let timeout = "120m" :: Text
+  let timeout = "180m" :: Text
    in do
         -- TODO: probably just skip running nixpkgs-review if the directory
         -- already exists
