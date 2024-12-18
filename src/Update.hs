@@ -365,7 +365,7 @@ publishPackage ::
   Bool ->
   ExceptT Text IO ()
 publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs branchExists = do
-  cachixTestInstructions <- doCachix log updateEnv result
+  cacheTestInstructions <- doCache log updateEnv result
   resultCheckReport <-
     case Skiplist.checkResult (packageName updateEnv) of
       Right () -> lift $ Check.result updateEnv (T.unpack result)
@@ -407,7 +407,7 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
           result
           opReport
           cveRep
-          cachixTestInstructions
+          cacheTestInstructions
           nixpkgsReviewMsg
   liftIO $ log prMsg
   if (doPR . options $ updateEnv)
@@ -451,7 +451,7 @@ prMessage ::
   Text ->
   Text ->
   Text
-prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitRev attrPath maintainers resultPath opReport cveRep cachixTestInstructions nixpkgsReviewMsg =
+prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitRev attrPath maintainers resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg =
   -- Some components of the PR description are pre-generated prior to calling
   -- because they require IO, but in general try to put as much as possible for
   -- the formatting into the pure function so that we can control the body
@@ -548,7 +548,7 @@ prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteM
 
        ---
 
-       $cachixTestInstructions
+       $cacheTestInstructions
        ```
        nix-build -A $attrPath https://github.com/$ghUser/nixpkgs/archive/$commitRev.tar.gz
        ```
@@ -664,31 +664,29 @@ cveReport updateEnv =
        <br/>
       |]
 
-doCachix :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
-doCachix log updateEnv resultPath =
+doCache :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
+doCache log updateEnv resultPath =
   let o = options updateEnv
    in if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
         then do
-          lift $ log ("cachix " <> (T.pack . show) resultPath)
-          Nix.cachix resultPath
           return
             [interpolate|
-       Either **download from Cachix**:
+       Either **download from the cache**:
        ```
        nix-store -r $resultPath \
-         --option binary-caches 'https://cache.nixos.org/ https://nix-community.cachix.org/' \
+         --option binary-caches 'https://cache.nixos.org/ https://nixpkgs-update-cache.nix-community.org/' \
          --option trusted-public-keys '
-         nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+         nixpkgs-update-cache.nix-community.org-1:U8d6wiQecHUPJFSqHN9GSSmNkmdiFW7GW7WNAnHW0SM=
          cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
          '
        ```
-       (The Cachix cache is only trusted for this store-path realization.)
-       For the Cachix download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
+       (The nixpkgs-update cache is only trusted for this store-path realization.)
+       For the cached download to work, your user must be in the `trusted-users` list or you can use `sudo` since root is effectively trusted.
 
        Or, **build yourself**:
        |]
         else do
-          lift $ log "skipping cachix"
+          lift $ log "skipping cache"
           return "Build yourself:"
 
 updatePackage ::

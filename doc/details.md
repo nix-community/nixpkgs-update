@@ -67,8 +67,8 @@ currently has no hope of updating. Please dredge the logs to find out
 why your pet package is not receiving updates.
 
 
-## Cachix
+## Cache
 
-By uploading the build outputs to
-[Cachix](https://nix-community.cachix.org/), nixpkgs-update allows you to
+By serving the build outputs from
+[https://nixpkgs-update-cache.nix-community.org/](https://nixpkgs-update-cache.nix-community.org/), nixpkgs-update allows you to
 test a package with one command.
