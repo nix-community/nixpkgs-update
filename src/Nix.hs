@@ -5,7 +5,6 @@
 module Nix
   ( assertNewerVersion,
     assertOldVersionOn,
-    binPath,
     build,
     getAttr,
     getAttrString,
@@ -27,34 +26,17 @@ module Nix
     runUpdateScript,
     fakeHashMatching,
     version,
-    Raw (..),
   )
 where
 
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Git
-import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import System.Exit ()
 import qualified System.Process.Typed as TP
 import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
 import Prelude hiding (log)
-
-binPath :: String
-binPath = fromJust ($$(envQ "NIX") :: Maybe String) <> "/bin"
-
-data Env = Env [(String, String)]
-
-data Raw
-  = Raw
-  | NoRaw
-
-data EvalOptions = EvalOptions Raw Env
-
-rawOpt :: Raw -> [String]
-rawOpt Raw = ["--raw"]
-rawOpt NoRaw = []
 
 nixEvalApply ::
   MonadIO m =>
@@ -63,7 +45,7 @@ nixEvalApply ::
   ExceptT Text m Text
 nixEvalApply applyFunc attrPath =
   ourReadProcess_
-    (proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "--extra-experimental-features", "flakes", "eval", ".#" <> T.unpack attrPath, "--apply", T.unpack applyFunc]))
+    (proc "nix" (["--extra-experimental-features", "nix-command", "--extra-experimental-features", "flakes", "eval", ".#" <> T.unpack attrPath, "--apply", T.unpack applyFunc]))
     & fmapRT (fst >>> T.strip)
 
 nixEvalApplyRaw ::
@@ -73,7 +55,7 @@ nixEvalApplyRaw ::
   ExceptT Text m Text
 nixEvalApplyRaw applyFunc attrPath =
   ourReadProcess_
-    (proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "--extra-experimental-features", "flakes", "eval", ".#" <> T.unpack attrPath, "--raw", "--apply", T.unpack applyFunc]))
+    (proc "nix" (["--extra-experimental-features", "nix-command", "--extra-experimental-features", "flakes", "eval", ".#" <> T.unpack attrPath, "--raw", "--apply", T.unpack applyFunc]))
     & fmapRT (fst >>> T.strip)
 
 nixEvalExpr ::
@@ -82,7 +64,7 @@ nixEvalExpr ::
   ExceptT Text m Text
 nixEvalExpr expr =
   ourReadProcess_
-    (proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "eval", "--expr", T.unpack expr]))
+    (proc "nix" (["--extra-experimental-features", "nix-command", "eval", "--expr", T.unpack expr]))
     & fmapRT (fst >>> T.strip)
 
 -- Error if the "new version" is actually newer according to nix
@@ -113,7 +95,7 @@ lookupAttrPath :: MonadIO m => UpdateEnv -> ExceptT Text m Text
 lookupAttrPath updateEnv =
   -- lookup attrpath by nix-env
   ( proc
-      (binPath <> "/nix-env")
+      "nix-env"
       ( [ "-qa",
           (packageName updateEnv <> "-" <> oldVersion updateEnv) & T.unpack,
           "-f",
@@ -133,7 +115,7 @@ lookupAttrPath updateEnv =
 getDerivationFile :: MonadIO m => Text -> ExceptT Text m Text
 getDerivationFile attrPath = do
   npDir <- liftIO $ Git.nixpkgsDir
-  proc "env" ["EDITOR=echo", (binPath <> "/nix"), "--extra-experimental-features", "nix-command", "edit", attrPath & T.unpack, "-f", "."]
+  proc "env" ["EDITOR=echo", "nix", "--extra-experimental-features", "nix-command", "edit", attrPath & T.unpack, "-f", "."]
     & ourReadProcess_
     & fmapRT (fst >>> T.strip >>> T.stripPrefix (T.pack npDir <> "/") >>> fromJust)
 
@@ -176,10 +158,10 @@ getSrcUrl =
 
 buildCmd :: Text -> ProcessConfig () () ()
 buildCmd attrPath =
-  silently $ proc (binPath <> "/nix-build") (nixBuildOptions ++ ["-A", attrPath & T.unpack])
+  silently $ proc "nix-build" (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
-log attrPath = proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack] <> nixCommonOptions)
+log attrPath = proc "nix" (["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack] <> nixCommonOptions)
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
@@ -258,7 +240,7 @@ getHashFromBuild =
     )
 
 version :: MonadIO m => ExceptT Text m Text
-version = ourReadProcessInterleaved_ (proc (binPath <> "/nix") ["--version"])
+version = ourReadProcessInterleaved_ (proc "nix" ["--version"])
 
 getPatches :: MonadIO m => Text -> ExceptT Text m Text
 getPatches =
