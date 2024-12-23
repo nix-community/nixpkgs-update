@@ -14,10 +14,8 @@ where
 
 import Control.Applicative (many)
 import Data.Char (isDigit, isLetter)
-import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import System.Exit ()
 import Text.Regex.Applicative.Text (RE', (=~))
@@ -25,21 +23,6 @@ import qualified Text.Regex.Applicative.Text as RE
 import Utils (UpdateEnv (..), nixBuildOptions)
 
 default (T.Text)
-
-treeBin :: String
-treeBin = fromJust ($$(envQ "TREE") :: Maybe String) <> "/bin/tree"
-
-procTree :: [String] -> ProcessConfig () () ()
-procTree = proc treeBin
-
-gistBin :: String
-gistBin = fromJust ($$(envQ "GIST") :: Maybe String) <> "/bin/gist"
-
-data BinaryCheck = BinaryCheck
-  { filePath :: FilePath,
-    zeroExitCode :: Bool,
-    versionPresent :: Bool
-  }
 
 isWordCharacter :: Char -> Bool
 isWordCharacter c = (isDigit c) || (isLetter c)
@@ -155,9 +138,9 @@ treeGist resultPath =
   hush
     <$> runExceptT
       ( do
-          contents <- procTree [resultPath] & ourReadProcessInterleavedBS_
+          contents <- proc "tree" [resultPath] & ourReadProcessInterleavedBS_
           g <-
-            shell gistBin
+            shell "gist"
               & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
           return $ "- directory tree listing: " <> g <> "\n"
@@ -170,7 +153,7 @@ duGist resultPath =
       ( do
           contents <- proc "du" [resultPath] & ourReadProcessInterleavedBS_
           g <-
-            shell gistBin
+            shell "gist"
               & setStdin (byteStringInput contents)
               & ourReadProcessInterleaved_
           return $ "- du listing: " <> g <> "\n"
