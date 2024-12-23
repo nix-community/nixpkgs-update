@@ -1,6 +1,5 @@
 { nixpkgs
 , mmdoc
-, runtimeDeps
 , system
 , self
 , ...
@@ -8,19 +7,8 @@
 
 let
 
-  runtimePkgs = import runtimeDeps { inherit system; };
 
   pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
-
-  drvAttrs = attrs: with runtimePkgs; {
-    NIX = nix;
-    GIT = git;
-    TREE = tree;
-    GIST = gist;
-    # TODO: are there more coreutils paths that need locking down?
-    TIMEOUT = coreutils;
-    NIXPKGSREVIEW = nixpkgs-review;
-  };
 
   haskellPackages = pkgs.haskellPackages.override {
     overrides = _: haskellPackages: {
@@ -33,7 +21,7 @@ let
             pkgs.haskell.lib.disableExecutableProfiling (
               pkgs.haskell.lib.disableLibraryProfiling (
                 pkgs.haskell.lib.generateOptparseApplicativeCompletion "nixpkgs-update" (
-                  (haskellPackages.callPackage ../nixpkgs-update.nix { }).overrideAttrs drvAttrs
+                  haskellPackages.callPackage ../nixpkgs-update.nix { }
                 )
               )
             )
