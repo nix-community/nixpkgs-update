@@ -7,10 +7,8 @@ module NixpkgsReview
   )
 where
 
-import Data.Maybe (fromJust)
 import Data.Text as T
 import qualified File as F
-import Language.Haskell.TH.Env (envQ)
 import OurPrelude
 import Polysemy.Output (Output, output)
 import qualified Process as P
@@ -19,9 +17,6 @@ import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Exit ()
 import qualified Utils
 import Prelude hiding (log)
-
-binPath :: String
-binPath = fromJust ($$(envQ "NIXPKGSREVIEW") :: Maybe String) <> "/bin"
 
 cacheDir :: IO FilePath
 cacheDir = getUserCacheDir "nixpkgs-review"
@@ -44,7 +39,7 @@ run cache commit =
             proc "rm" ["-rf", revDir cache commit]
         (exitCode, _nixpkgsReviewOutput) <-
           ourReadProcessInterleavedSem $
-            proc "timeout" [T.unpack timeout, (binPath <> "/nixpkgs-review"), "rev", T.unpack commit, "--no-shell"]
+            proc "timeout" [T.unpack timeout, "nixpkgs-review", "rev", T.unpack commit, "--no-shell"]
         case exitCode of
           ExitFailure 124 -> do
             output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"
