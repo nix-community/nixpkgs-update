@@ -148,7 +148,8 @@ nameList =
     eq "openbazaar" "multiple system hashes need to be updated at once",
     eq "eaglemode" "build hangs or takes way too long",
     eq "autoconf" "@prusnak asked to skip",
-    eq "abseil-cpp" "@andersk asked to skip"
+    eq "abseil-cpp" "@andersk asked to skip",
+    eq "_7zz-rar" "will be updated by _7zz proper"
   ]
 
 contentList :: Skiplist
