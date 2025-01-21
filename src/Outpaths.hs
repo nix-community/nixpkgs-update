@@ -81,6 +81,7 @@ let
     "tarball" "metrics" "manual"
     "darwin-tested" "unstable" "stdenvBootstrapTools"
     "moduleSystem" "lib-tests" # these just confuse the output
+    "pkgsLLVMLibc"
   ];
 
 in
