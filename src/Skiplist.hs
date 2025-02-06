@@ -45,10 +45,7 @@ skipOutpathCalc = skiplister skipOutpathCalcList
 
 attrPathList :: Skiplist
 attrPathList =
-  [ prefix
-      "lua"
-      "Packages for lua are currently skipped. https://github.com/NixOS/nixpkgs/pull/37501#issuecomment-375169646",
-    prefix "lxqt" "Packages for lxqt are currently skipped.",
+  [ prefix "lxqt" "Packages for lxqt are currently skipped.",
     prefix
       "altcoins.bitcoin"
       "@roconnor asked for a skip on this until something can be done with GPG signatures https://github.com/NixOS/nixpkgs/commit/77f3ac7b7638b33ab198330eaabbd6e0a2e751a9",
