@@ -12,7 +12,7 @@ let
 
   pkgs = import nixpkgs { inherit system; config = { allowBroken = true; }; };
 
-  drvAttrs = attrs: with runtimePkgs; {
+  deps = with runtimePkgs; {
     NIX = nix;
     GIT = git;
     TREE = tree;
@@ -21,6 +21,8 @@ let
     TIMEOUT = coreutils;
     NIXPKGSREVIEW = nixpkgs-review;
   };
+
+  drvAttrs = attrs: deps;
 
   haskellPackages = pkgs.haskellPackages.override {
     overrides = _: haskellPackages: {
@@ -50,6 +52,11 @@ let
     ];
     packages = ps: [ ps.nixpkgs-update ];
     shellHook = ''
+      export ${
+        nixpkgs.lib.concatStringsSep " " (
+          nixpkgs.lib.mapAttrsToList (name: value: ''${name}="${value}"'') deps
+        )
+      }
     '';
   };
 
