@@ -18,6 +18,8 @@ module Nix
     getIsBroken,
     getMaintainers,
     getPatches,
+    getReleaseFingerprints,
+    getReleaseSignature,
     getSrcUrl,
     hasPatchNamed,
     hasUpdateScript,
@@ -174,6 +176,13 @@ getDescription = nixEvalApplyRaw "p: p.meta.description or \"\""
 
 getHomepage :: MonadIO m => Text -> ExceptT Text m Text
 getHomepage = nixEvalApplyRaw "p: p.meta.homepage or \"\""
+
+getReleaseFingerprints :: MonadIO m => Text -> ExceptT Text m Text
+getReleaseFingerprints =
+  nixEvalApplyRaw "p: builtins.concatStringsSep \" \" (p.passthru.releaseFingerprints or [ ])"
+
+getReleaseSignature :: MonadIO m => Text -> ExceptT Text m Text
+getReleaseSignature = nixEvalApplyRaw "p: p.passthru.releaseSignaturePath or \"\""
 
 getSrcUrl :: MonadIO m => Text -> ExceptT Text m Text
 getSrcUrl =

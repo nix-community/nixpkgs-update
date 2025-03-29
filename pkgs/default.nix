@@ -17,6 +17,7 @@ let
     GIT = git;
     TREE = tree;
     GIST = gist;
+    GPG = gnupg;
     # TODO: are there more coreutils paths that need locking down?
     TIMEOUT = coreutils;
     NIXPKGSREVIEW = nixpkgs-review;
