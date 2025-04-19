@@ -149,7 +149,9 @@ nameList =
     eq "eaglemode" "build hangs or takes way too long",
     eq "autoconf" "@prusnak asked to skip",
     eq "abseil-cpp" "@andersk asked to skip",
-    eq "_7zz-rar" "will be updated by _7zz proper"
+    eq "_7zz-rar" "will be updated by _7zz proper",
+    eq "ncbi-vdb" "updating this alone breaks sratoolkit",
+    eq "sratoolkit" "tied to version of ncbi-vdb"
   ]
 
 contentList :: Skiplist
