@@ -151,7 +151,8 @@ nameList =
     eq "abseil-cpp" "@andersk asked to skip",
     eq "_7zz-rar" "will be updated by _7zz proper",
     eq "ncbi-vdb" "updating this alone breaks sratoolkit",
-    eq "sratoolkit" "tied to version of ncbi-vdb"
+    eq "sratoolkit" "tied to version of ncbi-vdb",
+    eq "libsignal-ffi" "must match the version required by mautrix-signal"
   ]
 
 contentList :: Skiplist
