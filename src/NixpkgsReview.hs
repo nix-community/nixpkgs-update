@@ -48,14 +48,14 @@ run cache commit =
         case exitCode of
           ExitFailure 124 -> do
             output $ "[check][nixpkgs-review] took longer than " <> timeout <> " and timed out"
-            return $ "nixpkgs-review took longer than " <> timeout <> " and timed out"
+            return $ ":warning: nixpkgs-review took longer than " <> timeout <> " and timed out"
           _ -> do
             reportExists <- embed $ doesFileExist (revDir cache commit <> "/report.md")
             if reportExists
               then F.read $ (revDir cache commit) <> "/report.md"
               else do
                 output $ "[check][nixpkgs-review] report.md does not exist"
-                return $ "nixpkgs-review failed"
+                return $ ":x: nixpkgs-review failed"
 
 -- Assumes we are already in nixpkgs dir
 runReport :: (Text -> IO ()) -> Text -> IO Text
