@@ -146,6 +146,7 @@ nameList =
     eq "reposurgeon" "takes way too long to build",
     eq "kodelife" "multiple system hashes need to be updated at once",
     eq "openbazaar" "multiple system hashes need to be updated at once",
+    eq "stalwart-mail-enterprise" "stalwart-mail-enterprise follows stalwart-mail, that should be updated instead",
     eq "eaglemode" "build hangs or takes way too long",
     eq "autoconf" "@prusnak asked to skip",
     eq "abseil-cpp" "@andersk asked to skip",
