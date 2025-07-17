@@ -582,13 +582,6 @@ prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs relea
 
        > [!TIP]
        > As a maintainer, if your package is located under `pkgs/by-name/*`, you can comment **`@NixOS/nixpkgs-merge-bot merge`** to automatically merge this update using the [`nixpkgs-merge-bot`](https://github.com/NixOS/nixpkgs/blob/master/ci/README.md#nixpkgs-merge-bot).
-
-       ---
-
-       Add a :+1: [reaction] to [pull requests you find important].
-
-       [reaction]: https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/
-       [pull requests you find important]: https://github.com/NixOS/nixpkgs/pulls?q=is%3Aopen+sort%3Areactions-%2B1-desc
     |]
 
 assertNotUpdatedOn ::
