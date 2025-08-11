@@ -93,7 +93,10 @@ attrPathList =
     eq "ollama-cuda" "only `ollama` is explicitly updated (defined in the same file)",
     regex
       (string "python" *> few (psym isDigit) *> string "Packages.mmengine")
-      "takes way too long to build"
+      "takes way too long to build",
+    eq "bitwarden-directory-connector-cli" "src is aliased to bitwarden-directory-connector",
+    eq "vaultwarden-mysql" "src is aliased to vaultwarden",
+    eq "vaultwarden-postgresql" "src is aliased to vaultwarden"
   ]
 
 nameList :: Skiplist
