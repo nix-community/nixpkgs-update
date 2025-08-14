@@ -156,7 +156,8 @@ nameList =
     eq "_7zz-rar" "will be updated by _7zz proper",
     eq "ncbi-vdb" "updating this alone breaks sratoolkit",
     eq "sratoolkit" "tied to version of ncbi-vdb",
-    eq "libsignal-ffi" "must match the version required by mautrix-signal"
+    eq "libsignal-ffi" "must match the version required by mautrix-signal",
+    eq "floorp" "big package, does not update hashes correctly (https://github.com/NixOS/nixpkgs/pull/424715#issuecomment-3163626684)"
   ]
 
 contentList :: Skiplist
