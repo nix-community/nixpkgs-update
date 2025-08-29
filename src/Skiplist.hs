@@ -91,6 +91,7 @@ attrPathList =
     eq "flint" "update repeatedly exceeded the 6h timeout",
     eq "keepmenu" "update repeatedly exceeded the 6h timeout",
     eq "klee" "update repeatedly exceeded the 6h timeout",
+    eq "vlagent" "updates via victorialogs package",
     eq "vmagent" "updates via victoriametrics package",
     eq "ollama-rocm" "only `ollama` is explicitly updated (defined in the same file)",
     eq "ollama-cuda" "only `ollama` is explicitly updated (defined in the same file)",
