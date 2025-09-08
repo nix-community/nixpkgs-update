@@ -126,18 +126,17 @@ redirectedUrls log Args {..} = do
 --------------------------------------------------------------------------------
 -- Rewrite Rust on rustPlatform.buildRustPackage
 -- This is basically `version` above, but with a second pass to also update the
--- cargoSha256 vendor hash.
+-- cargoHash vendor hash.
 rustCrateVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 rustCrateVersion log args@Args {..} = do
   if
-      | and [(not (T.isInfixOf "cargoSha256" derivationContents)), (not (T.isInfixOf "cargoHash" derivationContents))] -> do
-          lift $ log "No cargoSha256 or cargoHash found"
+      | (not (T.isInfixOf "cargoHash" derivationContents)) -> do
+          lift $ log "No cargoHash found"
           return Nothing
       | hasUpdateScript -> do
           lift $ log "skipping because derivation has updateScript"
           return Nothing
       | otherwise -> do
-          _ <- lift $ File.replaceIO "cargoSha256 =" "cargoHash =" derivationFile
           -- This starts the same way `version` does, minus the assert
           srcVersionFix args
           -- But then from there we need to do this a second time for the cargoHash!
@@ -160,14 +159,13 @@ rustCrateVersion log args@Args {..} = do
 golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 golangModuleVersion log args@Args {..} = do
   if
-      | and [not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorSha256" derivationContents), not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorHash" derivationContents)] -> do
-          lift $ log "Not a buildGoModule package with vendorSha256 or vendorHash"
+      | not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorHash" derivationContents) -> do
+          lift $ log "Not a buildGoModule package with vendorHash"
           return Nothing
       | hasUpdateScript -> do
           lift $ log "skipping because derivation has updateScript"
           return Nothing
       | otherwise -> do
-          _ <- lift $ File.replaceIO "vendorSha256 =" "vendorHash =" derivationFile
           -- This starts the same way `version` does, minus the assert
           srcVersionFix args
           -- But then from there we need to do this a second time for the vendorHash!
@@ -197,7 +195,7 @@ golangModuleVersion log args@Args {..} = do
 --------------------------------------------------------------------------------
 -- Rewrite NPM packages with buildNpmPackage
 -- This is basically `version` above, but with a second pass to also update the
--- cargoSha256 vendor hash.
+-- npmDepsHash vendor hash.
 npmDepsVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 npmDepsVersion log args@Args {..} = do
   if
