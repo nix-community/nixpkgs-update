@@ -248,7 +248,7 @@ nixCommonOptions :: [String]
 nixCommonOptions =
   [ "--arg",
     "config",
-    "{ allowBroken = true; allowUnfree = true; allowAliases = false; }",
+    "{ allowUnfree = true; allowAliases = false; }",
     "--arg",
     "overlays",
     "[ ]"

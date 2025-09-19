@@ -20,7 +20,6 @@ spec = do
     -- Common mock options
     let options = Utils.Options False False "r-ryantm" "" False False False False
     let updateEnv = Utils.UpdateEnv "foobar" "1.0" "1.1" (Just "https://update-site.com") options
-    let isBroken = False
     let metaDescription = "\"Foobar package description\""
     let metaHomepage = "\"https://foobar-homepage.com\""
     let metaChangelog = "\"https://foobar-homepage.com/changelog/v1.2.3\""
@@ -39,13 +38,13 @@ spec = do
 
     it "matches a simple mock example" do
       expected <- T.readFile "test_data/expected_pr_description_1.md"
-      let actual = Update.prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg
+      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg
       T.writeFile "test_data/actual_pr_description_1.md" actual
       actual `shouldBe` expected
 
     it "does not include NixPkgs review section when no review was done" do
       expected <- T.readFile "test_data/expected_pr_description_2.md"
       let nixpkgsReviewMsg' = ""
-      let actual = Update.prMessage updateEnv isBroken metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg'
+      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg'
       T.writeFile "test_data/actual_pr_description_2.md" actual
       actual `shouldBe` expected
