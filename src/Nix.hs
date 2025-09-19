@@ -15,7 +15,6 @@ module Nix
     getHash,
     getHashFromBuild,
     getHomepage,
-    getIsBroken,
     getMaintainers,
     getPatches,
     getSrcUrl,
@@ -160,11 +159,6 @@ readNixBool t = do
     "true" -> return True
     "false" -> return False
     a -> throwE ("Failed to read expected nix boolean " <> a <> " ")
-
-getIsBroken :: MonadIO m => Text -> ExceptT Text m Bool
-getIsBroken attrPath =
-  getAttr "meta.broken" attrPath
-    & readNixBool
 
 getChangelog :: MonadIO m => Text -> ExceptT Text m Text
 getChangelog = nixEvalApplyRaw "p: p.meta.changelog or \"\""

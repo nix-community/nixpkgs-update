@@ -45,7 +45,6 @@ let
 
       nixpkgsArgs = {
         config = {
-          allowBroken = true;
           allowUnfree = true;
           allowInsecurePredicate = x: true;
           checkMeta = checkMeta;
