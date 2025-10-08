@@ -45,7 +45,9 @@ run cache commit =
                 "nixpkgs-review",
                 "rev",
                 T.unpack commit,
-                "--no-shell"
+                "--no-shell",
+                "--extra-nixpkgs-config",
+                "{ allowBroken = false; }"
               ]
         case exitCode of
           ExitFailure 124 -> do
