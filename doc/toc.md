@@ -4,7 +4,7 @@
 * [Installation](#installation)
 * [Interactive updates](#interactive-updates)
 * [Batch updates](#batch-updates)
-* [r-ryantm](#r-ryantm)
+* [r-ryantm bot](#r-ryantm)
 * [Details](#details)
 * [Contributing](#contributing)
 * [Donate](#donate)
