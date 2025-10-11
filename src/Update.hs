@@ -60,6 +60,7 @@ default (T.Text)
 alsoLogToAttrPath :: Text -> (Text -> IO ()) -> IO (Text -> IO ())
 alsoLogToAttrPath attrPath topLevelLog = do
   logFile <- attrPathLogFilePath attrPath
+  T.appendFile logFile "Running nixpkgs-update (https://nix-community.org/update-bot/) with UPDATE_INFO: "
   let attrPathLog = log' logFile
   return \text -> do
     topLevelLog text
