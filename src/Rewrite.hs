@@ -159,7 +159,7 @@ rustCrateVersion log args@Args {..} = do
 golangModuleVersion :: MonadIO m => (Text -> m ()) -> Args -> ExceptT Text m (Maybe Text)
 golangModuleVersion log args@Args {..} = do
   if
-      | not (T.isInfixOf "buildGoModule" derivationContents && T.isInfixOf "vendorHash" derivationContents) -> do
+      | not (T.isInfixOf "buildGo" derivationContents && T.isInfixOf "vendorHash" derivationContents) -> do
           lift $ log "Not a buildGoModule package with vendorHash"
           return Nothing
       | hasUpdateScript -> do
