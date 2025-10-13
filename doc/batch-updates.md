@@ -16,7 +16,7 @@ subcommand.
 
 2. Clone this repository and build `nixpkgs-update`:
     ```bash
-    git clone https://github.com/ryantm/nixpkgs-update && cd nixpkgs-update
+    git clone https://github.com/nix-community/nixpkgs-update && cd nixpkgs-update
     nix-build
     ```
 

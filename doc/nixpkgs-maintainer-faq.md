@@ -34,7 +34,7 @@ Updates can be disabled by adding a comment to the package:
 
 ### Skiplist
 
-We maintain a [Skiplist](https://github.com/ryantm/nixpkgs-update/blob/main/src/Skiplist.hs) of different things not to update. It is possible your package is triggering one of the skip criteria.
+We maintain a [Skiplist](https://github.com/nix-community/nixpkgs-update/blob/main/src/Skiplist.hs) of different things not to update. It is possible your package is triggering one of the skip criteria.
 
 Python updates are skipped if they cause more than 100 rebuilds.
 

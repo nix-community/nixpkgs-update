@@ -46,7 +46,7 @@ mkDerivation {
     zlib
   ];
   testToolDepends = [ hspec-discover ];
-  homepage = "https://github.com/ryantm/nixpkgs-update#readme";
+  homepage = "https://github.com/nix-community/nixpkgs-update#readme";
   description = "Tool for semi-automatic updating of nixpkgs repository";
   license = lib.licenses.cc0;
   mainProgram = "nixpkgs-update";
