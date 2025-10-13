@@ -138,7 +138,7 @@ getDerivationFile attrPath = do
     & fmapRT (fst >>> T.strip >>> T.stripPrefix (T.pack npDir <> "/") >>> fromJust)
 
 -- Get an attribute that can be evaluated off a derivation, as in:
--- getAttr "cargoSha256" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
+-- getAttr "cargoHash" "ripgrep" -> 0lwz661rbm7kwkd6mallxym1pz8ynda5f03ynjfd16vrazy2dj21
 getAttr :: MonadIO m => Text -> Text -> ExceptT Text m Text
 getAttr attr = srcOrMain (nixEvalApply ("p: p." <> attr))
 
@@ -204,7 +204,7 @@ numberOfFetchers derivationContents =
 -- Sum the number of things that look like fixed-output derivation hashes
 numberOfHashes :: Text -> Int
 numberOfHashes derivationContents =
-  sum $ map countUp ["sha256 =", "sha256=", "cargoSha256 =", "cargoHash =", "vendorSha256 =", "vendorHash =", "hash =", "npmDepsHash ="]
+  sum $ map countUp ["sha256 =", "sha256=", "cargoHash =", "vendorHash =", "hash =", "npmDepsHash ="]
   where
     countUp x = T.count x derivationContents
 
