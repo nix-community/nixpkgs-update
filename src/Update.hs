@@ -57,9 +57,10 @@ import Prelude hiding (log)
 
 default (T.Text)
 
-alsoLogToAttrPath :: Text -> (Text -> IO ()) -> IO (Text -> IO ())
-alsoLogToAttrPath attrPath topLevelLog = do
+alsoLogToAttrPath :: Text -> (Text -> IO ()) -> Text -> IO (Text -> IO ())
+alsoLogToAttrPath attrPath topLevelLog url = do
   logFile <- attrPathLogFilePath attrPath
+  T.appendFile logFile $ "Running nixpkgs-update (" <> url <> ") with UPDATE_INFO: "
   let attrPathLog = log' logFile
   return \text -> do
     topLevelLog text
@@ -152,13 +153,16 @@ updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
     if attrpath options
       then return packageName
       else Nix.lookupAttrPath updateEnv
-
+  let url =
+        if isBot updateEnv
+          then "https://nix-community.org/update-bot/"
+          else "https://github.com/nix-community/nixpkgs-update"
   case eitherFailureOrAttrpath of
     Left failure -> do
       simpleLog failure
       return UpdatePackageFailure
     Right foundAttrPath -> do
-      log <- alsoLogToAttrPath foundAttrPath simpleLog
+      log <- alsoLogToAttrPath foundAttrPath simpleLog url
       log updateInfoLine
       mergeBase <-
         if batchUpdate options
@@ -654,13 +658,17 @@ cveReport updateEnv =
        <br/>
       |]
 
+isBot :: UpdateEnv -> Bool
+isBot updateEnv =
+  let o = options updateEnv
+   in batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
+
 doCache :: MonadIO m => (Text -> m ()) -> UpdateEnv -> Text -> ExceptT Text m Text
 doCache log updateEnv resultPath =
-  let o = options updateEnv
-   in if batchUpdate o && "r-ryantm" == (GH.untagName $ githubUser o)
-        then do
-          return
-            [interpolate|
+  if isBot updateEnv
+    then do
+      return
+        [interpolate|
        Either **download from the cache**:
        ```
        nix-store -r $resultPath \
@@ -675,9 +683,9 @@ doCache log updateEnv resultPath =
 
        Or, **build yourself**:
        |]
-        else do
-          lift $ log "skipping cache"
-          return "Build yourself:"
+    else do
+      lift $ log "skipping cache"
+      return "Build yourself:"
 
 updatePackage ::
   Options ->
