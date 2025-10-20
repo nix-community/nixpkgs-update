@@ -70,7 +70,7 @@ ls -la /nix/store/some-hash-path/bin
 
 ### Pre-merge build results
 
-NixPkgs review skipped
+Nixpkgs review skipped
 
 ---
 

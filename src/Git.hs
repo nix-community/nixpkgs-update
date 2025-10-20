@@ -146,7 +146,7 @@ nixpkgsDir = do
     then getCurrentDirectory
     else getUserCacheDir "nixpkgs"
 
--- Setup a NixPkgs clone in $XDG_CACHE_DIR/nixpkgs
+-- Setup a Nixpkgs clone in $XDG_CACHE_DIR/nixpkgs
 -- Since we are going to have to fetch, git reset, clean, and commit, we setup a
 -- cache dir to avoid destroying any uncommitted work the user may have in PWD.
 setupNixpkgs :: Text -> IO ()

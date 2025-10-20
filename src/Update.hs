@@ -479,7 +479,7 @@ prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs relea
           else "- [Compare changes on GitHub](" <> compareUrl <> ")"
       nixpkgsReviewSection =
         if nixpkgsReviewMsg == T.empty
-          then "NixPkgs review skipped"
+          then "Nixpkgs review skipped"
           else
             [interpolate|
             We have automatically built all packages that will get rebuilt due to
