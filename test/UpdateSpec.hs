@@ -42,7 +42,7 @@ spec = do
       T.writeFile "test_data/actual_pr_description_1.md" actual
       actual `shouldBe` expected
 
-    it "does not include NixPkgs review section when no review was done" do
+    it "does not include Nixpkgs review section when no review was done" do
       expected <- T.readFile "test_data/expected_pr_description_2.md"
       let nixpkgsReviewMsg' = ""
       let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg'
