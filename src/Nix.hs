@@ -179,7 +179,7 @@ buildCmd attrPath =
   silently $ proc (binPath <> "/nix-build") (nixBuildOptions ++ ["-A", attrPath & T.unpack])
 
 log :: Text -> ProcessConfig () () ()
-log attrPath = proc (binPath <> "/nix") ["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack]
+log attrPath = proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack] <> nixCommonOptions)
 
 build :: MonadIO m => Text -> ExceptT Text m ()
 build attrPath =
