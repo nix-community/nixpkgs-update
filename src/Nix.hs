@@ -223,6 +223,7 @@ resultLink =
     <$> ( ourReadProcessInterleaved_ "readlink ./result"
             <|> ourReadProcessInterleaved_ "readlink ./result-bin"
             <|> ourReadProcessInterleaved_ "readlink ./result-dev"
+            <|> ourReadProcessInterleaved_ "readlink ./result-lib"
         )
     <|> throwE "Could not find result link. "
 
