@@ -135,7 +135,7 @@ data UpdatePackageResult = UpdatePackageSuccess | UpdatePackageFailure
 
 -- Arguments this function should have to make it testable:
 -- - the merge base commit (should be updated externally to this function)
--- - the commit for branches: master, staging, staging-next
+-- - the commit for branches: master, staging, staging-next, staging-nixos
 updatePackageBatch ::
   (Text -> IO ()) ->
   Text ->
@@ -232,6 +232,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
+      assertNotUpdatedOn updateEnv derivationFile "staging-nixos"
 
     -- Calculate output paths for rebuilds and our merge base
     let calcOutpaths = calculateOutpaths options && isNothing skipOutpathBase
@@ -319,6 +320,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       assertNotUpdatedOn updateEnv' rewrittenFile "master"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging-next"
+      assertNotUpdatedOn updateEnv' rewrittenFile "staging-nixos"
 
     --
     -- Outpaths
