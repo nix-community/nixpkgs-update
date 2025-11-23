@@ -29,6 +29,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (getCurrentTime, utctDay)
+import qualified Data.Vector as V
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
@@ -348,7 +349,10 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
             fromMaybe
             skipOutpathBase
             if Outpaths.numPackageRebuilds opDiff <= 500
-              then "master"
+              then
+                if any (T.isInfixOf "nixosTests.simple") (V.toList $ Outpaths.packageRebuilds opDiff)
+                  then "staging-nixos"
+                  else "master"
               else "staging"
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs (isJust existingCommitMsg)
 

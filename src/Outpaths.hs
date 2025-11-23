@@ -7,6 +7,7 @@ module Outpaths
     ResultLine,
     dummyOutpathSetBefore,
     dummyOutpathSetAfter,
+    packageRebuilds,
     numPackageRebuilds,
     outpathReport,
   )
@@ -62,6 +63,9 @@ let
         };
       };
     };
+  nixosJobs = import (path + "/nixos/release.nix") {
+    supportedSystems = [ "x86_64-linux" ];
+  };
   recurseIntoAttrs = attrs: attrs // { recurseForDerivations = true; };
 
   # hydraJobs leaves recurseForDerivations as empty attrmaps;
@@ -83,7 +87,12 @@ let
   ];
 
 in
-  tweak (builtins.removeAttrs hydraJobs blacklist)
+  tweak (
+    (builtins.removeAttrs hydraJobs blacklist)
+    // {
+      nixosTests.simple = nixosJobs.tests.simple;
+    }
+  )
 |]
 
 outPath :: MonadIO m => ExceptT Text m Text
