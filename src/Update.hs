@@ -29,6 +29,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (getCurrentTime, utctDay)
+import qualified Data.Vector as V
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
@@ -135,7 +136,7 @@ data UpdatePackageResult = UpdatePackageSuccess | UpdatePackageFailure
 
 -- Arguments this function should have to make it testable:
 -- - the merge base commit (should be updated externally to this function)
--- - the commit for branches: master, staging, staging-next
+-- - the commit for branches: master, staging, staging-next, staging-nixos
 updatePackageBatch ::
   (Text -> IO ()) ->
   Text ->
@@ -232,6 +233,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       assertNotUpdatedOn updateEnv derivationFile "master"
       assertNotUpdatedOn updateEnv derivationFile "staging"
       assertNotUpdatedOn updateEnv derivationFile "staging-next"
+      assertNotUpdatedOn updateEnv derivationFile "staging-nixos"
 
     -- Calculate output paths for rebuilds and our merge base
     let calcOutpaths = calculateOutpaths options && isNothing skipOutpathBase
@@ -319,6 +321,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       assertNotUpdatedOn updateEnv' rewrittenFile "master"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging"
       assertNotUpdatedOn updateEnv' rewrittenFile "staging-next"
+      assertNotUpdatedOn updateEnv' rewrittenFile "staging-nixos"
 
     --
     -- Outpaths
@@ -346,7 +349,10 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
             fromMaybe
             skipOutpathBase
             if Outpaths.numPackageRebuilds opDiff <= 500
-              then "master"
+              then
+                if any (T.isInfixOf "nixosTests.simple") (V.toList $ Outpaths.packageRebuilds opDiff)
+                  then "staging-nixos"
+                  else "master"
               else "staging"
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs (isJust existingCommitMsg)
 
