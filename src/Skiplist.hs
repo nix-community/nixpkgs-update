@@ -230,8 +230,9 @@ checkResultList =
 skipOutpathCalcList :: Skiplist
 skipOutpathCalcList =
   [ eq "firefox-beta-bin-unwrapped" "master",
-    eq "firefox-devedition-bin-unwrapped" "master"
+    eq "firefox-devedition-bin-unwrapped" "master",
     -- "firefox-release-bin-unwrapped" is unneeded here because firefox-bin is a dependency of other packages that Hydra doesn't ignore.
+    prefix "linuxKernel.kernels" "master"
   ]
 
 binariesStickAround :: Text -> (Text -> Bool, Text)
