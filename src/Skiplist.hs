@@ -111,7 +111,8 @@ attrPathList =
       "takes way too long to build",
     eq "bitwarden-directory-connector-cli" "src is aliased to bitwarden-directory-connector",
     eq "vaultwarden-mysql" "src is aliased to vaultwarden",
-    eq "vaultwarden-postgresql" "src is aliased to vaultwarden"
+    eq "vaultwarden-postgresql" "src is aliased to vaultwarden",
+    eq "dune" "same as dune_3"
   ]
 
 nameList :: Skiplist
