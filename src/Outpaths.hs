@@ -47,6 +47,8 @@ let
       nixpkgsArgs = {
         config = {
           allowUnfree = true;
+          allowAliases = false;
+          allowBroken = false;
           allowInsecurePredicate = x: true;
           checkMeta = checkMeta;
 
@@ -57,6 +59,10 @@ let
               ];
             in if builtins.elem reason fatalErrors
               then abort errormsg
+              else if builtins.elem reason [ "broken" ]
+              then throw "broken"
+              else if builtins.elem reason [ "unsupported" ]
+              then throw "unsupported"
               else true;
 
           inHydra = true;
