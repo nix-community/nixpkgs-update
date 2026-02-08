@@ -55,7 +55,7 @@ attrPathList =
       "luanti-"
       "luanti-server and luanti-client are different outputs for the luanti package",
     prefix
-      "mate"
+      "mate."
       "mate packages are upgraded in lockstep https://github.com/NixOS/nixpkgs/pull/50695#issuecomment-441338593",
     prefix
       "deepin"
