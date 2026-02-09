@@ -113,6 +113,7 @@ attrPathList =
     eq "vaultwarden-mysql" "src is aliased to vaultwarden",
     eq "vaultwarden-postgresql" "src is aliased to vaultwarden",
     eq "dune" "same as dune_3",
+    eq "kanata-with-cmd" "same src as kanata",
     eq "curlFull" "same as curl",
     eq "curlMinimal" "same as curl",
     eq "azure-sdk-for-cpp.curl" "same as curl"
