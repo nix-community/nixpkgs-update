@@ -117,7 +117,8 @@ attrPathList =
     eq "curlFull" "same as curl",
     eq "curlMinimal" "same as curl",
     eq "azure-sdk-for-cpp.curl" "same as curl",
-    eq "ocamlPackages.extlib-1-7-7" "versioned attribute should not be updated https://github.com/NixOS/nixpkgs/pull/294917"
+    eq "ocamlPackages.extlib-1-7-7" "versioned attribute should not be updated https://github.com/NixOS/nixpkgs/pull/294917",
+    eq "ocamlPackages.luv" "haxe depends on specific version of luv https://github.com/NixOS/nixpkgs/pull/307255"
   ]
 
 nameList :: Skiplist
