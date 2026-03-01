@@ -156,7 +156,7 @@ updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
       else Nix.lookupAttrPath updateEnv
   let url =
         if isBot updateEnv
-          then "https://nix-community.org/update-bot/"
+          then "https://?"
           else "https://github.com/nix-community/nixpkgs-update"
   case eitherFailureOrAttrpath of
     Left failure -> do
@@ -671,9 +671,9 @@ doCache log updateEnv resultPath =
        Either **download from the cache**:
        ```
        nix-store -r $resultPath \
-         --option binary-caches 'https://cache.nixos.org/ https://nixpkgs-update-cache.nix-community.org/' \
+         --option binary-caches 'https://cache.nixos.org/ https://?' \
          --option trusted-public-keys '
-         nixpkgs-update-cache.nix-community.org-1:U8d6wiQecHUPJFSqHN9GSSmNkmdiFW7GW7WNAnHW0SM=
+         ?
          cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
          '
        ```
