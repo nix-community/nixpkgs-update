@@ -118,7 +118,6 @@ attrPathList =
     eq
       "yt-dlp-light"
       "updates via yt-dlp"
-    ]
   ]
 
 nameList :: Skiplist
