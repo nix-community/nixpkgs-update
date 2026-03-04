@@ -112,8 +112,13 @@ attrPathList =
     eq "kanata-with-cmd" "same src as kanata",
     eq "curlFull" "same as curl",
     eq "curlMinimal" "same as curl",
-    eq "azure-sdk-for-cpp.curl" "same as curl"
-    eq "yt-dlp-light" "updates via yt-dlp"
+    eq
+      "azure-sdk-for-cpp.curl"
+      "same as curl",
+    eq
+      "yt-dlp-light"
+      "updates via yt-dlp"
+    ]
   ]
 
 nameList :: Skiplist
