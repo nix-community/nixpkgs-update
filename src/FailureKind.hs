@@ -126,6 +126,12 @@ classifyFailureMessage raw =
    in if
         | "instead of the expected hash" `T.isInfixOf` m -> FetchHashMismatch
         | "nix build failed.\n" `T.isPrefixOf` m -> NixBuildFailed
+        | -- nix-build often fails via tryIOTextET: message starts with
+          -- "Received ExitFailure ..." and embeds our "nix build failed." log block later
+          "nix build failed." `T.isInfixOf` m ->
+            NixBuildFailed
+        | "ExitFailure" `T.isInfixOf` m && "nix-build" `T.isInfixOf` m && "Raw command:" `T.isInfixOf` m ->
+            NixBuildFailed
         | m == "nix log failed trying to get build logs" -> NixLogFetchFailed
         | "Failed to read expected nix boolean " `T.isPrefixOf` m -> NixBooleanParseFailed
         | m == "Could not find result link." -> ResultLinkMissing

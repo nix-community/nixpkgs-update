@@ -11,6 +11,7 @@ import qualified Data.Text.IO as T
 import DeleteMerged (deleteDone)
 import Git
 import qualified GitHub as GH
+import GitHub.Data.Name (Name (..))
 import NVD (withVulnDB)
 import qualified Nix
 import qualified Options.Applicative as O
@@ -31,7 +32,9 @@ data UpdateOptions = UpdateOptions
     nixpkgsReview :: Bool,
     outpaths :: Bool,
     attrpathOpt :: Bool,
-    failureWipPrMaxCli :: Maybe Int
+    failureWipPrMaxCli :: Maybe Int,
+    prTargetOwnerOpt :: Text,
+    prTargetRepoOpt :: Text
   }
 
 data Command
@@ -59,6 +62,20 @@ updateOptionsParser =
                 <> O.metavar "N"
                 <> O.help
                   "Max Tier-A WIP failure PRs per batch run (0=off). Overrides NIXPKGS_UPDATE_FAILURE_WIP_PR_MAX."
+          )
+    <*> O.strOption
+          ( O.long "pr-target-owner"
+              <> O.metavar "OWNER"
+              <> O.value "nixos"
+              <> O.showDefault
+              <> O.help "GitHub owner of the target repo for pull requests (e.g. your fork's owner)."
+          )
+    <*> O.strOption
+          ( O.long "pr-target-repo"
+              <> O.metavar "REPO"
+              <> O.value "nixpkgs"
+              <> O.showDefault
+              <> O.help "GitHub repo name for pull requests."
           )
 
 updateParser :: O.Parser Command
@@ -162,14 +179,14 @@ main = do
     DeleteDone delete -> do
       setupNixpkgs $ GH.untagName ghUser
       deleteDone delete token ghUser
-    Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt, failureWipPrMaxCli} update -> do
+    Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt, failureWipPrMaxCli, prTargetOwnerOpt, prTargetRepoOpt} update -> do
       setupNixpkgs $ GH.untagName ghUser
       fw <- resolveFailureWipPrMax failureWipPrMaxCli
-      updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt fw) update
-    UpdateBatch UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt, failureWipPrMaxCli} update -> do
+      updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt fw (N prTargetOwnerOpt) (N prTargetRepoOpt)) update
+    UpdateBatch UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt, failureWipPrMaxCli, prTargetOwnerOpt, prTargetRepoOpt} update -> do
       setupNixpkgs $ GH.untagName ghUser
       fw <- resolveFailureWipPrMax failureWipPrMaxCli
-      updatePackage (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt fw) update
+      updatePackage (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt fw (N prTargetOwnerOpt) (N prTargetRepoOpt)) update
     Version -> do
       v <- runExceptT Nix.version
       case v of
@@ -184,10 +201,10 @@ main = do
       setupNixpkgs $ GH.untagName ghUser
       report <-
         cveReport
-          (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False False 0))
+          (UpdateEnv productID oldVersion newVersion Nothing (Options False False ghUser token False False False False 0 (N "nixos") (N "nixpkgs")))
       T.putStrLn report
     SourceGithub -> do
       updates <- T.readFile "packages-to-update.txt"
       setupNixpkgs $ GH.untagName ghUser
-      sourceGithubAll (Options False False ghUser token False False False False 0) updates
+      sourceGithubAll (Options False False ghUser token False False False False 0 (N "nixos") (N "nixpkgs")) updates
     FetchRepology -> Repology.fetch

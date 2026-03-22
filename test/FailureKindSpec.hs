@@ -38,6 +38,9 @@ spec = do
           [ ( "nix build failed.\nlast lines of log\n ",
               NixBuildFailed
             ),
+            ( "Received ExitFailure 1 when running\nRaw command: /nix/store/.../bin/nix-build -A dotenvx\nnix build failed.\nnpm error\n ",
+              NixBuildFailed
+            ),
             ( "nix log failed trying to get build logs ",
               NixLogFetchFailed
             ),

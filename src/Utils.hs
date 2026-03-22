@@ -115,7 +115,11 @@ data Options = Options
     calculateOutpaths :: Bool,
     attrpath :: Bool,
     -- | Max Tier-A WIP failure PRs per batch run; @0@ disables.
-    failureWipPrMax :: Int
+    failureWipPrMax :: Int,
+    -- | Target owner for pull requests (default: "nixos").
+    prTargetOwner :: GH.Name GH.Owner,
+    -- | Target repo for pull requests (default: "nixpkgs").
+    prTargetRepo :: GH.Name GH.Repo
   }
   deriving (Show)
 

@@ -4,10 +4,10 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4361636756097b77c4bd1b53ac3c179433291a3ddb653cf07dab2fc33d014118
+-- hash: 9cc627edf617876bd018716ae99e06d1ed917881bb5311b00b2f4730b0f0e785
 
 name:           nixpkgs-update
-version:        0.4.0
+version:        0.4.1
 synopsis:       Tool for semi-automatic updating of nixpkgs repository
 description:    nixpkgs-update provides tools for updating of nixpkgs packages in a semi-automatic way. Mainly, it is used to run the GitHub bot @r-ryantm, but the underlying update mechanisms should be generally useful and in a later version should be exposed as a command-line tool.
 category:       Web

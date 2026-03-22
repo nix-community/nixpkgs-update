@@ -107,19 +107,31 @@ diffFileNames branch =
   readProcessInterleavedNoIndexIssue_ (procGit ["diff", T.unpack branch, "--name-only"])
     & fmapRT T.lines
 
+-- | True when @upstream/master@ and @upstream/staging@ resolve in this repo.
+upstreamMergeBaseRefsPresent :: IO Bool
+upstreamMergeBaseRefsPresent = do
+  ecM <- runProcess $ silently $ procGit ["rev-parse", "--verify", "-q", "upstream/master"]
+  ecS <- runProcess $ silently $ procGit ["rev-parse", "--verify", "-q", "upstream/staging"]
+  return (ecM == ExitSuccess && ecS == ExitSuccess)
+
 staleFetchHead :: MonadIO m => m Bool
 staleFetchHead =
   liftIO $ do
-    nixpkgsGit <- getUserCacheDir "nixpkgs"
+    -- Must match the repo 'procGit' uses: when cwd is a nixpkgs checkout,
+    -- nixpkgsDir is that path (not ~/.cache/nixpkgs), or merge-base on
+    -- upstream/* fails with "Not a valid object name".
+    nixpkgsGit <- nixpkgsDir
     let fetchHead = nixpkgsGit <> "/.git/FETCH_HEAD"
     oneHourAgo <- addUTCTime (fromInteger $ -60 * 60) <$> getCurrentTime
     e <- tryIOError $ getModificationTime fetchHead
-    if isLeft e
-      then do
-        return True
-      else do
-        fetchedLast <- getModificationTime fetchHead
-        return (fetchedLast < oneHourAgo)
+    timeStale <-
+      if isLeft e
+        then return True
+        else do
+          fetchedLast <- getModificationTime fetchHead
+          return (fetchedLast < oneHourAgo)
+    refsOk <- upstreamMergeBaseRefsPresent
+    return (timeStale || not refsOk)
 
 fetchIfStale :: MonadIO m => ExceptT Text m ()
 fetchIfStale = whenM staleFetchHead fetch

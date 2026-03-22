@@ -42,7 +42,7 @@ import Network.HTTP.Types.Status (statusCode)
 import OurPrelude
 import Text.Regex.Applicative.Text ((=~))
 import qualified Text.Regex.Applicative.Text as RE
-import Utils (UpdateEnv (..), Version)
+import Utils (UpdateEnv (..), Version, Options (..))
 import qualified Utils as U
 
 default (T.Text)
@@ -69,6 +69,8 @@ pr env title body prHead base = do
     e ->
       throwE . T.pack . show $ e
   where
+    targetOwner = prTargetOwner . options $ env
+    targetRepo  = prTargetRepo  . options $ env
     tryPR =
       ExceptT $
         fmap ((False,) . GH.getUrl . GH.pullRequestUrl)
@@ -76,8 +78,8 @@ pr env title body prHead base = do
                   ( GH.github
                       (authFrom env)
                       ( GH.createPullRequestR
-                          (N "nixos")
-                          (N "nixpkgs")
+                          targetOwner
+                          targetRepo
                           (GH.CreatePullRequest title body prHead base)
                       )
                   )
@@ -87,27 +89,27 @@ prUpdate :: forall m. MonadIO m => UpdateEnv -> Text -> Text -> Text -> Text -> 
 prUpdate env title body prHead base = do
   let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
       runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
-  let inNixpkgs f = f (N "nixos") (N "nixpkgs")
+  let targetOwner = prTargetOwner . options $ env
+      targetRepo  = prTargetRepo  . options $ env
 
   prs <-
     runRequest $
-      inNixpkgs GH.pullRequestsForR (GH.optionsHead prHead) GH.FetchAll
+      GH.pullRequestsForR targetOwner targetRepo (GH.optionsHead prHead) GH.FetchAll
 
   case V.toList prs of
     [] -> pr env title body prHead base
     (_ : _ : _) -> throwE $ "Too many open PRs from " <> prHead
     [thePR] -> do
-      let withExistingPR :: (GH.Name GH.Owner -> GH.Name GH.Repo -> GH.IssueNumber -> a) -> a
-          withExistingPR f = inNixpkgs f (GH.simplePullRequestNumber thePR)
+      let issueNum = GH.simplePullRequestNumber thePR
 
       _ <-
         runRequest $
-          withExistingPR GH.updatePullRequestR $
+          GH.updatePullRequestR targetOwner targetRepo issueNum $
             GH.EditPullRequest (Just title) Nothing Nothing Nothing Nothing
 
       _ <-
         runRequest $
-          withExistingPR GH.createCommentR body
+          GH.createCommentR targetOwner targetRepo issueNum body
 
       return (True, GH.getUrl $ GH.simplePullRequestUrl thePR)
 
@@ -137,17 +139,18 @@ failureWipPullRequest ::
 failureWipPullRequest env title prBody commentText prHead base addComment = do
   let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
       runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
-  let inNixpkgs f = f (N "nixos") (N "nixpkgs")
+  let targetOwner = prTargetOwner . options $ env
+      targetRepo  = prTargetRepo  . options $ env
 
   prs <-
     runRequest $
-      inNixpkgs GH.pullRequestsForR (GH.optionsHead prHead) GH.FetchAll
+      GH.pullRequestsForR targetOwner targetRepo (GH.optionsHead prHead) GH.FetchAll
 
   case V.toList prs of
     [] -> do
       prCreated <-
         runRequest $
-          inNixpkgs GH.createPullRequestR (GH.CreatePullRequest title prBody prHead base)
+          GH.createPullRequestR targetOwner targetRepo (GH.CreatePullRequest title prBody prHead base)
       let url = GH.getUrl (GH.pullRequestUrl prCreated)
       num <-
         maybe (throwE $ "failureWipPullRequest: no PR number in URL " <> url) pure (pullNumberFromUrl url)
@@ -156,19 +159,18 @@ failureWipPullRequest env title prBody commentText prHead base addComment = do
           try @SomeException $
             GH.github
               (authFrom env)
-              (addLabelsToIssueR (N "nixos") (N "nixpkgs") (issueIdFromPullNumber num) [N "needs-review-evidence"])
+              (addLabelsToIssueR targetOwner targetRepo (issueIdFromPullNumber num) [N "needs-review-evidence"])
       pure (num, url)
     [_thePR] -> do
-      let withExistingPR :: (GH.Name GH.Owner -> GH.Name GH.Repo -> GH.IssueNumber -> a) -> a
-          withExistingPR f = inNixpkgs f (GH.simplePullRequestNumber _thePR)
+      let issueNum = GH.simplePullRequestNumber _thePR
       _ <-
         runRequest $
-          withExistingPR GH.updatePullRequestR $
+          GH.updatePullRequestR targetOwner targetRepo issueNum $
             GH.EditPullRequest (Just title) Nothing Nothing Nothing Nothing
       when addComment $
         void $
           runRequest $
-            withExistingPR GH.createCommentR commentText
+            GH.createCommentR targetOwner targetRepo issueNum commentText
       let url = GH.getUrl $ GH.simplePullRequestUrl _thePR
       num <-
         maybe (throwE $ "failureWipPullRequest: no PR number in URL " <> url) pure (pullNumberFromUrl url)
@@ -301,8 +303,10 @@ checkExistingUpdatePR env attrPath = do
             <> openPRReport searchResult
         )
   where
+    targetOwner = GH.untagName . prTargetOwner . options $ env
+    targetRepo  = GH.untagName . prTargetRepo  . options $ env
     title = U.prTitle env attrPath
-    search = [interpolate|repo:nixos/nixpkgs $title |]
+    search = [interpolate|repo:$targetOwner/$targetRepo $title |]
     openPRReport searchResult =
       GH.searchResultResults searchResult
         & V.filter (GH.issueClosedAt >>> isNothing)

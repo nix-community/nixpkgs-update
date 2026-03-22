@@ -3,6 +3,7 @@
 module UpdateSpec where
 
 import qualified Data.Text.IO as T
+import GitHub.Data.Name (Name (..))
 import Test.Hspec
 import qualified Update
 import qualified Utils
@@ -18,7 +19,7 @@ spec :: Spec
 spec = do
   describe "PR message" do
     -- Common mock options
-    let options = Utils.Options False False "r-ryantm" "" False False False False 0
+    let options = Utils.Options False False "r-ryantm" "" False False False False 0 (N "nixos") (N "nixpkgs")
     let updateEnv = Utils.UpdateEnv "foobar" "1.0" "1.1" (Just "https://update-site.com") options
     let metaDescription = "\"Foobar package description\""
     let metaHomepage = "\"https://foobar-homepage.com\""

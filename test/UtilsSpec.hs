@@ -2,6 +2,7 @@
 
 module UtilsSpec where
 
+import GitHub.Data.Name (Name (..))
 import Test.Hspec
 import qualified Utils
 
@@ -10,7 +11,7 @@ main = hspec spec
 
 spec :: Spec
 spec = do
-  let options = Utils.Options False False "" "" False False False False 0
+  let options = Utils.Options False False "" "" False False False False 0 (N "nixos") (N "nixpkgs")
   let updateEnv = Utils.UpdateEnv "foobar" "1.0" "1.1" (Just "https://update-site.com") options
   describe "PR title" do
     -- This breaks IRC when it tries to link to newly opened pull requests

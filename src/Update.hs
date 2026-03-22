@@ -43,7 +43,8 @@ import OurPrelude
 import qualified Outpaths
 import qualified Rewrite
 import qualified Skiplist
-import System.Directory (doesDirectoryExist, withCurrentDirectory)
+import System.Directory (doesDirectoryExist, getCurrentDirectory, withCurrentDirectory)
+import System.FilePath (isAbsolute)
 import System.Posix.Directory (createDirectory)
 import Utils
   ( Boundary (..),
@@ -77,13 +78,16 @@ log' logFile msg = liftIO $ T.appendFile logFile (msg <> "\n")
 attrPathLogFilePath :: Text -> IO String
 attrPathLogFilePath attrPath = do
   lDir <- logDir
+  -- cwd, so the log path must be absolute or appendFile breaks inside the worktree.
+  cwd <- getCurrentDirectory
+  let lDirAbs = if isAbsolute lDir then lDir else cwd </> lDir
   now <- getCurrentTime
-  let dir = lDir <> "/" <> T.unpack attrPath
+  let dir = lDirAbs </> T.unpack attrPath
   dirExists <- doesDirectoryExist dir
   unless
     dirExists
     (createDirectory dir U.regDirMode)
-  let logFile = dir <> "/" <> showGregorian (utctDay now) <> ".log"
+  let logFile = dir </> showGregorian (utctDay now) <> ".log"
   putStrLn ("For attrpath " <> T.unpack attrPath <> ", using log file: " <> logFile)
   return logFile
 
@@ -99,8 +103,9 @@ notifyOptions log o = do
   let exactAttrPath = repr U.attrpath
       fwCap = tshow (failureWipPrMax o)
   npDir <- tshow <$> Git.nixpkgsDir
+  let prTarget = GH.untagName (prTargetOwner o) <> "/" <> GH.untagName (prTargetRepo o)
   log $
-    [interpolate| [options] github_user: $ghUser, pull_request: $pr, batch_update: $batch, calculate_outpaths: $outpaths, cve_report: $cve, nixpkgs-review: $review, failure_wip_pr_max: $fwCap, nixpkgs_dir: $npDir, use attrpath: $exactAttrPath|]
+    [interpolate| [options] github_user: $ghUser, pull_request: $pr, batch_update: $batch, calculate_outpaths: $outpaths, cve_report: $cve, nixpkgs-review: $review, failure_wip_pr_max: $fwCap, nixpkgs_dir: $npDir, use attrpath: $exactAttrPath, pr_target: $prTarget|]
 
 cveAll :: Options -> Text -> IO ()
 cveAll o updates = do
@@ -219,7 +224,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath wipRef = do
   log $ "attrpath: " <> attrPath
   let pr = doPR options
   let skipOutpathBase = either Just (const Nothing) $ Skiplist.skipOutpathCalc packageName
-      outpathSkippedForWip = isJust skipOutpathBase || not (calculateOutpaths options)
+      outpathSkippedForWip = isJust skipOutpathBase
 
   dbCtxRef <- newIORef (Nothing, Nothing)
   maintainerMay <-
