@@ -29,7 +29,6 @@ import Data.Char as C (isDigit)
 import Data.Proxy (Proxy (..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Text.Read (readMaybe)
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import qualified Git
@@ -40,9 +39,10 @@ import GitHub.Endpoints.Issues.Labels (addLabelsToIssueR)
 import Network.HTTP.Client (HttpException (..), HttpExceptionContent (..), responseStatus)
 import Network.HTTP.Types.Status (statusCode)
 import OurPrelude
+import Text.Read (readMaybe)
 import Text.Regex.Applicative.Text ((=~))
 import qualified Text.Regex.Applicative.Text as RE
-import Utils (UpdateEnv (..), Version, Options (..))
+import Utils (Options (..), UpdateEnv (..), Version)
 import qualified Utils as U
 
 default (T.Text)
@@ -70,7 +70,7 @@ pr env title body prHead base = do
       throwE . T.pack . show $ e
   where
     targetOwner = prTargetOwner . options $ env
-    targetRepo  = prTargetRepo  . options $ env
+    targetRepo = prTargetRepo . options $ env
     tryPR =
       ExceptT $
         fmap ((False,) . GH.getUrl . GH.pullRequestUrl)
@@ -90,7 +90,7 @@ prUpdate env title body prHead base = do
   let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
       runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
   let targetOwner = prTargetOwner . options $ env
-      targetRepo  = prTargetRepo  . options $ env
+      targetRepo = prTargetRepo . options $ env
 
   prs <-
     runRequest $
@@ -140,7 +140,7 @@ failureWipPullRequest env title prBody commentText prHead base addComment = do
   let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
       runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
   let targetOwner = prTargetOwner . options $ env
-      targetRepo  = prTargetRepo  . options $ env
+      targetRepo = prTargetRepo . options $ env
 
   prs <-
     runRequest $
@@ -304,7 +304,7 @@ checkExistingUpdatePR env attrPath = do
         )
   where
     targetOwner = GH.untagName . prTargetOwner . options $ env
-    targetRepo  = GH.untagName . prTargetRepo  . options $ env
+    targetRepo = GH.untagName . prTargetRepo . options $ env
     title = U.prTitle env attrPath
     search = [interpolate|repo:$targetOwner/$targetRepo $title |]
     openPRReport searchResult =

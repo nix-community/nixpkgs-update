@@ -22,8 +22,8 @@ where
 import Control.Exception (SomeException, try)
 import Control.Monad (void, when)
 import Data.Aeson (encode, object, (.=))
-import Data.Int (Int64)
 import qualified Data.ByteString.Lazy as BSL
+import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time (getCurrentTime)

@@ -124,48 +124,48 @@ classifyFailureMessage :: Text -> FailureKind
 classifyFailureMessage raw =
   let m = T.strip raw
    in if
-        | "instead of the expected hash" `T.isInfixOf` m -> FetchHashMismatch
-        | "nix build failed.\n" `T.isPrefixOf` m -> NixBuildFailed
-        | -- nix-build often fails via tryIOTextET: message starts with
-          -- "Received ExitFailure ..." and embeds our "nix build failed." log block later
-          "nix build failed." `T.isInfixOf` m ->
-            NixBuildFailed
-        | "ExitFailure" `T.isInfixOf` m && "nix-build" `T.isInfixOf` m && "Raw command:" `T.isInfixOf` m ->
-            NixBuildFailed
-        | m == "nix log failed trying to get build logs" -> NixLogFetchFailed
-        | "Failed to read expected nix boolean " `T.isPrefixOf` m -> NixBooleanParseFailed
-        | m == "Could not find result link." -> ResultLinkMissing
-        | "build succeeded unexpectedly" `T.isInfixOf` m -> FixedOutputProbeUnexpectedSuccess
-        | " according to Nix; versionComparison: " `T.isInfixOf` m -> VersionNotNewerPerNix
-        | m == "An auto update branch exists with an equal or greater version" -> AutoUpdateBranchVersionBlocks
-        | m == "No rewrites performed on derivation." -> NoRewritesPerformed
-        | m == "Source url did not change." -> SourceUrlUnchanged
-        | "cargo hashes equal; no update necessary: " `T.isPrefixOf` m -> CargoHashUnchanged
-        | "deps hashes equal; no update necessary: " `T.isPrefixOf` m -> DepsHashUnchanged
-        | m == "Hashes equal; no update necessary" -> FixedOutputHashUnchanged
-        | m == "rev equal; no update necessary" -> RevUnchanged
-        | m == "Package version did not change." -> PackageVersionUnchanged
-        | m == "Update edits cause no rebuilds." -> NoRebuildsFromEdits
-        | "[updateScript] Failed with exit code " `T.isPrefixOf` m ->
-            if ("took longer than " `T.isInfixOf` m) && ("timed out" `T.isInfixOf` m)
-              then UpdateScriptTimedOut
-              else UpdateScriptFailed
-        | "Too many open PRs from " `T.isPrefixOf` m -> GitHubTooManyOpenPRs
-        | "There might already be an open PR for this update:\n" `T.isPrefixOf` m -> GitHubPossibleDuplicatePR
-        | " is not a GitHub URL." `T.isSuffixOf` m && "GitHub: " `T.isPrefixOf` m -> GitHubUrlNotGitHub
-        | "Unable to parse update: " `T.isPrefixOf` m -> UpdateInfoParseFailed
-        | m == "Failed to create log directory." -> LogDirectoryCreationFailed
-        | "LOGS_DIRECTORY " `T.isPrefixOf` m && " does not exist." `T.isSuffixOf` m -> LogDirectoryResolutionFailed
-        | "XDG_RUNTIME_DIR " `T.isPrefixOf` m && " does not exist." `T.isSuffixOf` m -> XdgRuntimeDirResolutionFailed
-        | "Temporary directory " `T.isPrefixOf` m && " does not exist." `T.isSuffixOf` m -> TemporaryDirectoryResolutionFailed
-        | m == "The diff was empty after rewrites." -> DiffEmptyAfterRewrites
-        | "The derivation has no 'version' attribute" `T.isPrefixOf` m -> DerivationMissingVersionAttribute
-        | "Old version " `T.isPrefixOf` m && " not present in " `T.isInfixOf` m -> OldVersionMissingOnBranch
-        | "Version in attr path " `T.isPrefixOf` m && " not compatible with " `T.isInfixOf` m -> AttrPathVersionPinMismatch
-        | "Python package with too many package rebuilds " `T.isPrefixOf` m -> PythonRebuildLimitExceeded
-        | m == "grep did not find version in file names" -> VersionCheckGrepFailed
-        | "stderr did not split" `T.isInfixOf` m -> FixedOutputStderrParseFailed
-        | m `S.member` skiplistReasonSet -> PolicySkiplist
-        | "HttpException" `T.isInfixOf` m -> GitHubApiError
-        | "StatusCodeException" `T.isInfixOf` m -> GitHubApiError
-        | otherwise -> Unclassified
+          | "instead of the expected hash" `T.isInfixOf` m -> FetchHashMismatch
+          | "nix build failed.\n" `T.isPrefixOf` m -> NixBuildFailed
+          | -- nix-build often fails via tryIOTextET: message starts with
+            -- "Received ExitFailure ..." and embeds our "nix build failed." log block later
+            "nix build failed." `T.isInfixOf` m ->
+              NixBuildFailed
+          | "ExitFailure" `T.isInfixOf` m && "nix-build" `T.isInfixOf` m && "Raw command:" `T.isInfixOf` m ->
+              NixBuildFailed
+          | m == "nix log failed trying to get build logs" -> NixLogFetchFailed
+          | "Failed to read expected nix boolean " `T.isPrefixOf` m -> NixBooleanParseFailed
+          | m == "Could not find result link." -> ResultLinkMissing
+          | "build succeeded unexpectedly" `T.isInfixOf` m -> FixedOutputProbeUnexpectedSuccess
+          | " according to Nix; versionComparison: " `T.isInfixOf` m -> VersionNotNewerPerNix
+          | m == "An auto update branch exists with an equal or greater version" -> AutoUpdateBranchVersionBlocks
+          | m == "No rewrites performed on derivation." -> NoRewritesPerformed
+          | m == "Source url did not change." -> SourceUrlUnchanged
+          | "cargo hashes equal; no update necessary: " `T.isPrefixOf` m -> CargoHashUnchanged
+          | "deps hashes equal; no update necessary: " `T.isPrefixOf` m -> DepsHashUnchanged
+          | m == "Hashes equal; no update necessary" -> FixedOutputHashUnchanged
+          | m == "rev equal; no update necessary" -> RevUnchanged
+          | m == "Package version did not change." -> PackageVersionUnchanged
+          | m == "Update edits cause no rebuilds." -> NoRebuildsFromEdits
+          | "[updateScript] Failed with exit code " `T.isPrefixOf` m ->
+              if ("took longer than " `T.isInfixOf` m) && ("timed out" `T.isInfixOf` m)
+                then UpdateScriptTimedOut
+                else UpdateScriptFailed
+          | "Too many open PRs from " `T.isPrefixOf` m -> GitHubTooManyOpenPRs
+          | "There might already be an open PR for this update:\n" `T.isPrefixOf` m -> GitHubPossibleDuplicatePR
+          | " is not a GitHub URL." `T.isSuffixOf` m && "GitHub: " `T.isPrefixOf` m -> GitHubUrlNotGitHub
+          | "Unable to parse update: " `T.isPrefixOf` m -> UpdateInfoParseFailed
+          | m == "Failed to create log directory." -> LogDirectoryCreationFailed
+          | "LOGS_DIRECTORY " `T.isPrefixOf` m && " does not exist." `T.isSuffixOf` m -> LogDirectoryResolutionFailed
+          | "XDG_RUNTIME_DIR " `T.isPrefixOf` m && " does not exist." `T.isSuffixOf` m -> XdgRuntimeDirResolutionFailed
+          | "Temporary directory " `T.isPrefixOf` m && " does not exist." `T.isSuffixOf` m -> TemporaryDirectoryResolutionFailed
+          | m == "The diff was empty after rewrites." -> DiffEmptyAfterRewrites
+          | "The derivation has no 'version' attribute" `T.isPrefixOf` m -> DerivationMissingVersionAttribute
+          | "Old version " `T.isPrefixOf` m && " not present in " `T.isInfixOf` m -> OldVersionMissingOnBranch
+          | "Version in attr path " `T.isPrefixOf` m && " not compatible with " `T.isInfixOf` m -> AttrPathVersionPinMismatch
+          | "Python package with too many package rebuilds " `T.isPrefixOf` m -> PythonRebuildLimitExceeded
+          | m == "grep did not find version in file names" -> VersionCheckGrepFailed
+          | "stderr did not split" `T.isInfixOf` m -> FixedOutputStderrParseFailed
+          | m `S.member` skiplistReasonSet -> PolicySkiplist
+          | "HttpException" `T.isInfixOf` m -> GitHubApiError
+          | "StatusCodeException" `T.isInfixOf` m -> GitHubApiError
+          | otherwise -> Unclassified

@@ -45,7 +45,8 @@ maxCommentBodyChars = 8000
 parseOwnerRepo :: Text -> Maybe (Name GitHub.Owner, Name GitHub.Repo)
 parseOwnerRepo t = case T.splitOn "/" t of
   [o, r]
-    | not (T.null o), not (T.null r) ->
+    | not (T.null o),
+      not (T.null r) ->
         Just (N o, N r)
   _ -> Nothing
 

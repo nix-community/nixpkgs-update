@@ -20,9 +20,6 @@ where
 
 import CVE (CVE, cveID, cveLI)
 import qualified Check
-import qualified FailureDb
-import qualified FailureNotify
-import qualified FailureWipPr
 import Control.Exception (bracket)
 import Control.Monad.Writer (execWriterT, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
@@ -34,6 +31,9 @@ import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import qualified Data.Vector as V
+import qualified FailureDb
+import qualified FailureNotify
+import qualified FailureWipPr
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)

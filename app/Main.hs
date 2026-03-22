@@ -57,26 +57,26 @@ updateOptionsParser =
     <*> O.flag False True (O.long "outpaths" <> O.help "Calculate outpaths to determine the branch to target")
     <*> O.flag False True (O.long "attrpath" <> O.help "UPDATE_INFO uses the exact attrpath.")
     <*> O.optional
-          ( O.option O.auto $
-              O.long "failure-wip-pr-max"
-                <> O.metavar "N"
-                <> O.help
-                  "Max Tier-A WIP failure PRs per batch run (0=off). Overrides NIXPKGS_UPDATE_FAILURE_WIP_PR_MAX."
-          )
+      ( O.option O.auto $
+          O.long "failure-wip-pr-max"
+            <> O.metavar "N"
+            <> O.help
+              "Max Tier-A WIP failure PRs per batch run (0=off). Overrides NIXPKGS_UPDATE_FAILURE_WIP_PR_MAX."
+      )
     <*> O.strOption
-          ( O.long "pr-target-owner"
-              <> O.metavar "OWNER"
-              <> O.value "nixos"
-              <> O.showDefault
-              <> O.help "GitHub owner of the target repo for pull requests (e.g. your fork's owner)."
-          )
+      ( O.long "pr-target-owner"
+          <> O.metavar "OWNER"
+          <> O.value "nixos"
+          <> O.showDefault
+          <> O.help "GitHub owner of the target repo for pull requests (e.g. your fork's owner)."
+      )
     <*> O.strOption
-          ( O.long "pr-target-repo"
-              <> O.metavar "REPO"
-              <> O.value "nixpkgs"
-              <> O.showDefault
-              <> O.help "GitHub repo name for pull requests."
-          )
+      ( O.long "pr-target-repo"
+          <> O.metavar "REPO"
+          <> O.value "nixpkgs"
+          <> O.showDefault
+          <> O.help "GitHub repo name for pull requests."
+      )
 
 updateParser :: O.Parser Command
 updateParser =
