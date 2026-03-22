@@ -45,11 +45,12 @@ let
   };
 
   shell = haskellPackages.shellFor {
+    # ghcid hits a split-output reference cycle on some platforms (e.g. Darwin);
+    # keep the shell usable without it so `nix develop` and cabal still work.
     nativeBuildInputs = with pkgs; [
       cabal-install
-      ghcid
       haskellPackages.cabal2nix
-    ];
+    ] ++ nixpkgs.lib.optional (!pkgs.stdenv.hostPlatform.isDarwin) pkgs.ghcid;
     packages = ps: [ ps.nixpkgs-update ];
     shellHook = ''
       export ${
@@ -67,10 +68,15 @@ let
     mmdocPhase = "${mmdoc.packages.${system}.mmdoc}/bin/mmdoc nixpkgs-update $src/doc $out";
   };
 
+  nixpkgs-update-rust =
+    pkgs.callPackage ./nixpkgs-update-rust.nix { nixpkgsUpdateRustTree = ../rust; };
+
 in
 {
   nixpkgs-update = haskellPackages.nixpkgs-update;
   default = haskellPackages.nixpkgs-update;
+  inherit nixpkgs-update-rust;
+  list-package-failures = nixpkgs-update-rust;
   nixpkgs-update-doc = doc;
   devShell = shell;
 }

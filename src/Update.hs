@@ -20,8 +20,12 @@ where
 
 import CVE (CVE, cveID, cveLI)
 import qualified Check
+import qualified FailureDb
+import qualified FailureNotify
+import qualified FailureWipPr
 import Control.Exception (bracket)
 import Control.Monad.Writer (execWriterT, tell)
+import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (fromJust)
 import Data.Monoid (Alt (..))
 import qualified Data.Set as S
@@ -93,9 +97,10 @@ notifyOptions log o = do
   let cve = repr makeCVEReport
   let review = repr runNixpkgsReview
   let exactAttrPath = repr U.attrpath
+      fwCap = tshow (failureWipPrMax o)
   npDir <- tshow <$> Git.nixpkgsDir
   log $
-    [interpolate| [options] github_user: $ghUser, pull_request: $pr, batch_update: $batch, calculate_outpaths: $outpaths, cve_report: $cve, nixpkgs-review: $review, nixpkgs_dir: $npDir, use attrpath: $exactAttrPath|]
+    [interpolate| [options] github_user: $ghUser, pull_request: $pr, batch_update: $batch, calculate_outpaths: $outpaths, cve_report: $cve, nixpkgs-review: $review, failure_wip_pr_max: $fwCap, nixpkgs_dir: $npDir, use attrpath: $exactAttrPath|]
 
 cveAll :: Options -> Text -> IO ()
 cveAll o updates = do
@@ -141,8 +146,9 @@ updatePackageBatch ::
   (Text -> IO ()) ->
   Text ->
   UpdateEnv ->
+  IORef Int ->
   IO UpdatePackageResult
-updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
+updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} wipRef = do
   eitherFailureOrAttrpath <- runExceptT $ do
     -- Filters that don't need git
     whenBatch updateEnv do
@@ -160,6 +166,9 @@ updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
           else "https://github.com/nix-community/nixpkgs-update"
   case eitherFailureOrAttrpath of
     Left failure -> do
+      when (attrpath options) $ do
+        FailureDb.recordPackageUpdateFailure packageName failure Nothing Nothing
+        FailureNotify.maybeNotifyFailureIssue updateEnv packageName failure
       simpleLog failure
       return UpdatePackageFailure
     Right foundAttrPath -> do
@@ -170,7 +179,7 @@ updatePackageBatch simpleLog updateInfoLine updateEnv@UpdateEnv {..} = do
           then Git.mergeBase
           else pure "HEAD"
       withWorktree mergeBase foundAttrPath updateEnv $
-        updateAttrPath log mergeBase updateEnv foundAttrPath
+        updateAttrPath log mergeBase updateEnv foundAttrPath wipRef
 
 checkExistingUpdate ::
   (Text -> IO ()) ->
@@ -204,10 +213,18 @@ updateAttrPath ::
   Text ->
   UpdateEnv ->
   Text ->
+  IORef Int ->
   IO UpdatePackageResult
-updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
+updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath wipRef = do
   log $ "attrpath: " <> attrPath
   let pr = doPR options
+  let skipOutpathBase = either Just (const Nothing) $ Skiplist.skipOutpathCalc packageName
+      outpathSkippedForWip = isJust skipOutpathBase || not (calculateOutpaths options)
+
+  dbCtxRef <- newIORef (Nothing, Nothing)
+  maintainerMay <-
+    fmap (either (const Nothing) (Just . length . T.words)) (runExceptT (Nix.getMaintainers attrPath))
+  writeIORef dbCtxRef (maintainerMay, Nothing)
 
   successOrFailure <- runExceptT $ do
     hasUpdateScript <- Nix.hasUpdateScript attrPath
@@ -225,8 +242,6 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     unless hasUpdateScript do
       Nix.assertNewerVersion updateEnv
       Version.assertCompatibleWithPathPin updateEnv attrPath
-
-    let skipOutpathBase = either Just (const Nothing) $ Skiplist.skipOutpathCalc packageName
 
     derivationFile <- Nix.getDerivationFile attrPath
     unless hasUpdateScript do
@@ -329,6 +344,9 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
     editedOutpathSet <- if calcOutpaths then Outpaths.currentOutpathSetUncached else return $ Outpaths.dummyOutpathSetAfter attrPath
     let opDiff = S.difference mergeBaseOutpathSet editedOutpathSet
     let numPRebuilds = Outpaths.numPackageRebuilds opDiff
+    when calcOutpaths $
+      liftIO $
+        modifyIORef dbCtxRef (\(m, _) -> (m, Just numPRebuilds))
     whenBatch updateEnv do
       Skiplist.python numPRebuilds derivationContents
     when (numPRebuilds == 0) (throwE "Update edits cause no rebuilds.")
@@ -358,9 +376,17 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
 
   case successOrFailure of
     Left failure -> do
+      (mc, mr) <- readIORef dbCtxRef
+      FailureDb.recordPackageUpdateFailure attrPath failure mc mr
+      cf <- fromMaybe 0 <$> FailureDb.readConsecutiveFailures attrPath
+      FailureWipPr.tryTierAFailureWipPr wipRef log updateEnv attrPath failure outpathSkippedForWip mr cf
+      FailureNotify.maybeNotifyFailureIssue updateEnv attrPath failure
       log failure
       return UpdatePackageFailure
-    Right () -> return UpdatePackageSuccess
+    Right () -> do
+      (mc, mr) <- readIORef dbCtxRef
+      FailureDb.clearPackageUpdateFailure attrPath mc mr
+      return UpdatePackageSuccess
 
 publishPackage ::
   (Text -> IO ()) ->
@@ -695,8 +721,9 @@ updatePackage o updateInfo = do
   let updateInfoLine = (p <> " " <> oldV <> " -> " <> newV <> fromMaybe "" (fmap (" " <>) url))
   let updateEnv = UpdateEnv p oldV newV url o
   let log = T.putStrLn
+  wipRef <- newIORef 0
   liftIO $ notifyOptions log o
-  updated <- updatePackageBatch log updateInfoLine updateEnv
+  updated <- updatePackageBatch log updateInfoLine updateEnv wipRef
   case updated of
     UpdatePackageFailure -> do
       log $ "[result] Failed to update " <> updateInfoLine

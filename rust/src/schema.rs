@@ -1,4 +1,14 @@
-// @generated automatically by Diesel CLI.
+// Schema for packages table. Diesel type annotations must match the SQLite
+// column types declared in migrations/.
+//
+// last_update_failure_* codes match FailureKind.failureKindCode in src/FailureKind.hs.
+
+diesel::table! {
+    package_tracking_meta (key) {
+        key -> Text,
+        value -> Text,
+    }
+}
 
 diesel::table! {
     packages (id) {
@@ -31,5 +41,16 @@ diesel::table! {
         pending_pr_owner -> Nullable<Text>,
         pending_pr_branch_name -> Nullable<Text>,
         last_checked_pending_pr -> Nullable<Timestamp>,
+        last_update_failure_kind -> Nullable<Text>,
+        last_update_failure_message -> Nullable<Text>,
+        last_update_failure_at -> Nullable<Timestamp>,
+        declared_maintainer_count -> Nullable<BigInt>,
+        last_rebuild_path_count -> Nullable<BigInt>,
+        install_estimate -> Nullable<BigInt>,
+        consecutive_failures -> Integer,
+        last_success_at -> Nullable<Timestamp>,
+        failed_update_pr -> Nullable<Integer>,
+        failed_update_pr_opened_at -> Nullable<Timestamp>,
+        escalated_at -> Nullable<Timestamp>,
     }
 }

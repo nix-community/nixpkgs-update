@@ -3,8 +3,20 @@ name = "nixpkgs-update"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "list-package-failures"
+path = "src/bin/list_package_failures.rs"
+
+[[bin]]
+name = "failure-leaderboard"
+path = "src/bin/failure_leaderboard.rs"
+
+[[bin]]
+name = "escalate-stale-failure-prs"
+path = "src/bin/escalate_stale_failure_prs.rs"
+
 [dependencies]
 chrono = "0.4.26"
-diesel = { version = "2.1.0", features = ["sqlite", "chrono"] }
+diesel = { version = "2.1.0", features = ["sqlite", "chrono", "64-column-tables"] }
 json = "0.12.4"
 ureq = "2.7.1"

@@ -5,7 +5,7 @@ pub fn eval(branch: &str, attr_path: &String, apply: &str) -> Option<String> {
         .arg("eval")
         .arg("--raw")
         .arg("--refresh")
-        .arg(&format!("github:nixos/nixpkgs/{}#{}", branch, attr_path))
+        .arg(format!("github:nixos/nixpkgs/{}#{}", branch, attr_path))
         .arg("--apply")
         .arg(apply)
         .output();

@@ -5,7 +5,10 @@ module Git
   ( findAutoUpdateBranchMessage,
     mergeBase,
     cleanAndResetTo,
+    checkoutNewBranch,
     commit,
+    commitAll,
+    pushBranch,
     deleteBranchesEverywhere,
     delete1,
     diff,
@@ -14,6 +17,8 @@ module Git
     fetchIfStale,
     headRev,
     push,
+    pushHeadToRemoteBranch,
+    statusPorcelain,
     nixpkgsDir,
     setupNixpkgs,
     Git.show,
@@ -193,6 +198,49 @@ inNixpkgsRepo = do
 commit :: MonadIO m => Text -> ExceptT Text m ()
 commit ref =
   runProcessNoIndexIssue_ (procGit ["commit", "-am", T.unpack ref])
+
+-- | Stage all paths (including new files) then commit with the given message.
+commitAll :: MonadIO m => Text -> ExceptT Text m ()
+commitAll ref = do
+  runProcessNoIndexIssue_ (silently $ procGit ["add", "-A"])
+  runProcessNoIndexIssue_ (silently $ procGit ["commit", "-m", T.unpack ref])
+
+-- | Create and switch to a new branch from the current HEAD (uncommitted changes carry over).
+checkoutNewBranch :: MonadIO m => Text -> ExceptT Text m ()
+checkoutNewBranch b =
+  runProcessNoIndexIssue_ (silently $ procGit ["checkout", "-B", T.unpack b])
+
+pushBranch :: MonadIO m => Text -> UpdateEnv -> ExceptT Text m ()
+pushBranch branch updateEnv =
+  runProcessNoIndexIssue_
+    ( procGit
+        ( [ "push",
+            "--force",
+            "--set-upstream",
+            "origin",
+            T.unpack branch
+          ]
+            ++ ["--dry-run" | not (doPR (options updateEnv))]
+        )
+    )
+
+-- | Push current @HEAD@ to @refs/heads/@remoteBranch on @origin@ without renaming the local branch.
+pushHeadToRemoteBranch :: MonadIO m => Text -> UpdateEnv -> ExceptT Text m ()
+pushHeadToRemoteBranch remoteBranch updateEnv =
+  runProcessNoIndexIssue_
+    ( procGit
+        ( [ "push",
+            "--force",
+            "origin",
+            "HEAD:refs/heads/" <> T.unpack remoteBranch
+          ]
+            ++ ["--dry-run" | not (doPR (options updateEnv))]
+        )
+    )
+
+statusPorcelain :: MonadIO m => ExceptT Text m Text
+statusPorcelain =
+  readProcessInterleavedNoIndexIssue_ (silently $ procGit ["status", "--porcelain"])
 
 headRev :: MonadIO m => ExceptT Text m Text
 headRev = T.strip <$> readProcessInterleavedNoIndexIssue_ (procGit ["rev-parse", "HEAD"])

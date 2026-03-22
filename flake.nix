@@ -20,6 +20,8 @@
         projectRootFile = ".git/config";
         programs.ormolu.enable = true;
       });
+      # eachSystem passes legacyPackages.${system}, not the system string.
+      perPkgs = pkgs: import ./pkgs/default.nix (args // { system = pkgs.system; });
     in
     {
       checks.x86_64-linux =
@@ -33,11 +35,14 @@
 
       formatter = eachSystem (pkgs: treefmtEval.${pkgs.system}.config.build.wrapper);
 
-      packages.x86_64-linux = import ./pkgs/default.nix (args // { system = "x86_64-linux"; });
-      devShells.x86_64-linux.default = self.packages."x86_64-linux".devShell;
+      packages = eachSystem (pkgs:
+        let p = perPkgs pkgs;
+        in {
+          inherit (p) nixpkgs-update default nixpkgs-update-doc list-package-failures nixpkgs-update-rust;
+        });
 
-      # nix flake check is broken for these when run on x86_64-linux
-      # packages.x86_64-darwin = import ./pkgs/default.nix (args // { system = "x86_64-darwin"; });
-      # devShells.x86_64-darwin.default = self.packages."x86_64-darwin".devShell;
+      devShells = eachSystem (pkgs: {
+        default = (perPkgs pkgs).devShell;
+      });
     };
 }

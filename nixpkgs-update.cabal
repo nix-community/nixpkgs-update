@@ -1,10 +1,10 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.38.2.
+-- This file has been generated from package.yaml by hpack version 0.38.3.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 216d241b554fc46ae5c7bcb1605ea89df7993f629b942a8f243338d52cb49301
+-- hash: 4361636756097b77c4bd1b53ac3c179433291a3ddb653cf07dab2fc33d014118
 
 name:           nixpkgs-update
 version:        0.4.0
@@ -32,6 +32,10 @@ library
       CVE
       Data.Hex
       DeleteMerged
+      FailureDb
+      FailureKind
+      FailureNotify
+      FailureWipPr
       File
       GH
       Git
@@ -175,6 +179,8 @@ test-suite spec
   other-modules:
       CheckSpec
       DoctestSpec
+      FailureDbSpec
+      FailureKindSpec
       UpdateSpec
       UtilsSpec
   hs-source-dirs:

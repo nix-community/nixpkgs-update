@@ -1,5 +1,12 @@
+pub mod db_report;
+pub mod leaderboard;
 pub mod models;
 pub mod schema;
+
+pub use db_report::{
+    fetch_packages_with_failures, fetch_packages_with_failures_sorted, FailureReportSort,
+    PackageFailureReport,
+};
 
 use diesel::prelude::*;
 use std::env;

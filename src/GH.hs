@@ -8,26 +8,35 @@
 module GH
   ( releaseUrl,
     GH.untagName,
+    authFrom,
     authFromToken,
     checkExistingUpdatePR,
     closedAutoUpdateRefs,
     compareUrl,
+    failureWipPullRequest,
     latestVersion,
     pr,
     prUpdate,
+    pullNumberFromUrl,
   )
 where
 
 import Control.Applicative (liftA2, some)
+import Control.Exception (SomeException, try)
 import Data.Aeson (FromJSON)
 import Data.Bitraversable (bitraverse)
+import Data.Char as C (isDigit)
+import Data.Proxy (Proxy (..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Text.Read (readMaybe)
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import qualified Git
 import qualified GitHub as GH
+import GitHub.Data.Id (mkId)
 import GitHub.Data.Name (Name (..))
+import GitHub.Endpoints.Issues.Labels (addLabelsToIssueR)
 import Network.HTTP.Client (HttpException (..), HttpExceptionContent (..), responseStatus)
 import Network.HTTP.Types.Status (statusCode)
 import OurPrelude
@@ -101,6 +110,70 @@ prUpdate env title body prHead base = do
           withExistingPR GH.createCommentR body
 
       return (True, GH.getUrl $ GH.simplePullRequestUrl thePR)
+
+-- | Parse @/pull/123@ from a GitHub nixpkgs PR URL.
+pullNumberFromUrl :: Text -> Maybe Int
+pullNumberFromUrl u =
+  case T.splitOn "/pull/" (T.takeWhile (/= '?') u) of
+    (_ : numPart : _) -> readMaybe (T.unpack (T.takeWhile C.isDigit numPart))
+    _ -> Nothing
+
+issueIdFromPullNumber :: Int -> GH.Id GH.Issue
+issueIdFromPullNumber = mkId (Proxy @GH.Issue) . fromIntegral
+
+-- | Open or update a Tier-A failed-update WIP PR on NixOS/nixpkgs.
+-- When @addComment@ is 'False' (same failure kind repeated past the threshold), only the title is refreshed.
+failureWipPullRequest ::
+  forall m.
+  MonadIO m =>
+  UpdateEnv ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Text ->
+  Bool ->
+  ExceptT Text m (Int, Text)
+failureWipPullRequest env title prBody commentText prHead base addComment = do
+  let runRequest :: FromJSON a => GH.Request k a -> ExceptT Text m a
+      runRequest = ExceptT . fmap (first (T.pack . show)) . liftIO . GH.github (authFrom env)
+  let inNixpkgs f = f (N "nixos") (N "nixpkgs")
+
+  prs <-
+    runRequest $
+      inNixpkgs GH.pullRequestsForR (GH.optionsHead prHead) GH.FetchAll
+
+  case V.toList prs of
+    [] -> do
+      prCreated <-
+        runRequest $
+          inNixpkgs GH.createPullRequestR (GH.CreatePullRequest title prBody prHead base)
+      let url = GH.getUrl (GH.pullRequestUrl prCreated)
+      num <-
+        maybe (throwE $ "failureWipPullRequest: no PR number in URL " <> url) pure (pullNumberFromUrl url)
+      void $
+        liftIO $
+          try @SomeException $
+            GH.github
+              (authFrom env)
+              (addLabelsToIssueR (N "nixos") (N "nixpkgs") (issueIdFromPullNumber num) [N "needs-review-evidence"])
+      pure (num, url)
+    [_thePR] -> do
+      let withExistingPR :: (GH.Name GH.Owner -> GH.Name GH.Repo -> GH.IssueNumber -> a) -> a
+          withExistingPR f = inNixpkgs f (GH.simplePullRequestNumber _thePR)
+      _ <-
+        runRequest $
+          withExistingPR GH.updatePullRequestR $
+            GH.EditPullRequest (Just title) Nothing Nothing Nothing Nothing
+      when addComment $
+        void $
+          runRequest $
+            withExistingPR GH.createCommentR commentText
+      let url = GH.getUrl $ GH.simplePullRequestUrl _thePR
+      num <-
+        maybe (throwE $ "failureWipPullRequest: no PR number in URL " <> url) pure (pullNumberFromUrl url)
+      pure (num, url)
+    _ -> throwE $ "Too many open PRs from " <> prHead
 
 data URLParts = URLParts
   { owner :: GH.Name GH.Owner,

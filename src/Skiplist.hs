@@ -9,6 +9,7 @@ module Skiplist
     checkResult,
     python,
     skipOutpathCalc,
+    thrownSkiplistReasons,
   )
 where
 
@@ -17,6 +18,12 @@ import qualified Data.Text as T
 import OurPrelude
 
 type Skiplist = [(Text -> Bool, Text)]
+
+-- | Exact 'throwError' texts for skiplists that abort an update ('packageName',
+-- 'attrPath', 'content'). Used by 'FailureKind.classifyFailureMessage'.
+thrownSkiplistReasons :: [Text]
+thrownSkiplistReasons =
+  map snd attrPathList <> map snd nameList <> map snd contentList
 
 type TextSkiplister m =
   (MonadError Text m) =>

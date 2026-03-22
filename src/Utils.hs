@@ -113,7 +113,9 @@ data Options = Options
     makeCVEReport :: Bool,
     runNixpkgsReview :: Bool,
     calculateOutpaths :: Bool,
-    attrpath :: Bool
+    attrpath :: Bool,
+    -- | Max Tier-A WIP failure PRs per batch run; @0@ disables.
+    failureWipPrMax :: Int
   }
   deriving (Show)
 
