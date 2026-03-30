@@ -27,7 +27,7 @@ jobs:
             experimental-features = nix-command flakes
       - name: Setup Pages
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Build Pages
         run: |
           nix build .#nixpkgs-update-doc
