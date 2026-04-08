@@ -30,6 +30,7 @@ import qualified Data.Text.IO as T
 import Data.Time.Calendar (showGregorian)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import qualified Data.Vector as V
+import qualified Forge
 import qualified GH
 import qualified Git
 import NVD (getCVEs, withVulnDB)
@@ -385,7 +386,8 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
   metaChangelog <- Nix.getChangelog attrPath <|> return T.empty
   cveRep <- liftIO $ cveReport updateEnv
   releaseUrl <- GH.releaseUrl updateEnv newSrcUrl <|> return ""
-  compareUrl <- GH.compareUrl oldSrcUrl newSrcUrl <|> return ""
+  let forgeCompareUrl = maybe "" id (Forge.compareUrl oldSrcUrl newSrcUrl)
+  compareUrl <- GH.compareUrl oldSrcUrl newSrcUrl <|> return forgeCompareUrl
   maintainers <- Nix.getMaintainers attrPath
   let commitMsg = commitMessage updateEnv attrPath
   Git.commit commitMsg
@@ -482,7 +484,7 @@ prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs relea
       compareUrlMessage =
         if compareUrl == T.empty
           then ""
-          else "- [Compare changes on GitHub](" <> compareUrl <> ")"
+          else "- [Compare changes upstream](" <> compareUrl <> ")"
       nixpkgsReviewSection =
         if nixpkgsReviewMsg == T.empty
           then "Nixpkgs review skipped"
