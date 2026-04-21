@@ -16,6 +16,7 @@ import qualified Nix
 import qualified Options.Applicative as O
 import OurPrelude
 import qualified Repology
+import System.Exit (exitWith)
 import System.IO (BufferMode (..), hSetBuffering, stderr, stdout)
 import qualified System.Posix.Env as P
 import Update (cveAll, cveReport, sourceGithubAll, updatePackage)
@@ -146,10 +147,10 @@ main = do
       deleteDone delete token ghUser
     Update UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
       setupNixpkgs $ GH.untagName ghUser
-      updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt) update
+      updatePackage (Options pr False ghUser token cve nixpkgsReview outpaths attrpathOpt) update >>= exitWith
     UpdateBatch UpdateOptions {pr, cve, nixpkgsReview, outpaths, attrpathOpt} update -> do
       setupNixpkgs $ GH.untagName ghUser
-      updatePackage (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) update
+      updatePackage (Options pr True ghUser token cve nixpkgsReview outpaths attrpathOpt) update >>= exitWith
     Version -> do
       v <- runExceptT Nix.version
       case v of

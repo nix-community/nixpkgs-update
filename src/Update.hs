@@ -705,7 +705,7 @@ doCache log updateEnv resultPath =
 updatePackage ::
   Options ->
   Text ->
-  IO ()
+  IO ExitCode
 updatePackage o updateInfo = do
   let (p, oldV, newV, url) = head (rights (parseUpdates updateInfo))
   let updateInfoLine = (p <> " " <> oldV <> " -> " <> newV <> fromMaybe "" (fmap (" " <>) url))
@@ -716,8 +716,10 @@ updatePackage o updateInfo = do
   case updated of
     UpdatePackageFailure -> do
       log $ "[result] Failed to update " <> updateInfoLine
+      return $ ExitFailure 1
     UpdatePackageSuccess -> do
       log $ "[result] Success updating " <> updateInfoLine
+      return ExitSuccess
 
 withWorktree :: Text -> Text -> UpdateEnv -> IO a -> IO a
 withWorktree branch attrpath updateEnv action = do
