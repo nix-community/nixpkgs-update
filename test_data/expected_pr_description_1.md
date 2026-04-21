@@ -15,7 +15,7 @@ meta.changelog for foobar is: "https://foobar-homepage.com/changelog/v1.2.3"
 
 - [Release on GitHub](https://github.com/foobar/releases)
 
-- [Compare changes on GitHub](https://github.com/foobar/compare)
+- [Compare changes upstream](https://github.com/foobar/compare)
 
 ###### Impact
 
