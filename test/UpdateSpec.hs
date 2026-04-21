@@ -48,3 +48,10 @@ spec = do
       let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg'
       T.writeFile "test_data/actual_pr_description_2.md" actual
       actual `shouldBe` expected
+
+    it "escapes at-mentions" do
+      expected <- T.readFile "test_data/expected_pr_description_3.md"
+      let metaDescription' = "\"Package by @foo and @bar\""
+      let actual = Update.prMessage updateEnv metaDescription' metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg
+      T.writeFile "test_data/actual_pr_description_3.md" actual
+      actual `shouldBe` expected

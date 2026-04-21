@@ -435,6 +435,22 @@ publishPackage log updateEnv oldSrcUrl newSrcUrl attrPath result opReport prBase
 commitMessage :: UpdateEnv -> Text -> Text
 commitMessage updateEnv attrPath = prTitle updateEnv attrPath
 
+-- See https://github.com/nix-community/nixpkgs-update/issues/514
+--
+-- You might think that "\@" would work, but GitHub's at-mentioning logic
+-- apparently applies after the Markdown processing logic, not as part of it,
+-- so standard Markdown escaping won't help.
+--
+-- This is over-aggressive, but most of the time it doesn't matter (changing
+-- "Folding@home" to "Folding@<!---->home" is unnecessary but harmless, for
+-- example). It *would* matter if this replaced any "@"s inside backticks, say,
+-- but there are only a handful of occurrences of "@" in meta.description in
+-- Nixpkgs, and none of them are like that. Not worth it to bring in a whole
+-- Markdown parser (or roll a sloppy one ourselves) to cover a non-critical and
+-- strictly hypothetical edge case.
+escapeAtMentions :: Text -> Text
+escapeAtMentions = T.replace "@" "@<!---->"
+
 prMessage ::
   UpdateEnv ->
   Text ->
@@ -465,7 +481,7 @@ prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs relea
       metaDescriptionLine =
         if metaDescription == T.empty
           then ""
-          else "meta.description for " <> attrPath <> " is: " <> metaDescription
+          else "meta.description for " <> attrPath <> " is: " <> escapeAtMentions metaDescription
       metaChangelogLine =
         if metaChangelog == T.empty
           then ""
