@@ -186,7 +186,12 @@ nameList =
       "updates through discord only https://github.com/NixOS/nixpkgs/issues/468956",
     eq
       "discord-development"
-      "updates through discord only https://github.com/NixOS/nixpkgs/issues/468956"
+      "updates through discord only https://github.com/NixOS/nixpkgs/issues/468956",
+    eq "netbird-management" "it's an override of netbird",
+    eq "netbird-relay" "it's an override of netbird",
+    eq "netbird-signal" "it's an override of netbird",
+    eq "netbird-ui" "it's an override of netbird",
+    eq "netbird-upload" "it's an override of netbird"
   ]
 
 contentList :: Skiplist
