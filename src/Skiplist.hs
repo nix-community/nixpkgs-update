@@ -117,7 +117,9 @@ attrPathList =
       "same as curl",
     eq
       "yt-dlp-light"
-      "updates via yt-dlp"
+      "updates via yt-dlp",
+    eq "unbound-full" "same as unbound",
+    eq "unbound-with-systemd" "same as unbound"
   ]
 
 nameList :: Skiplist
