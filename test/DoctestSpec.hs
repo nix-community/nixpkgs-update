@@ -27,6 +27,7 @@ spec = do
           "-flate-specialise",
           "-fspecialise-aggressively",
           "-fplugin=Polysemy.Plugin",
+          "src/Forge.hs",
           "src/Version.hs",
           "src/GH.hs"
         ]
