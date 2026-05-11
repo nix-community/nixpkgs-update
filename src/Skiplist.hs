@@ -79,9 +79,8 @@ attrPathList =
     infixOf
       "tornado"
       "python updatescript updates pinned versions",
-    prefix
-      "spire-"
-      "spire-server and spire-agent are different outputs for spire package",
+    eq "spire-agent" "spire-server and spire-agent are different outputs for spire package",
+    eq "spire-server" "spire-server and spire-agent are different outputs for spire package",
     eq "imagemagick_light" "same file and version as imagemagick",
     eq "imagemagickBig" "same file and version as imagemagick",
     eq "libheimdal" "alias of heimdal",
