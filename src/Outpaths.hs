@@ -90,7 +90,7 @@ in
   tweak (
     (builtins.removeAttrs hydraJobs blacklist)
     // {
-      nixosTests.simple = nixosJobs.tests.simple;
+      nixosTests.simple-vm = nixosJobs.tests.simple-vm;
     }
   )
 |]
