@@ -350,9 +350,11 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
             skipOutpathBase
             if Outpaths.numPackageRebuilds opDiff <= 500
               then
-                if any (T.isInfixOf "nixosTests.simple-vm") (V.toList $ Outpaths.packageRebuilds opDiff)
-                  then "staging-nixos"
-                  else "master"
+                let rebuilds = V.toList $ Outpaths.packageRebuilds opDiff
+                 in if any (T.isInfixOf "nixosTests.simple-container") rebuilds
+                      || any (T.isInfixOf "nixosTests.simple-vm") rebuilds
+                      then "staging-nixos"
+                      else "master"
               else "staging"
     publishPackage log updateEnv' oldSrcUrl newSrcUrl attrPath result opReport prBase rewriteMsgs (isJust existingCommitMsg)
 
