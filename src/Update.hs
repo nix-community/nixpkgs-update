@@ -350,7 +350,7 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
             skipOutpathBase
             if Outpaths.numPackageRebuilds opDiff <= 500
               then
-                if any (T.isInfixOf "nixosTests.simple") (V.toList $ Outpaths.packageRebuilds opDiff)
+                if any (T.isInfixOf "nixosTests.simple-vm") (V.toList $ Outpaths.packageRebuilds opDiff)
                   then "staging-nixos"
                   else "master"
               else "staging"
