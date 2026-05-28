@@ -61,7 +61,7 @@ is made against staging.
 
 ## Logs
 
-[Logs from r-ryantm's runs](https://nixpkgs-update-logs.nix-community.org/) are
+[Logs from r-ryantm's runs](https://?) are
 available online. There are a lot of packages `nixpkgs-update`
 currently has no hope of updating. Please dredge the logs to find out
 why your pet package is not receiving updates.
@@ -70,5 +70,5 @@ why your pet package is not receiving updates.
 ## Cache
 
 By serving the build outputs from
-[https://nixpkgs-update-cache.nix-community.org/](https://nixpkgs-update-cache.nix-community.org/), nixpkgs-update allows you to
+[https://?](https://?), nixpkgs-update allows you to
 test a package with one command.
