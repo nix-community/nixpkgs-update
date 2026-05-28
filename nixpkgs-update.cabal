@@ -33,6 +33,7 @@ library
       Data.Hex
       DeleteMerged
       File
+      Forge
       GH
       Git
       Nix
@@ -175,6 +176,7 @@ test-suite spec
   other-modules:
       CheckSpec
       DoctestSpec
+      ForgeSpec
       UpdateSpec
       UtilsSpec
   hs-source-dirs:
