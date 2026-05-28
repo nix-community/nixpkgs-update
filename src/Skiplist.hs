@@ -117,6 +117,9 @@ attrPathList =
     eq
       "yt-dlp-light"
       "updates via yt-dlp",
+    eq "systemdLibs" "same as systemd",
+    eq "systemdMinimal" "same as systemd",
+    eq "systemdUkify" "same as systemd",
     eq "unbound-full" "same as unbound",
     eq "unbound-with-systemd" "same as unbound"
   ]
