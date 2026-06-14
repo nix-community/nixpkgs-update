@@ -117,6 +117,12 @@ attrPathList =
     eq
       "yt-dlp-light"
       "updates via yt-dlp",
+    eq "netbird-management" "same as netbird",
+    eq "netbird-proxy" "same as netbird",
+    eq "netbird-relay" "same as netbird",
+    eq "netbird-signal" "same as netbird",
+    eq "netbird-ui" "same as netbird",
+    eq "netbird-upload" "same as netbird",
     eq "systemdLibs" "same as systemd",
     eq "systemdMinimal" "same as systemd",
     eq "systemdUkify" "same as systemd",
