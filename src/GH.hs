@@ -20,6 +20,7 @@ module GH
 where
 
 import Control.Applicative (liftA2, some)
+import Control.Exception (try)
 import Data.Aeson (FromJSON)
 import Data.Bitraversable (bitraverse)
 import qualified Data.Text as T
@@ -29,7 +30,8 @@ import qualified Data.Vector as V
 import qualified Git
 import qualified GitHub as GH
 import GitHub.Data.Name (Name (..))
-import Network.HTTP.Client (HttpException (..), HttpExceptionContent (..), responseStatus)
+import Network.HTTP.Client
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types.Status (statusCode)
 import OurPrelude
 import Text.Regex.Applicative.Text ((=~))
@@ -151,7 +153,18 @@ parseURLMaybe url =
    in url =~ regex
 
 urlReachable :: Text -> IO Bool
-urlReachable _ = pure True -- TODO
+urlReachable url =
+  case parseRequest $ T.unpack url of
+    Nothing -> pure False
+    Just req -> do
+      manager <- newManager tlsManagerSettings
+      res <-
+        try $
+          (httpNoBody (req {method = "HEAD"}) manager) ::
+          IO (Either HttpException (Response ()))
+      case res of
+        Left _ -> pure False
+        Right resp -> pure $ statusCode (responseStatus resp) == 200
 
 parseURL :: MonadIO m => Text -> ExceptT Text m URLParts
 parseURL url =
