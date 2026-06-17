@@ -11,6 +11,7 @@ module GH
     authFromToken,
     checkExistingUpdatePR,
     closedAutoUpdateRefs,
+    urlReachable,
     compareUrl,
     latestVersion,
     pr,
@@ -148,6 +149,9 @@ parseURLMaybe url =
                   <* extension
               )
    in url =~ regex
+
+urlReachable :: Text -> IO Bool
+urlReachable _ = pure True -- TODO
 
 parseURL :: MonadIO m => Text -> ExceptT Text m URLParts
 parseURL url =

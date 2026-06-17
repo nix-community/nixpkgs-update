@@ -253,6 +253,12 @@ updateAttrPath log mergeBase updateEnv@UpdateEnv {..} attrPath = do
       "The derivation has no 'version' attribute, so do not know how to figure out the version while doing an updateScript update"
       (not hasUpdateScript || isJust oldVerMay)
 
+    unless hasUpdateScript $
+      when (T.isInfixOf oldVersion oldSrcUrl) do
+        let url = oldVersion `T.replace` newVersion $ oldSrcUrl
+        reachable <- liftIO $ GH.urlReachable url
+        unless reachable $ throwE ("The new url doesn't exist: " <> url)
+
     -- One final filter
     Skiplist.content derivationContents
 
