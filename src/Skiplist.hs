@@ -117,6 +117,8 @@ attrPathList =
     eq
       "yt-dlp-light"
       "updates via yt-dlp",
+    eq "libkrun-sev" "same as libkrun",
+    eq "libkrun-tdx" "same as libkrun",
     eq "netbird-management" "same as netbird",
     eq "netbird-proxy" "same as netbird",
     eq "netbird-relay" "same as netbird",
