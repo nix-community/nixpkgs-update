@@ -7,6 +7,8 @@ module Nix
     assertOldVersionOn,
     binPath,
     build,
+    buildForUpdate,
+    BuildOutcome (..),
     getAttr,
     getAttrString,
     getChangelog,
@@ -20,6 +22,7 @@ module Nix
     getSrcUrl,
     hasPatchNamed,
     hasUpdateScript,
+    isUnsupportedHostPlatformFailure,
     lookupAttrPath,
     numberOfFetchers,
     numberOfHashes,
@@ -36,9 +39,15 @@ import qualified Data.Text as T
 import qualified Git
 import Language.Haskell.TH.Env (envQ)
 import OurPrelude
-import System.Exit ()
 import qualified System.Process.Typed as TP
-import Utils (UpdateEnv (..), nixBuildOptions, nixCommonOptions, srcOrMain)
+import Utils
+  ( UpdateEnv (..),
+    nixBuildOptions,
+    nixBuildOptionsAllowUnsupported,
+    nixCommonOptions,
+    nixCommonOptionsAllowUnsupported,
+    srcOrMain,
+  )
 import Prelude hiding (log)
 
 binPath :: String
@@ -174,26 +183,58 @@ getSrcUrl =
   srcOrMain
     (nixEvalApplyRaw "p: builtins.elemAt p.drvAttrs.urls 0")
 
-buildCmd :: Text -> ProcessConfig () () ()
-buildCmd attrPath =
-  silently $ proc (binPath <> "/nix-build") (nixBuildOptions ++ ["-A", attrPath & T.unpack])
+data BuildOutcome = BuiltNormally | BuiltWithAllowUnsupportedSystem
+  deriving (Eq, Show)
 
-log :: Text -> ProcessConfig () () ()
-log attrPath = proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack] <> nixCommonOptions)
+buildCmdWithOptions :: [String] -> Text -> ProcessConfig () () ()
+buildCmdWithOptions buildOptions attrPath =
+  proc (binPath <> "/nix-build") (buildOptions ++ ["-A", attrPath & T.unpack])
+
+logWithOptions :: [String] -> Text -> ProcessConfig () () ()
+logWithOptions commonOptions attrPath =
+  proc (binPath <> "/nix") (["--extra-experimental-features", "nix-command", "log", "-f", ".", attrPath & T.unpack] <> commonOptions)
 
 build :: MonadIO m => Text -> ExceptT Text m ()
-build attrPath =
-  (buildCmd attrPath & runProcess_ & tryIOTextET)
-    <|> ( do
-            _ <- buildFailedLog
-            throwE "nix log failed trying to get build logs "
-        )
+build = buildWithOptions nixBuildOptions nixCommonOptions
+
+buildForUpdate :: MonadIO m => Text -> ExceptT Text m BuildOutcome
+buildForUpdate attrPath =
+  catchE
+    (build attrPath >> return BuiltNormally)
+    ( \failure ->
+        if isUnsupportedHostPlatformFailure failure
+          then do
+            buildWithOptions
+              nixBuildOptionsAllowUnsupported
+              nixCommonOptionsAllowUnsupported
+              attrPath
+            return BuiltWithAllowUnsupportedSystem
+          else throwE failure
+    )
+
+isUnsupportedHostPlatformFailure :: Text -> Bool
+isUnsupportedHostPlatformFailure =
+  T.isInfixOf "not available on the requested hostPlatform"
+
+buildWithOptions :: MonadIO m => [String] -> [String] -> Text -> ExceptT Text m ()
+buildWithOptions buildOptions commonOptions attrPath = do
+  (exitCode, buildOutput) <- ourReadProcessInterleaved (buildCmdWithOptions buildOptions attrPath)
+  case exitCode of
+    ExitSuccess -> return ()
+    ExitFailure _ -> buildFailed buildOutput
   where
-    buildFailedLog = do
-      buildLog <-
-        ourReadProcessInterleaved_ (log attrPath)
-          & fmap (T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines)
-      throwE ("nix build failed.\n" <> buildLog <> " ")
+    buildFailed buildOutput = do
+      buildLogResult <- lift $ runExceptT buildFailedLog
+      case buildLogResult of
+        Right buildLog -> throwE ("nix build failed.\n" <> buildLog <> " ")
+        Left _ -> throwE ("nix build failed.\n" <> lastBuildLines buildOutput <> " ")
+
+    buildFailedLog =
+      ourReadProcessInterleaved_ (logWithOptions commonOptions attrPath)
+        & fmap lastBuildLines
+
+    lastBuildLines =
+      T.lines >>> reverse >>> take 30 >>> reverse >>> T.unlines
 
 numberOfFetchers :: Text -> Int
 numberOfFetchers derivationContents =
@@ -238,7 +279,7 @@ getHashFromBuild :: MonadIO m => Text -> ExceptT Text m Text
 getHashFromBuild =
   srcOrMain
     ( \attrPath -> do
-        (exitCode, _, stderr) <- buildCmd attrPath & readProcess
+        (exitCode, _, stderr) <- buildCmdWithOptions nixBuildOptions attrPath & readProcess
         when (exitCode == ExitSuccess) $ throwE "build succeeded unexpectedly"
         let stdErrText = bytestringToText stderr
         let firstSplit = T.splitOn "got:    " stdErrText

@@ -16,7 +16,9 @@ module Utils
     getGithubToken,
     getGithubUser,
     logDir,
+    nixBuildOptionsAllowUnsupported,
     nixBuildOptions,
+    nixCommonOptionsAllowUnsupported,
     nixCommonOptions,
     parseUpdates,
     prTitle,
@@ -246,9 +248,17 @@ srcOrMain et attrPath = et (attrPath <> ".src") <|> et (attrPath <> ".originalSr
 
 nixCommonOptions :: [String]
 nixCommonOptions =
+  nixCommonOptionsWithConfig "{ allowUnfree = true; allowAliases = false; }"
+
+nixCommonOptionsAllowUnsupported :: [String]
+nixCommonOptionsAllowUnsupported =
+  nixCommonOptionsWithConfig "{ allowUnfree = true; allowAliases = false; allowUnsupportedSystem = true; }"
+
+nixCommonOptionsWithConfig :: String -> [String]
+nixCommonOptionsWithConfig config =
   [ "--arg",
     "config",
-    "{ allowUnfree = true; allowAliases = false; }",
+    config,
     "--arg",
     "overlays",
     "[ ]"
@@ -261,6 +271,14 @@ nixBuildOptions =
     "true"
   ]
     <> nixCommonOptions
+
+nixBuildOptionsAllowUnsupported :: [String]
+nixBuildOptionsAllowUnsupported =
+  [ "--option",
+    "sandbox",
+    "true"
+  ]
+    <> nixCommonOptionsAllowUnsupported
 
 runLog ::
   Member (Embed IO) r =>
