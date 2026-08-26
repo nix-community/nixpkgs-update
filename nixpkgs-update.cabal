@@ -175,6 +175,7 @@ test-suite spec
   other-modules:
       CheckSpec
       DoctestSpec
+      NixSpec
       UpdateSpec
       UtilsSpec
   hs-source-dirs:

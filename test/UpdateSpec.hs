@@ -2,7 +2,8 @@
 
 module UpdateSpec where
 
-import qualified Data.Text.IO as T
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Test.Hspec
 import qualified Update
 import qualified Utils
@@ -34,24 +35,30 @@ spec = do
     let opReport = "123 total rebuild path(s)"
     let cveRep = ""
     let cacheTestInstructions = ""
+    let buildValidationNote = ""
     let nixpkgsReviewMsg = "nixpkgs-review comment body"
+    let unsupportedPlatformBuildNote = "Package metadata excludes the update worker host platform; validation retried with `allowUnsupportedSystem = true`."
 
     it "matches a simple mock example" do
-      expected <- T.readFile "test_data/expected_pr_description_1.md"
-      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg
-      T.writeFile "test_data/actual_pr_description_1.md" actual
+      expected <- TIO.readFile "test_data/expected_pr_description_1.md"
+      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions buildValidationNote nixpkgsReviewMsg
+      TIO.writeFile "test_data/actual_pr_description_1.md" actual
       actual `shouldBe` expected
 
     it "does not include Nixpkgs review section when no review was done" do
-      expected <- T.readFile "test_data/expected_pr_description_2.md"
+      expected <- TIO.readFile "test_data/expected_pr_description_2.md"
       let nixpkgsReviewMsg' = ""
-      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg'
-      T.writeFile "test_data/actual_pr_description_2.md" actual
+      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions buildValidationNote nixpkgsReviewMsg'
+      TIO.writeFile "test_data/actual_pr_description_2.md" actual
       actual `shouldBe` expected
 
     it "escapes at-mentions" do
-      expected <- T.readFile "test_data/expected_pr_description_3.md"
+      expected <- TIO.readFile "test_data/expected_pr_description_3.md"
       let metaDescription' = "\"Package by @foo and @bar\""
-      let actual = Update.prMessage updateEnv metaDescription' metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions nixpkgsReviewMsg
-      T.writeFile "test_data/actual_pr_description_3.md" actual
+      let actual = Update.prMessage updateEnv metaDescription' metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions buildValidationNote nixpkgsReviewMsg
+      TIO.writeFile "test_data/actual_pr_description_3.md" actual
       actual `shouldBe` expected
+
+    it "includes an unsupported-platform validation note when fallback build was used" do
+      let actual = Update.prMessage updateEnv metaDescription metaHomepage metaChangelog rewriteMsgs releaseUrl compareUrl resultCheckReport commitHash attrPath maintainersCc resultPath opReport cveRep cacheTestInstructions unsupportedPlatformBuildNote nixpkgsReviewMsg
+      unsupportedPlatformBuildNote `T.isInfixOf` actual `shouldBe` True
