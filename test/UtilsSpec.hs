@@ -18,6 +18,10 @@ spec = do
       let title = Utils.prTitle updateEnv "python37Packages.foobar"
       title `shouldBe` "python37Packages.foobar: 1.0 -> 1.1"
 
+    it "should construct a prefix without the new version" do
+      let prefix = Utils.prTitlePrefix updateEnv "python37Packages.foobar"
+      prefix `shouldBe` "python37Packages.foobar: 1.0 -> "
+
   describe "titleVersion" do
     it "should parse prTitle output" do
       let title = Utils.prTitle updateEnv "python37Packages.foobar"

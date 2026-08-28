@@ -20,6 +20,7 @@ module Utils
     nixCommonOptions,
     parseUpdates,
     prTitle,
+    prTitlePrefix,
     runLog,
     srcOrMain,
     titleVersion,
@@ -128,11 +129,11 @@ data UpdateEnv = UpdateEnv
 whenBatch :: Applicative f => UpdateEnv -> f () -> f ()
 whenBatch updateEnv = when (batchUpdate . options $ updateEnv)
 
+prTitlePrefix :: UpdateEnv -> Text -> Text
+prTitlePrefix updateEnv attrPath = T.strip (attrPath <> ": " <> oldVersion updateEnv) <> " -> "
+
 prTitle :: UpdateEnv -> Text -> Text
-prTitle updateEnv attrPath =
-  let oV = oldVersion updateEnv
-      nV = newVersion updateEnv
-   in T.strip [interpolate| $attrPath: $oV -> $nV |]
+prTitle updateEnv attrPath = T.strip (prTitlePrefix updateEnv attrPath <> newVersion updateEnv)
 
 titleVersion :: Text -> Maybe Version
 titleVersion title = if T.null prefix then Nothing else Just suffix

@@ -228,12 +228,13 @@ checkExistingUpdatePR env attrPath = do
             <> openPRReport searchResult
         )
   where
-    title = U.prTitle env attrPath
-    search = [interpolate|repo:nixos/nixpkgs $title |]
+    titlePrefix = U.prTitlePrefix env attrPath
+    search = [interpolate|repo:nixos/nixpkgs is:pr is:open in:title $titlePrefix |]
     openPRReport searchResult =
       GH.searchResultResults searchResult
         & V.filter (GH.issueClosedAt >>> isNothing)
         & V.filter (GH.issuePullRequest >>> isJust)
+        & V.filter (GH.issueTitle >>> T.isPrefixOf titlePrefix)
         & fmap report
         & V.toList
         & T.unlines
