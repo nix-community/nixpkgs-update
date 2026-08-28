@@ -229,15 +229,25 @@ checkExistingUpdatePR env attrPath = do
         )
   where
     title = U.prTitle env attrPath
-    search = [interpolate|repo:nixos/nixpkgs $title |]
+    search = [interpolate|repo:nixos/nixpkgs is:pr is:open in:title $title |]
     openPRReport searchResult =
       GH.searchResultResults searchResult
         & V.filter (GH.issueClosedAt >>> isNothing)
         & V.filter (GH.issuePullRequest >>> isJust)
+        & V.filter (GH.issueTitle >>> exactTitleMatch title)
         & fmap report
         & V.toList
         & T.unlines
     report i = "- " <> GH.issueTitle i <> "\n  " <> tshow (GH.issueUrl i)
+
+-- | Require a full title match because GitHub search matches individual terms.
+--
+-- >>> exactTitleMatch "chatgpt: 26.803.81509 -> 26.818.61809" "chatgpt: support linux"
+-- False
+-- >>> exactTitleMatch "chatgpt: 26.803.81509 -> 26.818.61809" "chatgpt: 26.803.81509 -> 26.818.61809"
+-- True
+exactTitleMatch :: Text -> Text -> Bool
+exactTitleMatch = (==)
 
 latestVersion :: MonadIO m => UpdateEnv -> Text -> ExceptT Text m Version
 latestVersion env url = do
