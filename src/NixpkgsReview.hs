@@ -47,7 +47,11 @@ run cache commit =
                 T.unpack commit,
                 "--no-shell",
                 "--extra-nixpkgs-config",
-                "{ allowBroken = false; }"
+                "{ allowBroken = false; }",
+                "--num-eval-workers",
+                "3",
+                "--max-memory-size",
+                "4096"
               ]
         case exitCode of
           ExitFailure 124 -> do
